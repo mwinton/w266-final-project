@@ -21,7 +21,7 @@ import datetime
 import copy
 
 class VQA:
-    def __init__(self, annotation_file=None, question_file=None):
+    def __init__(self, annotation_file=None, question_file=None, pairs_file=None):
         """
         Constructor of VQA helper class for reading and visualizing questions and answers.
 
@@ -31,10 +31,12 @@ class VQA:
         
         # load dataset
         self.dataset = {}
-        self.questions = {}
+        self.questions = {}      
         self.qa = {}
         self.qqa = {}
         self.image_to_qa = {}
+        self.pairs = {}          # pairs of complementary question ids
+        
         if not annotation_file == None and not question_file == None:
             print ('loading VQA annotations and questions into memory...')
             time_t = datetime.datetime.utcnow()
@@ -44,6 +46,15 @@ class VQA:
             self.dataset = dataset
             self.questions = questions
             self.create_index()
+            
+            # if we have balanced pairs data, load it
+            if not pairs_file == None:
+                pairs = json.load(open(pairs_file, 'r'))
+                for pair in pairs:
+                    self.pairs[pair[0]] = pair[1]
+                    # TODO: implement better way to deal with reverse pairs so dict isn't double length
+#                     self.pairs[pair[1]] = pair[0]
+                print('pairs data loaded!')
 
     def create_index(self):
         """
@@ -105,6 +116,30 @@ class VQA:
                 else [ann for ann in annotations if ann['answer_type'] in answer_types]
         ids = [ann['question_id'] for ann in annotations]
         return ids
+
+    def get_complementary_pairs(self, question_ids=[], question_types=[], answer_types=[]):
+        """
+        Get the question ids that satisfy given filter conditions; default skips that filter.
+        
+        Args:
+            question_ids: integer list of question ids to return image ids for
+            question_types: string list of question types to return image ids for
+            answer_types: string list of answer types to return image ids for
+            
+        Returns:
+            A dict containing appropriate pairs of question IDs as key-value pairs. Callers
+            will also need to look at the reverse mapping value-key.
+        """
+        
+        question_ids = question_ids if type(question_ids) == list else [question_ids]
+        question_types = question_types if type(question_types) == list else [question_types]
+        answer_types = answer_types if type(answer_types) == list else [answer_types]
+
+        if len(question_ids) == len(question_types) == len(answer_types) == 0:
+            pairs = self.pairs
+#         else:
+            # TODO: implement filtering by question_ids, question_types, answer_types
+        return pairs
 
     def get_image_ids(self, question_ids=[], question_types=[], answer_types=[]):
         """
