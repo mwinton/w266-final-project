@@ -23,13 +23,17 @@ class ModelOptions(object):
         self.options['glove_path'] = ''
 
         # Image model parameters
-        self.options['n_image_embed'] = 512  # VGGNet
-        self.options['n_regions'] = 196    # 14x14 regions
+        self.options['n_image_embed'] = 512     # VGGNet
+        self.options['n_regions'] = 196         # 14x14 regions
+        self.options['mscoco_dim'] = 256        # x, y dimension of photos
+        self.options['vggnet_input_dim'] = 448  # expected x, y dim of VGGNet
+        self.options['image_depth'] = 3         # 3 color channels (RGB)
+        self.options['image_init_type'] = None  # random initialization (or 'imagenet')
 
         # Text model parameters
-        self.options['n_vocab'] = 13746   # TODO: calculate this ourselves
-        self.options['max_sentence_len'] = 20  # TODO: calculate this ourselves
-        self.options['n_sent_embed'] = 500
+        self.options['n_vocab'] = 13746             # TODO: calculate this ourselves
+        self.options['max_sentence_len'] = 20       # TODO: calculate this ourselves
+        self.options['n_sent_embed'] = 500          # TODO: change this when we use GloVe
         self.options['sent_init_type'] = 'uniform'  # TODO: experiment with GloVe
         self.options['sent_init_range'] = 0.01
 
