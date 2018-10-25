@@ -1,7 +1,9 @@
+google-cloud-storage==1.13.0
 graphviz==0.9
 h5py==2.7.1
 keras==2.2.4
 keras-applications==1.0.6
 keras-preprocessing==1.0.5
+mlflow==0.7.0
 tensorboard==1.10.0   
 tensorflow==1.10.1
