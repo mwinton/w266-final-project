@@ -7,7 +7,7 @@ from pprint import pprint
 
 # our own imports
 from vqa_options import ModelOptions
-from StackedAttentionNetwork import StackedAttentionNetwork
+from vqa_models import StackedAttentionNetwork
 
 if __name__ == '__main__':
 

@@ -44,8 +44,8 @@ class ModelOptions(object):
 
         # Attention layer parameters
         self.options['n_attention_input'] = self.options['num_channels_unigram'] \
-                                       + self.options['num_channels_bigram'] \
-                                       + self.options['num_channels_trigram']
+                                          + self.options['num_channels_bigram'] \
+                                          + self.options['num_channels_trigram']
         self.options['n_attention_layers'] = 2
         self.options['attention_merge_type'] = 'addition'
         self.options['attention_dropout_ratio'] = 0.5
