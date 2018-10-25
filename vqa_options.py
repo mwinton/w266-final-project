@@ -24,24 +24,25 @@ class ModelOptions(object):
 
         # Image model parameters
         self.options['n_image_embed'] = 512  # VGGNet
-        self.options['num_regions'] = 196    # 14x14 regions
+        self.options['n_regions'] = 196    # 14x14 regions
 
         # Text model parameters
         self.options['n_vocab'] = 13746   # TODO: calculate this ourselves
-        self.options['n_text_embed'] = 500
-        self.options['text_init_type'] = 'uniform'  # TODO: experiment with GloVe
-        self.options['text_init_range'] = 0.01
+        self.options['max_sentence_len'] = 20  # TODO: calculate this ourselves
+        self.options['n_sent_embed'] = 500
+        self.options['sent_init_type'] = 'uniform'  # TODO: experiment with GloVe
+        self.options['sent_init_range'] = 0.01
 
 
-        self.options['num_channels_unigram'] = 256
-        self.options['num_channels_bigram'] = 512
-        self.options['num_channels_trigram'] = 512
+        self.options['n_filters_unigram'] = 256
+        self.options['n_filters_bigram'] = 512
+        self.options['n_filters_trigram'] = 512
 
         # Attention layer parameters
         self.options['n_attention_input'] = self.options['num_channels_unigram'] \
                                        + self.options['num_channels_bigram'] \
                                        + self.options['num_channels_trigram']
-        self.options['num_attention_layers'] = 2
+        self.options['n_attention_layers'] = 2
         self.options['attention_merge_type'] = 'addition'
         self.options['attention_dropout_ratio'] = 0.5
 
