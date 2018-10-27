@@ -46,6 +46,7 @@ class ModelOptions(object):
         self.options['n_attention_input'] = self.options['num_channels_unigram'] \
                                           + self.options['num_channels_bigram'] \
                                           + self.options['num_channels_trigram']
+        self.options['n_attention_features'] = 512
         self.options['n_attention_layers'] = 2
         self.options['attention_merge_type'] = 'addition'
         self.options['attention_dropout_ratio'] = 0.5
@@ -56,6 +57,7 @@ class ModelOptions(object):
         # Training parameters
         self.options['batch_size'] = 100
         self.options['max_epochs'] = 50
+        self.options['loss_function'] = 'neg_mean_log_prob_y'  # TODO: try cross-entropy -p*log(q)
 
         # SGD training parameters
         self.options['optimizer'] = 'sgd'

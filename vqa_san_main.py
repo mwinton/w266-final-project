@@ -18,6 +18,8 @@ if __name__ == '__main__':
                         help='train a new model')
     parser.add_argument('-p', '--predict', action='store_true',
                         help = 'predict using existing model')
+    parser.add_argument('--test', action='store_true',
+                        help = 'run fake data through pipeline')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help = 'turn on verbose output')
     parser.add_argument('-e', '--epochs', type=int,
@@ -33,6 +35,9 @@ if __name__ == '__main__':
     if args.epochs:
         options['max_epochs'] = args.epochs
         
+    if args.test:
+        options['test_run'] = args.test
+
     # print all options before building graph
     if args.verbose:
         options['verbose'] = args.verbose
