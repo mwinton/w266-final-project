@@ -46,10 +46,14 @@ if __name__ == '__main__':
     # always build graph
     san = StackedAttentionNetwork(options)
     san.build_graph(options)
+    print(san.summary())
+    san.compile(optimizer='adagrad',
+                loss='categorical_crossentropy',
+                metrics=['accuracy'])
     
     # train if requested
     if args.train:
-        san.train(options)
+        san.fit(data, labels)
 
     # predict if requested
     if args.predict:

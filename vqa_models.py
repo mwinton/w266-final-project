@@ -20,13 +20,18 @@ class StackedAttentionNetwork(object):
             print('Initializing SAN...')
         self.options = options
     
-    def build_question_subgraph (self, options):
+    def build_sentence_subgraph (self, options):
         pass
     
     def build_image_subgraph (self, options):
         pass
     
     def build_attention_subgraph (self, options, idx, layer_v_i, layer_v_q):
+
+        verbose = options['verbose']
+        if verbose:
+            print('Building attention subgraph...')
+
         # Single dense layer to reduce image dimensions for attention
         # in:  [batch_size, n_image_regions, n_attention_input]
         # out: [batch_size, n_image_regions, n_attention_features]
@@ -35,8 +40,9 @@ class StackedAttentionNetwork(object):
                                    use_bias=True,
                                    kernel_initializer='random_uniform',
                                    bias_initializer='zeros',
-                                   name='attention_sent_%d' % (idx)
+                                   name='attention_image_%d' % (idx)
                                   )(layer_v_i)
+        if verbose: print('attention_image_%d' % (idx), shape(layer_attn_image))
         
         # Single dense layer to reduce sentence dimensions for attention
         # in:  [batch_size, n_attention_input]
@@ -50,12 +56,14 @@ class StackedAttentionNetwork(object):
                                 bias_initializer='zeros',
                                 name='attention_sent_%d' % (idx)
                                )(layer_v_q)
+        if verbose: print('attention_sent_%d' % (idx), shape(layer_attn_sent))
         
         # Need to expand and repeat the sentence vector to be added to each image region
         # in:  [batch_size, n_attention_features]
         # out:  [batch_size, n_image_regions, n_attention_features]
         layer_attn_sent = expand_dims(layer_attn_sent, 1)
         layer_attn_sent = repeat_elements(layer_attn_sent, n_image_regions, axis=1)
+        if verbose: print('attention_sent_%d' % (idx), shape(layer_attn_sent))
 
         # combine the image and sentence tensors
         attention_merge_type = self.options['attention_merge_type']
@@ -64,6 +72,7 @@ class StackedAttentionNetwork(object):
         else:
             # TODO: add option to combine some other way
             pass
+        if verbose: print('h_a_%d' % (idx), shape(layer_h_a))
         
         # Single dense layer to reduce axis=2 to 1 dimension for softmax (one per image region)
         # in:   [batch_size, n_image_regions, n_attention_features]
@@ -75,28 +84,35 @@ class StackedAttentionNetwork(object):
                           bias_initializer='zeros',
                           name='h_a_%d' % (idx)
                          )(layer_h_a)
+        if verbose: print('h_a_%d' % (idx), shape(layer_h_a))
         
         # Calculate softmax
         # in:   [batch_size, n_image_regions, 1]
         # out:  [batch_size, n_image_regions, 1]
         layer_prob_attn = softmax(layer_h_a, axis=-1, name='prob_attn_%d' % (idx))
+        if verbose: print('prob_attn_%d' % (idx), shape(layer_prob_attn))
         
         # Need to expand and repeat the attention vector to be multiplied by each image region
         # in:  [batch_size, n_image_regions, 1]
         # out:  [batch_size, n_image_regions, n_attention_input]
         layer_prob_attn = repeat_elements(layer_prob_attn, n_attention_input, axis=-1)
+        if verbose: print('prob_attn_%d' % (idx), shape(layer_prob_attn))
 
         # Refined query vector
         # in:   [batch_size, n_image_regions, n_attention_input]
         # out:  [batch_size, n_attention_input]
         layer_v_tilde = sum(multiply(layer_v_i, layer_prob_attn), axis=1, name='v_tilde_%d' % (idx))
-        layer_v_q_refined = Add(name='v_q_refined_%d' % (idx))([layer_v_tilde_attn, layer_v_q])
+        if verbose: print('v_tilde_%d' % (idx), shape(layer_v_tilde))
 
+        layer_v_q_refined = Add(name='v_q_refined_%d' % (idx))([layer_v_tilde_attn, layer_v_q])
+        if verbose: print('v_q_refined_%d' % (idx), shape(layer_v_q_refined))
+        
         return layer_v_q_refined
 
     def build_graph (self, options):
         ''' Build Keras graph '''
-        if options['verbose']:
+        verbose = options['verbose']
+        if verbose:
             print('Building graph...')
 
         batch_size = self.options['batch_size']
@@ -118,6 +134,7 @@ class StackedAttentionNetwork(object):
                                   sparse=False,
                                   name='image_input'
                                  )
+        if verbose: print('layer_image_input', shape(layer_image_input))
         
         # Runs VGGNet16 model and extracts last pooling layeer
         # in:  [batch_size, image_input_dim, image_input_dim, image_input_depth]
@@ -130,6 +147,7 @@ class StackedAttentionNetwork(object):
                             pooling=None  # output is 4D tensor from last convolutional layer
                             # TODO: check the order of returned tensor dimensions
                            )
+        if verbose: print('layer_vgg16', shape(layer_vgg16))
         
         n_image_regions = self.options['n_regions']
 
@@ -137,6 +155,7 @@ class StackedAttentionNetwork(object):
         # in:  [batch_size, image_output_dim, image_output_dim, image_output_depth]
         # out: [batch_size, n_image_regions, image_output_depth]
         layer_vgg16 = Reshape((batch_size, -1, n_image_regions))(layer_vgg16)
+        if verbose: print(shape(layer_vgg16))
         
         # Single dense layer to transform dimensions to match sentence dims
         # in:  [batch_size, n_image_regions, image_output_depth]
@@ -148,6 +167,7 @@ class StackedAttentionNetwork(object):
                           bias_initializer='zeros',
                           name='v_i'
                          )(layer_vgg16)
+        if verbose: print('layer_v_i', shape(layer_v_i))
         
         
         #
@@ -164,6 +184,7 @@ class StackedAttentionNetwork(object):
                                  sparse=True,
                                  name='sentence_input'
                                 )
+        if verbose: print('layer_sent_input', shape(layer_sent_input))
 
         # This embedding layer will encode the input sequence
         # in:  [batch_size, max_t]
@@ -181,6 +202,7 @@ class StackedAttentionNetwork(object):
         # TODO: implement GloVe option
         elif sent_embed_initializer == 'glove':
             pass
+        if verbose: print('layer_x', shape(layer_x))
     
         # Unigram CNN layer
         # in:  [batch_size, max_t, n_text_embed]
@@ -196,11 +218,13 @@ class StackedAttentionNetwork(object):
                                     bias_initializer='zeros',
                                     name='unigram_conv'
                                    )(layer_x)
+        if verbose: print('layer_conv_unigram', shape(layer_conv_unigram))
         
         # Unigram max pooling
         # in:  [batch_size, n_unigrams, n_filters_unigram]
         # out: [batch_size, n_filters_unigram]
         layer_pooled_unigram = GlobalMaxPooling1D(name='unigram_max_pool')(layer_conv_unigram)
+        if verbose: print('layer_pooled_unigram', shape(layer_pooled_unigram))
 
         # Bigram CNN layer
         # in:  [batch_size, max_t, n_text_embed]
@@ -216,11 +240,13 @@ class StackedAttentionNetwork(object):
                                    bias_initializer='zeros',
                                    name='bigram_conv'
                                   )(layer_x)
+        if verbose: print('layer_conv_bigram', shape(layer_conv_bigram))
         
         # Bigram max pooling
         # in:  [batch_size, n_bigrams, n_filters_bigram]
         # out: [batch_size, n_filters_bigram]
         layer_pooled_bigram = GlobalMaxPooling1D(name='bigram_max_pool')(layer_conv_bigram)
+        if verbose: print('layer_pooled_bigram', shape(layer_pooled_bigram))
 
         # Trigram CNN layer
         # in:  [batch_size, max_t, n_text_embed]
@@ -236,11 +262,13 @@ class StackedAttentionNetwork(object):
                               bias_initializer='zeros',
                               name='trigram_conv'
                              )(layer_x)
+        if verbose: print('layer_conv_trigram', shape(layer_conv_trigram))
         
         # Trigram max pooling
         # in:  [batch_size, n_trigrams, n_filters_trigram]
         # out: [batch_size, n_filters_trigram]
         layer_pooled_trigram = GlobalMaxPooling1D(name='trigram_max_pool')(layer_conv_trigram)
+        if verbose: print('layer_pooled_trigram', shape(layer_pooled_trigram))
 
         # Concatenate the n-gram max pooled tensors into our question vector
         # in:  [batch_size, n_filters_(uni|bi|tri)gram]
@@ -250,6 +278,8 @@ class StackedAttentionNetwork(object):
                                                            layer_conv_trigram,
                                                            name='v_q'
                                                           )
+        if verbose: print('layer_v_q', shape(layer_v_q))
+        
         #
         # begin attention layers
         # diagram: https://docs.google.com/drawings/d/1EDpuHGZHA_BjR0kE23B6UsjccvHr0z-uAB6F-CKLop0/edit
@@ -262,10 +292,12 @@ class StackedAttentionNetwork(object):
         n_attention_layers = options.get('n_attention_layers', 1)
         for idx in range(n_attention_layers):
             layer_v_q = build_attention_subgraph(options, idx, layer_v_i, layer_v_q)
+            if verbose: print('layer_v_q', shape(layer_v_q))
        
         # apply dropout after final attention layer
         attention_dropout_ratio = self.options['attention_dropout_ratio']
         layer_dropout_v_q = Dropout(rate=attention_dropout_ratio, name='dropout_v_q')(layer_v_q)
+        if verbose: print('layer_dropout_v_q', shape(layer_dropout_v_q))
         
         # final classification
         # in:  [batch_size, n_attention_input]
@@ -278,6 +310,13 @@ class StackedAttentionNetwork(object):
                                   bias_initializer='zeros',
                                   name='prob_answer'
                                  )(layer_dropout_v_q)
+        if verbose: print('layer_prob_answer', shape(layer_prob_answer))
+        
+        # do argmax to make predictions (or look for canned classifier)
+        
+        # assemble all these layers into model
+        self.model = Model(inputs=[layer_image_input, layer_sent_input], outputs=layer_prob_answer)
+        print(self.model.summary())
         
         # TODO: calculate probabilities for the true labels
         # prob_y = ...
