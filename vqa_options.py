@@ -24,7 +24,7 @@ class ModelOptions(object):
 
         # Image model parameters
         self.options['n_image_embed'] = 512     # VGGNet
-        self.options['n_regions'] = 196         # 14x14 regions
+        self.options['n_image_regions'] = 196   # 14x14 regions
         self.options['mscoco_dim'] = 256        # x, y dimension of photos
         self.options['vggnet_input_dim'] = 448  # expected x, y dim of VGGNet
         self.options['image_depth'] = 3         # 3 color channels (RGB)
@@ -43,9 +43,9 @@ class ModelOptions(object):
         self.options['n_filters_trigram'] = 512
 
         # Attention layer parameters
-        self.options['n_attention_input'] = self.options['num_channels_unigram'] \
-                                          + self.options['num_channels_bigram'] \
-                                          + self.options['num_channels_trigram']
+        self.options['n_attention_input'] = self.options['n_filters_unigram'] \
+                                          + self.options['n_filters_bigram'] \
+                                          + self.options['n_filters_trigram']
         self.options['n_attention_features'] = 512
         self.options['n_attention_layers'] = 2
         self.options['attention_merge_type'] = 'addition'
