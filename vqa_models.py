@@ -280,7 +280,7 @@ class StackedAttentionNetwork(object):
         # out: [batch_size, n_trigrams, n_filters_trigram]
         n_filters_trigram = self.options['n_filters_trigram']
         layer_conv_trigram = Conv1D(filters=n_filters_trigram,
-                              kernel_size=2,
+                              kernel_size=3,
                               strides=1,
                               padding='valid',  # this results in output length != input length
                               activation='tanh',
