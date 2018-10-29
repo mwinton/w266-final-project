@@ -18,6 +18,8 @@ if __name__ == '__main__':
                         epilog='W266 Final Project (Fall 2018) by Rachel Ho, Ram Iyer, Mike Winton')
     parser.add_argument('-t', '--train', action='store_true',
                         help='train a new model')
+    parser.add_argument('-s', '--score', action='store_true',
+                        help='score against labeled test set')
     parser.add_argument('-p', '--predict', action='store_true',
                         help = 'predict using existing model')
     parser.add_argument('-f', '--fake', action='store_true',
@@ -39,33 +41,31 @@ if __name__ == '__main__':
         
     # print all options before building graph
     if args.verbose:
+        # TODO: implement mlflow logging of params
         options['verbose'] = args.verbose
         pprint(options)
 
     # always build graph
     san = StackedAttentionNetwork(options)
     san.build_graph(options)
-    print(san.summary())
 
     # build fake data if flag was set for a test run
     if args.fake:
         options['fake'] = args.fake
-        train_images_x, train_sentences_x, train_y = FakeData(options)
+        (images_x_train, sentences_x_train, y_train,
+         images_x_test, sentences_x_test, y_test) = FakeData(options).get_fakes()
 
-    # train if requested
+    # train if flag was set
     if args.train:
-        #set early stopping monitor to stop training when it won't improve anymore
-        early_stopping_monitor = EarlyStopping(patience=3)
-        san.fit(x=[train_images_x, train_sentences_x],
-                y=train_y,
-                batch_size=options.get('batch_size', 1),
-                epochs=options.get('max_epochs', 5),
-                verbose=2 if verbose else 0,
-                # validation_split=0.2,
-                callbacks=[early_stopping_monitor]
-               )
+        san.train(options, x=[images_x_train, sentences_x_train], y=y_train)
 
-    # predict if requested
+    # evaluate if flag was set
+    if args.score:
+        score=san.evaluate(options, x=[images_x_test, sentences_x_test], y=y_test)
+        # TODO: implement mlflow logging of score
+        print('Score: ', score)
+        
+    # predict if flag was set
     if args.predict:
         san.predict(options)
         

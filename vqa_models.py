@@ -2,6 +2,7 @@
 from keras.applications.vgg16 import VGG16
 import keras.activations
 import keras.backend as kbe
+from keras.callbacks import EarlyStopping
 import keras.layers
 from keras.layers import Activation, Add, Concatenate, Conv1D, Dense, Dropout, Embedding
 from keras.layers import Input, GlobalMaxPooling1D, Lambda, Multiply, RepeatVector, Reshape
@@ -365,12 +366,33 @@ class StackedAttentionNetwork(object):
         ''' wrapper around keras.Model.summary()'''
         self.model.summary()
     
-    def train (self, options):
+    def train (self, options, x, y):
         ''' Train graph '''
-        if options['verbose']:
-            print('Training...')
+        
+        print('Training...')        
+        verbose = options['verbose']
+
+        #set early stopping monitor to stop training when it won't improve anymore
+        early_stopping_monitor = EarlyStopping(patience=3)
+
+        self.model.fit(x=x,
+                       y=y,
+                       batch_size=options.get('batch_size', 50),
+                       epochs=options.get('max_epochs', 2),
+                       verbose=2 if verbose else 0,  # 2 is max verbosity level
+                       # validation_split=0.2,
+                       callbacks=[early_stopping_monitor]
+                      )
     
-    def predict (self, options):
-        ''' Make predictions '''
-        if options['verbose']:
-            print('Predicting...')
+    def evaluate (self, options, x_test, y_test):
+        ''' Make predictions with labeled test set and evaluate'''
+
+        print('Evaluating...')
+        verbose = options['verbose']
+
+        score = self.model.evaluate(x=x_test, 
+                                    y=y_test,
+                                    batch_size=options.get('batch_size', 50),
+                                    verbose=2 if verbose else 0,  # 2 is max verbosity level
+                                   )
+        return score
