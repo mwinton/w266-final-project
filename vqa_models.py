@@ -233,7 +233,7 @@ class StackedAttentionNetwork(object):
     
         # Unigram CNN layer
         # in:  [batch_size, max_t, n_text_embed]
-        # out: [batch_size, n_unigrams, n_filters_unigram]
+        # out: [batch_size, max_t, n_filters_unigram]
         n_filters_unigram = self.options['n_filters_unigram']
         layer_conv_unigram = Conv1D(filters=n_filters_unigram,
                                     kernel_size=1,
@@ -255,7 +255,7 @@ class StackedAttentionNetwork(object):
 
         # Bigram CNN layer
         # in:  [batch_size, max_t, n_text_embed]
-        # out: [batch_size, n_bigrams, n_filters_bigram]
+        # out: [batch_size, max_t - 1, n_filters_bigram]
         n_filters_bigram = self.options['n_filters_bigram']
         layer_conv_bigram = Conv1D(filters=n_filters_bigram,
                                    kernel_size=2,
@@ -277,7 +277,7 @@ class StackedAttentionNetwork(object):
 
         # Trigram CNN layer
         # in:  [batch_size, max_t, n_text_embed]
-        # out: [batch_size, n_trigrams, n_filters_trigram]
+        # out: [batch_size, max_t - 2, n_filters_trigram]
         n_filters_trigram = self.options['n_filters_trigram']
         layer_conv_trigram = Conv1D(filters=n_filters_trigram,
                               kernel_size=3,
