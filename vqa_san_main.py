@@ -26,6 +26,8 @@ if __name__ == '__main__':
                         help = 'run fake data through pipeline')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help = 'turn on verbose output')
+    parser.add_argument('-b', '--batch_size', type=int,
+                        help = 'set batch size (int)')
     parser.add_argument('-e', '--epochs', type=int,
                         help = 'set max number of epochs (int)')
     args = parser.parse_args()
@@ -38,6 +40,10 @@ if __name__ == '__main__':
     # override default for max_epochs if specified
     if args.epochs:
         options['max_epochs'] = args.epochs
+        
+    # override default for batch_size if specified
+    if args.batch_size:
+        options['batch_size'] = args.batch_size
         
     # print all options before building graph
     if args.verbose:
@@ -63,7 +69,6 @@ if __name__ == '__main__':
     if args.score:
         score=san.evaluate(options, x=[images_x_test, sentences_x_test], y=y_test)
         # TODO: implement mlflow logging of score
-        print('Score: ', score)
         
     # predict if flag was set
     if args.predict:

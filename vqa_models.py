@@ -343,8 +343,8 @@ class StackedAttentionNetwork(object):
         
         # compile model so that it's ready to train
         self.model.compile (optimizer='adagrad',
-                            loss='categorical_crossentropy',
-                            # TODO: to match Yang's paper we may need to write our own function in vqa_utils.py
+                            loss='sparse_categorical_crossentropy',  # can train if not using the sparse version
+                            # TODO: to match Yang's paper we may need to write our own loss function
                             # see https://github.com/keras-team/keras/blob/master/keras/losses.py
                             metrics=['accuracy'])
 
@@ -379,20 +379,22 @@ class StackedAttentionNetwork(object):
                        y=y,
                        batch_size=options.get('batch_size', 50),
                        epochs=options.get('max_epochs', 2),
-                       verbose=2 if verbose else 0,  # 2 is max verbosity level
+                       verbose=1,
+#                        verbose=2 if verbose else 0,  # 2 is max verbosity level
                        # validation_split=0.2,
                        callbacks=[early_stopping_monitor]
                       )
     
-    def evaluate (self, options, x_test, y_test):
+    def evaluate (self, options, x, y):
         ''' Make predictions with labeled test set and evaluate'''
 
         print('Evaluating...')
         verbose = options['verbose']
 
-        score = self.model.evaluate(x=x_test, 
-                                    y=y_test,
+        score = self.model.evaluate(x=x, 
+                                    y=y,
                                     batch_size=options.get('batch_size', 50),
                                     verbose=2 if verbose else 0,  # 2 is max verbosity level
                                    )
+        if verbose: print('score:', score)
         return score
