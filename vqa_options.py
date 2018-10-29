@@ -23,25 +23,31 @@ class ModelOptions(object):
         self.options['glove_path'] = ''
 
         # Image model parameters
-        self.options['n_image_embed'] = 512  # VGGNet
-        self.options['num_regions'] = 196    # 14x14 regions
+        self.options['n_image_embed'] = 512     # VGGNet
+        self.options['n_image_regions'] = 196   # 14x14 regions
+        self.options['mscoco_dim'] = 256        # x, y dimension of photos
+        self.options['vggnet_input_dim'] = 448  # expected x, y dim of VGGNet
+        self.options['image_depth'] = 3         # 3 color channels (RGB)
+        self.options['image_init_type'] = None  # random initialization (or 'imagenet')
 
         # Text model parameters
-        self.options['n_vocab'] = 13746   # TODO: calculate this ourselves
-        self.options['n_text_embed'] = 500
-        self.options['text_init_type'] = 'uniform'  # TODO: experiment with GloVe
-        self.options['text_init_range'] = 0.01
+        self.options['n_vocab'] = 13746             # TODO: calculate this ourselves
+        self.options['max_sentence_len'] = 20       # TODO: calculate this ourselves
+        self.options['n_sent_embed'] = 500          # TODO: change this when we use GloVe
+        self.options['sent_init_type'] = 'uniform'  # TODO: experiment with GloVe
+        self.options['sent_init_range'] = 0.01
 
 
-        self.options['num_channels_unigram'] = 256
-        self.options['num_channels_bigram'] = 512
-        self.options['num_channels_trigram'] = 512
+        self.options['n_filters_unigram'] = 256
+        self.options['n_filters_bigram'] = 512
+        self.options['n_filters_trigram'] = 512
 
         # Attention layer parameters
-        self.options['n_attention_input'] = self.options['num_channels_unigram'] \
-                                       + self.options['num_channels_bigram'] \
-                                       + self.options['num_channels_trigram']
-        self.options['num_attention_layers'] = 2
+        self.options['n_attention_input'] = self.options['n_filters_unigram'] \
+                                          + self.options['n_filters_bigram'] \
+                                          + self.options['n_filters_trigram']
+        self.options['n_attention_features'] = 512
+        self.options['n_attention_layers'] = 2
         self.options['attention_merge_type'] = 'addition'
         self.options['attention_dropout_ratio'] = 0.5
 
@@ -51,6 +57,7 @@ class ModelOptions(object):
         # Training parameters
         self.options['batch_size'] = 100
         self.options['max_epochs'] = 50
+        self.options['loss_function'] = 'neg_mean_log_prob_y'  # TODO: try cross-entropy -p*log(q)
 
         # SGD training parameters
         self.options['optimizer'] = 'sgd'
