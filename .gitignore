@@ -4,3 +4,6 @@ venv/
 __pycache__/
 .DS_Store
 .gitattributes
+
+data/preprocessed
+bin/.visualqa.py.swp
