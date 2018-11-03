@@ -158,7 +158,6 @@ class VQADataset:
           In doing so we can prevent the large memory footprint needed to load all the images in memory
         """
 
-        ## TODO this needs to be tied to the max_number of samples from user
         num_samples = len(self.samples)
         batch_start = 0
         batch_end = batch_size
@@ -167,9 +166,6 @@ class VQADataset:
         image_cache_size = batch_size * 11 
 
         while True:
-
-            ## Make sure next 100 batches' images are in memory
-            image_idx_min = self.samples[batch_start]
 
             ## load cache size images into memory whenever the batch requires it
             ## TODO: Need to remove items from sample memory as part of the callbacks 
@@ -189,7 +185,7 @@ class VQADataset:
                     image_cache = f['embeddings'][image_cache_start:image_cache_end]
                
                 #Make sure the next batch of samples have images loaded
-                for idx in range(batch_start,batch_start+image_cache_size):
+                for idx in range(batch_start:batch_start+batchsize):
                     self.samples[idx].image.load(image_cache, offset = image_cache_start) 
                 
             

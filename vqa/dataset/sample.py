@@ -274,6 +274,9 @@ class Image:
         if len(self.features):
             return self.features
         else:
+            if (self.features_idx < offset):
+                print("Error: sample index -> {}. offset -> {}".format(self.features_idx,offset))
+        
             self.features = images_features[self.features_idx - offset]
             return self.features
 

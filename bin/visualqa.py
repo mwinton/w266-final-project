@@ -70,9 +70,9 @@ def main(action, model_num, extended,max_train_size,max_val_size):
     print('Model number: {}'.format(model_num))
     print('Extended: {}'.format(extended))
     if (max_train_size != None):
-        print('max_train_size: {}'.format(max_train_size))
+        print('Training Set Size: {}'.format(max_train_size))
     if (max_val_size != None):
-       print('Extended: {}'.format(max_val_size))
+       print('Validation set size: {}'.format(max_val_size))
 
     # Always load train dataset to obtain the question_max_len from it
     train_dataset = load_dataset(CONFIG_TRAIN['dataset_type'], CONFIG_TRAIN['dataset_path'],
@@ -137,6 +137,14 @@ def load_dataset(dataset_type, dataset_path, questions_path, annotations_path, f
             print('Loading dataset...')
             dataset = pickle.load(f)
             print('Dataset loaded')
+            samples = dataset.samples
+
+            # check to make sure the samples list is sorted by image indices
+            if( all(samples[i].image.features_idx <= samples[i+1].image.features_idx for i in range(len(samples)-1))) :
+                 print("Passed sorted sample array check")
+            else:
+                 assert(0)
+
     except IOError:
         print('Creating dataset...')
         dataset = VQADataset(dataset_type, questions_path, annotations_path, features_dir_path,
@@ -177,14 +185,15 @@ def train(model, dataset, model_num, model_weights_path, losses_path,max_train_s
 
     print('Start training...')
     if not extended:
-        model.fit_generator(dataset.batch_generator(BATCH_SIZE), samples_per_epoch=samples_per_train_epoch, nb_epoch=NUM_EPOCHS,
+        model.fit_generator(dataset.batch_generator(BATCH_SIZE), steps_per_epoch=samples_per_train_epoch//BATCH_SIZE, epochs=NUM_EPOCHS,
                             callbacks=[save_weights_callback, loss_callback, stop_callback],
-                            validation_data=val_dataset.batch_generator(BATCH_SIZE), nb_val_samples=samples_per_val_epoch)
+                            validation_data=val_dataset.batch_generator(BATCH_SIZE), 
+                            validation_steps=samples_per_val_epoch//BATCH_SIZE,max_queue_size=10)
     else:
-        model.fit_generator(dataset.batch_generator(BATCH_SIZE, split='train'), samples_per_epoch=dataset.train_size(),
-                            nb_epoch=NUM_EPOCHS, callbacks=[save_weights_callback, loss_callback, stop_callback],
+        model.fit_generator(dataset.batch_generator(BATCH_SIZE, split='train'), steps_per_epoch=dataset.train_size()/BATCH_SIZE,
+                            epochs=NUM_EPOCHS, callbacks=[save_weights_callback, loss_callback, stop_callback],
                             validation_data=dataset.batch_generator(BATCH_SIZE, split='val'),
-                            nb_val_samples=dataset.val_size())
+                            validation_steps=dataset.val_size()/BATCH_SIZE)
     print('Trained')
 
 
