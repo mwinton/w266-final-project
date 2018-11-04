@@ -1,6 +1,7 @@
 import pickle
 import json
 import random
+import math
 
 import numpy as np
 import os
@@ -153,7 +154,7 @@ class VQADataset:
             self.max_sample_size = len(self.samples)
 
 
-    def pad_samples(num_samples,batch_size):
+    def pad_samples(self,num_samples,batch_size):
         """
         If the number of samples are not an exact multiple of batch_size, then replicate
         some randomly picked elements so as to make it an exact multiple.
@@ -180,7 +181,7 @@ class VQADataset:
         
         return num_samples 
         
-    def create_sample_chunks(num_samples,batch_size):
+    def create_sample_chunks(self,num_samples,batch_size):
 
         """
            We assume num_samples is an exact multiple of batch_size as they should have been padded earlier
@@ -190,23 +191,28 @@ class VQADataset:
            creates the self.chunk_dict
         """
 
-        batches_per_chunk =  20
+        batches_per_chunk = 1000 
 
         # num_samples should be exactly divisible by batch_size
-        self.num_chunks = num_samples//batch_size
+        self.num_chunks = math.ceil((num_samples // batch_size) /  batches_per_chunk)
 
-        assert(num_chunks >= 1)
+        assert(self.num_chunks >= 1)
         
         self.chunk_dict = {}
         end_sample_idx = 0
 
-        for i in range(self.num_chunks):
+        print("Num Chunks -> ",self.num_chunks)
+        print("Batch_size -> ",batch_size)
+        
+
+        for chunk_num in range(self.num_chunks):
             start_sample_idx = end_sample_idx
-            end_sample_idx =  min(start_sample_idx + batch_size*num_chunks,num_samples)
-            self.chunk_dict[i] = (start_sample_idx,end_sample_idx)
+            end_sample_idx =  min(start_sample_idx + batch_size*batches_per_chunk, num_samples)
+            self.chunk_dict[chunk_num] = (start_sample_idx,end_sample_idx - 1)
+            print("Chunk {}, start-index : {}, end index : {}".format(chunk_num,start_sample_idx,end_sample_idx))
 
 
-    def load_batch_images(current_chunk_idx):
+    def load_batch_images(self,current_chunk_idx):
 
         """
            Make sure that images are loaded in chunk sizes
@@ -241,15 +247,15 @@ class VQADataset:
         for chunk_idx, sample_indices in self.chunk_dict.items():
 
             # Samples from these chunks might still be in the job queue
-            if (chunk_idx == current_chunk_indx): continue
+            if (chunk_idx == current_chunk_idx): continue
             if (chunk_idx == next_chunk_idx): continue
             if (chunk_idx == prev_chunk_idx): continue
 
             #  if this chunks highest image index is lower than chunk being worked on
-            if (sample_indices[1].image.features_idx < start_image_idx):
+            if (self.samples[sample_indices[1]].image.features_idx < start_image_idx):
                 chunks_to_clean.append(chunk_idx)
             # if this chunks lowest index is higher than current chunks highest index    
-            if (sample_indices[0].image.features_idx > end_image_idx ):
+            if (self.samples[sample_indices[0]].image.features_idx > end_image_idx ):
                 chunks_to_clean.append(chunk_idx)
 
         for chunk_idx in chunks_to_clean:
@@ -262,9 +268,11 @@ class VQADataset:
              (np.shape(self.samples[end_sample_idx].image.features)[0] == 0)):
 
             print("loading {} images from index {} to {} for samples {} to {}"
-                          .format(start_image_idx, end_image_idx,start_sample_idx,end_sample_idx))
+                          .format(end_image_idx - start_image_idx, start_image_idx, 
+                                  end_image_idx,start_sample_idx,end_sample_idx))
+
             with h5py.File(self.features_path,"r") as f:
-                image_cache = f['embeddings'][start_image_idx:end_image_idx]
+                image_cache = f['embeddings'][start_image_idx:end_image_idx+1]
 
             for sample_idx in range(start_sample_idx,end_sample_idx):
                 self.samples[sample_idx].image.load(image_cache,offset = start_image_idx)
@@ -279,24 +287,23 @@ class VQADataset:
           In doing so we can prevent the large memory footprint needed to load all the images in memory
         """
 
-        assert(self.max_sample_size != None and self.max_sample_size <= self.samples)
+        assert(self.max_sample_size != None and self.max_sample_size <= len(self.samples))
 
         num_samples = self.max_sample_size
 
         #Pad Samples if needed to be an exact multiple of batch_size
         if (num_samples % batch_size) != 0:
-            if (num_samples // batch_size + 1)*batch_size <= self.samples:
+            if (num_samples // batch_size + 1)*batch_size <= len(self.samples):
                 # increase num_samples to be an exact multiple
                 num_samples = (num_samples // batch_size + 1) * batch_size
             else:
-                num_samples = pad_samples(num_samples,batch_size)
+                num_samples = self.pad_samples(num_samples,batch_size)
 
-        create_sample_chunks()
+        self.create_sample_chunks(num_samples,batch_size)
 
         batch_start = 0
         batch_end = batch_size
         current_chunk_idx = 0
-        load_batch_images(current_chunk_idx)
 
         print("Total Sample size -> ", num_samples)
 
@@ -304,8 +311,8 @@ class VQADataset:
 
             # if we have reached the end of the current chunk, load the images for the next chunk
             # while freeing memory of prev to previous chunk
-            if (batch_start == self.chunk_dict[current_chunk_idx][0]):
-                current_chunk_idx = load_batch_images(current_chunk_idx)
+            if (batch_start >=  self.chunk_dict[current_chunk_idx][0]):
+                current_chunk_idx = self.load_batch_images(current_chunk_idx)
             
             # Initialize matrix
             I = np.zeros((batch_size,196,512), dtype=np.float32)

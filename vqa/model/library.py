@@ -78,9 +78,9 @@ class ModelLibrary:
             merged = concatenate([image_repeat, question_embedded])  # Merge for layers merge for tensors
             x = LSTM(ModelLibrary.EMBED_HIDDEN_SIZE, return_sequences=False)(merged)
             x = Dropout(0.5)(x)
-            output = Dense(output_dim=vocabulary_size, activation='softmax')(x)
+            output = Dense(units=vocabulary_size, activation='softmax')(x)
 
-            vqa_model = Model(input=[image_input, question_input], output=output)
+            vqa_model = Model(inputs=[image_input, question_input], outputs=output)
             print('Model created')
 
             print('Compiling model...')

@@ -7,3 +7,5 @@ __pycache__/
 
 data/preprocessed
 bin/.visualqa.py.swp
+models/
+results/

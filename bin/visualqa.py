@@ -197,12 +197,12 @@ def train(model, dataset, model_num, model_weights_path, losses_path,max_train_s
         model.fit_generator(dataset.batch_generator(BATCH_SIZE), steps_per_epoch=samples_per_train_epoch//BATCH_SIZE, epochs=NUM_EPOCHS,
                             callbacks=[save_weights_callback, loss_callback, stop_callback],
                             validation_data=val_dataset.batch_generator(BATCH_SIZE), 
-                            validation_steps=samples_per_val_epoch//BATCH_SIZE,max_queue_size=10)
+                            validation_steps=samples_per_val_epoch//BATCH_SIZE,max_queue_size=20,use_multiprocessing=True)
     else:
         model.fit_generator(dataset.batch_generator(BATCH_SIZE, split='train'), steps_per_epoch=dataset.train_size()/BATCH_SIZE,
                             epochs=NUM_EPOCHS, callbacks=[save_weights_callback, loss_callback, stop_callback],
                             validation_data=dataset.batch_generator(BATCH_SIZE, split='val'),
-                            validation_steps=dataset.val_size()/BATCH_SIZE)
+                            validation_steps=dataset.val_size()/BATCH_SIZE,max_queue_size=20,use_multiprocessing=True)
     print('Trained')
 
 
