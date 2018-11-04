@@ -28,7 +28,7 @@ class VQADataset:
         vocab_size (int):
     """
 
-    def __init__(self, dataset_type, questions_path, answers_path, images_path, tokenizer_path, vocab_size=20000,
+    def __init__(self, dataset_type, questions_path, answers_path, images_path, tokenizer_path, max_sample_size =None,vocab_size=20000,
                  question_max_len=None):
         """Instantiate a new VQADataset that will hold the whole dataset.
 
@@ -101,6 +101,8 @@ class VQADataset:
         # Question max len
         self.question_max_len = question_max_len
 
+        self.max_sample_size = max_sample_size
+
         # List with samples
         self.samples = []
 
@@ -147,8 +149,127 @@ class VQADataset:
        
         self.samples = sorted(self.samples, key=lambda sample: sample.image.features_idx) 
 
-        for i in range(50):
-            print("Sample {}, image index {}".format(i,sample.image.feature_idx))   
+        if (self.max_sample_size == None):
+            self.max_sample_size = len(self.samples)
+
+
+    def pad_samples(num_samples,batch_size):
+        """
+        If the number of samples are not an exact multiple of batch_size, then replicate
+        some randomly picked elements so as to make it an exact multiple.
+        We need to re-sort the sample array by image index so that the memory management code works.
+        """
+
+        num_extra = (num_samples // batch_size +1) * batch_size - num_samples
+        print("Padding samples with {} elements so that it is an exact multiple of batch size {}".format(num_extra,batch_size))
+
+        # the first argument is treated as a range. so picks num_extra integers from range [0..num_samples-1]
+        indices = np.random.choice(num_samples,num_extra,replace=False)
+
+        # add extra samples
+        for idx in indices:
+            sample = self.samples[idx]
+            self.samples.append(VQASample(sample.question, sample.image, sample.answer, sample.sample_type))
+     
+        num_samples = len(self.samples)
+        assert(len(self.samples) % batch_size == 0)
+
+        ## re-sort the samples by image index
+
+        self.samples = sorted(self.samples, key=lambda sample: sample.image.features_idx) 
+        
+        return num_samples 
+        
+    def create_sample_chunks(num_samples,batch_size):
+
+        """
+           We assume num_samples is an exact multiple of batch_size as they should have been padded earlier
+           Chunks are created so the memory can be managed in chunk units
+           The chunk_dict has a tuple of (batch_start, batch_end) indices for each batch
+
+           creates the self.chunk_dict
+        """
+
+        batches_per_chunk =  20
+
+        # num_samples should be exactly divisible by batch_size
+        self.num_chunks = num_samples//batch_size
+
+        assert(num_chunks >= 1)
+        
+        self.chunk_dict = {}
+        end_sample_idx = 0
+
+        for i in range(self.num_chunks):
+            start_sample_idx = end_sample_idx
+            end_sample_idx =  min(start_sample_idx + batch_size*num_chunks,num_samples)
+            self.chunk_dict[i] = (start_sample_idx,end_sample_idx)
+
+
+    def load_batch_images(current_chunk_idx):
+
+        """
+           Make sure that images are loaded in chunk sizes
+           Each time a chunk is loaded we can also free up memory from the last chunk.
+           The sample list is treated as a circular array as the batches are generated in a loop.
+           Possible values of current_chunk_indx is [0..(num_chunks -1 )]
+
+           Each chunk_dict stores tuples of sample indices (begin_sample_indx, end_sample_indx) for samples in the chunk
+
+           returns the next chunk index to the caller.
+
+        """
+        load_mem = False
+        free_mem = False
+
+        next_chunk_idx = (current_chunk_idx + 1 ) % self.num_chunks
+        prev_chunk_idx = (current_chunk_idx - 1 ) % self.num_chunks
+ 
+        # find the indices for the start and end samples in this chunk
+        start_sample_idx = self.chunk_dict[current_chunk_idx][0]
+        end_sample_idx   = self.chunk_dict[current_chunk_idx][1]
+
+        # find corresponding image indices
+        start_image_idx = self.samples[start_sample_idx].image.features_idx
+        end_image_idx   = self.samples[end_sample_idx].image.features_idx
+
+
+        ## go through all chunks and free memory for chunks whose image_index for last sample is 
+        ## less than the start_image_idx for current chunk
+
+        chunks_to_clean = []
+        for chunk_idx, sample_indices in self.chunk_dict.items():
+
+            # Samples from these chunks might still be in the job queue
+            if (chunk_idx == current_chunk_indx): continue
+            if (chunk_idx == next_chunk_idx): continue
+            if (chunk_idx == prev_chunk_idx): continue
+
+            #  if this chunks highest image index is lower than chunk being worked on
+            if (sample_indices[1].image.features_idx < start_image_idx):
+                chunks_to_clean.append(chunk_idx)
+            # if this chunks lowest index is higher than current chunks highest index    
+            if (sample_indices[0].image.features_idx > end_image_idx ):
+                chunks_to_clean.append(chunk_idx)
+
+        for chunk_idx in chunks_to_clean:
+            for sample_idx in range(self.chunk_dict[chunk_idx][0],self.chunk_dict[chunk_idx][1]):
+                self.samples[sample_idx].image.reset() 
+
+        ## read images from disk and allocate memory for images in this chunk
+
+        if ((np.shape(self.samples[start_sample_idx].image.features)[0] == 0) or
+             (np.shape(self.samples[end_sample_idx].image.features)[0] == 0)):
+
+            print("loading {} images from index {} to {} for samples {} to {}"
+                          .format(start_image_idx, end_image_idx,start_sample_idx,end_sample_idx))
+            with h5py.File(self.features_path,"r") as f:
+                image_cache = f['embeddings'][start_image_idx:end_image_idx]
+
+            for sample_idx in range(start_sample_idx,end_sample_idx):
+                self.samples[sample_idx].image.load(image_cache,offset = start_image_idx)
+
+        return next_chunk_idx
 
     def batch_generator(self, batch_size):
         """
@@ -158,49 +279,45 @@ class VQADataset:
           In doing so we can prevent the large memory footprint needed to load all the images in memory
         """
 
-        ## TODO this needs to be tied to the max_number of samples from user
-        num_samples = len(self.samples)
+        assert(self.max_sample_size != None and self.max_sample_size <= self.samples)
+
+        num_samples = self.max_sample_size
+
+        #Pad Samples if needed to be an exact multiple of batch_size
+        if (num_samples % batch_size) != 0:
+            if (num_samples // batch_size + 1)*batch_size <= self.samples:
+                # increase num_samples to be an exact multiple
+                num_samples = (num_samples // batch_size + 1) * batch_size
+            else:
+                num_samples = pad_samples(num_samples,batch_size)
+
+        create_sample_chunks()
+
         batch_start = 0
         batch_end = batch_size
-        image_cache_start = 0
-        image_cache_end   = 0
-        image_cache_size = batch_size * 11 
+        current_chunk_idx = 0
+        load_batch_images(current_chunk_idx)
+
+        print("Total Sample size -> ", num_samples)
 
         while True:
 
-            ## Make sure next 100 batches' images are in memory
-            image_idx_min = self.samples[batch_start]
-
-            ## load cache size images into memory whenever the batch requires it
-            ## TODO: Need to remove items from sample memory as part of the callbacks 
-            if (self.samples[batch_end].image.features_idx  > image_cache_end): 
-                print("Batch End => {}, Image_cache_end => {}".format(batch_end,image_cache_end))
-                #if (image_cache_start != 0):
-                    # memory check:  previous sample to image bindings need to be reset.
-                    #for idx in range()
-                    #    self.samples[idx].image.reset() 
-
-                image_cache_start = image_cache_end
-                image_cache_end = min(image_cache_start+image_cache_size,num_samples)
-
-                print("loading {} images from disk from index {} to {}"
-                     .format(image_cache_end - image_cache_start,image_cache_start,image_cache_end))
-                with h5py.File(self.features_path,"r") as f:
-                    image_cache = f['embeddings'][image_cache_start:image_cache_end]
-               
-                #Make sure the next batch of samples have images loaded
-                for idx in range(batch_start,batch_start+image_cache_size):
-                    self.samples[idx].image.load(image_cache, offset = image_cache_start) 
-                
+            # if we have reached the end of the current chunk, load the images for the next chunk
+            # while freeing memory of prev to previous chunk
+            if (batch_start == self.chunk_dict[current_chunk_idx][0]):
+                current_chunk_idx = load_batch_images(current_chunk_idx)
             
             # Initialize matrix
             I = np.zeros((batch_size,196,512), dtype=np.float32)
             Q = np.zeros((batch_size, self.question_max_len), dtype=np.int32)
             A = np.zeros((batch_size, self.vocab_size), dtype=np.bool_)
-            # Assign each sample in the batch
-            for idx, sample in enumerate(self.samples[batch_start:batch_end]):
-                I[idx], Q[idx] = sample.get_input(self.question_max_len)
-                A[idx] = sample.get_output()
+
+            # randomize order of samples within a batch
+            batch_indices = [i for i in range(batch_start,batch_end)]
+            randomized_indices = np.random.choice(batch_indices,len(batch_indices),replace=False)
+            for idx,sample_idx in enumerate(randomized_indices):
+                I[idx], Q[idx] = self.samples[sample_idx].get_input(self.question_max_len)
+                A[idx] = self.samples[sample_idx].get_output()
 
             yield ([I, Q], A)
 
@@ -209,14 +326,12 @@ class VQADataset:
             # An epoch has finished
             if batch_start >= num_samples:
                 batch_start = 0
-                # TODO Change the order so the model won't see the samples in the same order in the next epoch
-                # random.shuffle(self.samples)
             batch_end = batch_start + batch_size
             if batch_end > num_samples:
                 batch_end = num_samples
 
     def get_dataset_input(self):
-        features = scipy.io.loadmat(self.features_path)['features']
+        #features = scipy.io.loadmat(self.features_path)['features']
         # Load all the images in memory
         for sample in self.samples:
             sample.image.load(features, True)

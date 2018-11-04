@@ -266,7 +266,8 @@ class Image:
         self.features_idx = features_idx
         self.features = np.array([])
 
-    def reset(self,offset):
+    def reset(self):
+        del self.features
         self.features = np.array([])
 
     def load(self, images_features, offset ):

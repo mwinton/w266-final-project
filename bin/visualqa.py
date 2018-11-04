@@ -74,10 +74,14 @@ def main(action, model_num, extended,max_train_size,max_val_size):
     if (max_val_size != None):
        print('Validation set size: {}'.format(max_val_size))
 
+
+    # set numpy random seed for deterministic results
+    np.random.seed(2018)
+    
     # Always load train dataset to obtain the question_max_len from it
     train_dataset = load_dataset(CONFIG_TRAIN['dataset_type'], CONFIG_TRAIN['dataset_path'],
                                  CONFIG_TRAIN['questions_path'], CONFIG_TRAIN['annotations_path'], FEATURES_DIR_PATH,
-                                 TOKENIZER_PATH)
+                                 TOKENIZER_PATH,max_train_size)
     question_max_len = train_dataset.question_max_len
 
     # Load model
@@ -88,7 +92,7 @@ def main(action, model_num, extended,max_train_size,max_val_size):
         dataset = train_dataset
         val_dataset = load_dataset(CONFIG_VAL['dataset_type'], CONFIG_VAL['dataset_path'],
                                    CONFIG_VAL['questions_path'], CONFIG_VAL['annotations_path'], FEATURES_DIR_PATH,
-                                   TOKENIZER_PATH)
+                                   TOKENIZER_PATH,max_val_size)
         if extended:
             extended_dataset = MergeDataset(train_dataset, val_dataset)
             weights_path = WEIGHTS_DIR_PATH + 'model_weights_' + str(model_num) + '_ext.{epoch:02d}.hdf5'
@@ -102,7 +106,7 @@ def main(action, model_num, extended,max_train_size,max_val_size):
     elif action == 'val':
         dataset = load_dataset(CONFIG_VAL['dataset_type'], CONFIG_VAL['dataset_path'],
                                CONFIG_VAL['questions_path'], CONFIG_VAL['annotations_path'], FEATURES_DIR_PATH,
-                               TOKENIZER_PATH)
+                               TOKENIZER_PATH,max_val_size)
         weights_path = WEIGHTS_DIR_PATH + 'model_weights_{}'.format(model_num)
         validate(vqa_model, dataset, weights_path)
     elif action == 'test':
@@ -131,13 +135,18 @@ def main(action, model_num, extended,max_train_size,max_val_size):
         raise ValueError('The action you provided do not exist')
 
 
-def load_dataset(dataset_type, dataset_path, questions_path, annotations_path, features_dir_path, tokenizer_path):
+def load_dataset(dataset_type, dataset_path, questions_path, annotations_path, features_dir_path, tokenizer_path, max_size=None):
     try:
         with open(dataset_path, 'rb') as f:
             print('Loading dataset...')
             dataset = pickle.load(f)
             print('Dataset loaded')
             samples = dataset.samples
+
+            if(max_size == None):
+                dataset.max_sample_size = len(samples)
+            else:
+                dataset.max_sample_size = max_size
 
             # check to make sure the samples list is sorted by image indices
             if( all(samples[i].image.features_idx <= samples[i+1].image.features_idx for i in range(len(samples)-1))) :
@@ -148,7 +157,7 @@ def load_dataset(dataset_type, dataset_path, questions_path, annotations_path, f
     except IOError:
         print('Creating dataset...')
         dataset = VQADataset(dataset_type, questions_path, annotations_path, features_dir_path,
-                             tokenizer_path, vocab_size=VOCABULARY_SIZE)
+                             tokenizer_path, max_sample_size=max_size ,vocab_size=VOCABULARY_SIZE)
         print('Preparing dataset...')
         dataset.prepare()
         print('Dataset size: %d' % dataset.size())
@@ -209,6 +218,9 @@ def validate(model, dataset, weights_path):
 
 
 def test(model, dataset, weights_path, results_path):
+
+    ## Not implemented - TODO check if needed
+    """
     print('Loading weights...')
     model.load_weights(weights_path)
     print('Weights loaded')
@@ -232,7 +244,7 @@ def test(model, dataset, weights_path, results_path):
     with open(results_path, 'w') as f:
         json.dump(results_dict, f)
     print('Results saved')
-
+    """
 
 # ------------------------------- CALLBACKS -------------------------------
 
