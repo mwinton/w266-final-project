@@ -72,6 +72,9 @@ class VQASample:
         # Prepare image
         image = self.image.features
 
+        if(image.shape[0] == 0) :
+            print("Error, image_idx -> {} was not loaded in sample".format(self.image.features_idx))
+
         return image, question
 
     def get_output(self):

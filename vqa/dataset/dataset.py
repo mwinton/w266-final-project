@@ -209,7 +209,9 @@ class VQADataset:
             start_sample_idx = end_sample_idx
             end_sample_idx =  min(start_sample_idx + batch_size*batches_per_chunk, num_samples)
             self.chunk_dict[chunk_num] = (start_sample_idx,end_sample_idx - 1)
-            print("Chunk {}, start-index : {}, end index : {}".format(chunk_num,start_sample_idx,end_sample_idx))
+            print(" {} Chunk {}, start-index : {}, end index : {}, Memory idx {} to {}"
+                  .format(self.dataset_type,chunk_num,start_sample_idx,end_sample_idx - 1,
+                          self.samples[start_sample_idx].image.features_idx, self.samples[end_sample_idx].image.features_idx))
 
 
     def load_batch_images(self,current_chunk_idx):
@@ -259,7 +261,10 @@ class VQADataset:
                 chunks_to_clean.append(chunk_idx)
 
         for chunk_idx in chunks_to_clean:
-            for sample_idx in range(self.chunk_dict[chunk_idx][0],self.chunk_dict[chunk_idx][1]):
+            print("Freeing image indices from {} to {} for samples from {} to {}"
+                 .format(self.samples[self.chunk_dict[chunk_idx][0]].image.features_idx,self.samples[self.chunk_dict[chunk_idx][1]].image.features_idx,
+                         self.chunk_dict[chunk_idx][0],self.chunk_dict[chunk_idx][1]))
+            for sample_idx in range(self.chunk_dict[chunk_idx][0],self.chunk_dict[chunk_idx][1] + 1):
                 self.samples[sample_idx].image.reset() 
 
         ## read images from disk and allocate memory for images in this chunk
@@ -274,7 +279,7 @@ class VQADataset:
             with h5py.File(self.features_path,"r") as f:
                 image_cache = f['embeddings'][start_image_idx:end_image_idx+1]
 
-            for sample_idx in range(start_sample_idx,end_sample_idx):
+            for sample_idx in range(start_sample_idx,end_sample_idx + 1):
                 self.samples[sample_idx].image.load(image_cache,offset = start_image_idx)
 
         return next_chunk_idx
@@ -305,13 +310,15 @@ class VQADataset:
         batch_end = batch_size
         current_chunk_idx = 0
 
+
         print("Total Sample size -> ", num_samples)
 
         while True:
 
             # if we have reached the end of the current chunk, load the images for the next chunk
             # while freeing memory of prev to previous chunk
-            if (batch_start >=  self.chunk_dict[current_chunk_idx][0]):
+            if (batch_start ==  self.chunk_dict[current_chunk_idx][0]):
+                #print("Batch Start, {}, Current chunk {}, chunk_start {}".format(batch_start,current_chunk_idx, self.chunk_dict[current_chunk_idx]))
                 current_chunk_idx = self.load_batch_images(current_chunk_idx)
             
             # Initialize matrix
@@ -323,6 +330,10 @@ class VQADataset:
             batch_indices = [i for i in range(batch_start,batch_end)]
             randomized_indices = np.random.choice(batch_indices,len(batch_indices),replace=False)
             for idx,sample_idx in enumerate(randomized_indices):
+                #if (np.shape(self.samples[sample_idx].image.features)[0] == 0):
+                    #print("Error for batch ({}-{}), sample-idx {}, image {} is missing".format(
+                    #       batch_start,batch_end,sample_idx,self.samples[sample_idx].image.features_idx))
+
                 I[idx], Q[idx] = self.samples[sample_idx].get_input(self.question_max_len)
                 A[idx] = self.samples[sample_idx].get_output()
 
@@ -333,6 +344,7 @@ class VQADataset:
             # An epoch has finished
             if batch_start >= num_samples:
                 batch_start = 0
+                
             batch_end = batch_start + batch_size
             if batch_end > num_samples:
                 batch_end = num_samples
