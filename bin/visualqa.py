@@ -33,7 +33,7 @@ def main(options):
 
 
     print('Action: ' + options['action_type'])
-    print('Model number: {}'.format(options['model_name']))
+    print('Model number: {}'.format(options['model_num']))
     print('Extended: {}'.format(options['extended']))
 
     if (options['max_train_size'] != None):
@@ -42,7 +42,7 @@ def main(options):
        print('Validation set size: {}'.format(options['max_val_size']))
 
     # set paths for weights and results.
-    options.set_local_paths()
+    options = ModelOptions.set_local_paths(options)
 
     # set numpy random seed for deterministic results
     np.random.seed(2018)
@@ -83,7 +83,7 @@ def main(options):
 def load_dataset(dataset_type, options):
     
 
-    dataset_path = options.get_dataset_path()
+    dataset_path = ModelOptions.get_dataset_path(options,dataset_type)
 
     try:
         with open(dataset_path, 'rb') as f:
@@ -296,7 +296,6 @@ if __name__ == '__main__':
         help='Which action should be perform on the model. By default, training will be done'
     )
     parser.add_argument(
-        '-e',
         '--extended',
         action='store_true',
         help='Add this flag if you want to use the extended dataset, this is, use part of the validation dataset to'

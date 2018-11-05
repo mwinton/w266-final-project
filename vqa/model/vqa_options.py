@@ -1,7 +1,7 @@
 from collections import OrderedDict
 import getpass
 import os
-from .. vqa.dataset.types import DatasetType
+from .. dataset.types import DatasetType
 
 class ModelOptions(object):
 
@@ -15,9 +15,9 @@ class ModelOptions(object):
         data_root = "/home/"+user_name+"/vqa_data/"
         self.options['data_root'] = data_root
 
-        self.options['images_train_root_path'] = data_root+'images/mscoco/train2014'
-        self.options['images_val_root_path']   = data_root+'images/mscoco/val2014'
-        self.options['images_test_root_path']   = data_root+'images/mscoco/test2015'
+        self.options['images_train_root_path'] = data_root+'images/mscoco/train2014/'
+        self.options['images_val_root_path']   = data_root+'images/mscoco/val2014/'
+        self.options['images_test_root_path']   = data_root+'images/mscoco/test2015/'
 
 
         self.options['questions_train_path'] = data_root+'questions/OpenEnded_mscoco_train2014_questions.json'
@@ -38,14 +38,16 @@ class ModelOptions(object):
         self.options['glove_path'] = ''
 
         ## files created during train/val/test phases
-        local_data_path  =  "../data/preprocessed/"
-        weights_dir_path =  "../models/weights/"
-        results_dir_path     =  "../results/"
-        ## create directories if they don't exist
-        os.makedirs(local_data_path,exist_ok=True)
-        os.makedirs(weights_dir_path,exist_ok=True)
-        os.makedirs(results_dir_path,exist_ok=True)
+        self.options['local_data_path']  =  "../data/preprocessed/"
+        self.options['weights_dir_path'] =  "../models/weights/"
+        self.options['results_dir_path'] =  "../results/"
 
+        ## create directories if they don't exist
+        os.makedirs(self.options['local_data_path'],exist_ok=True)
+        os.makedirs(self.options['weights_dir_path'],exist_ok=True)
+        os.makedirs(self.options['results_dir_path'],exist_ok=True)
+
+        local_data_path = self.options['local_data_path']
 
         self.options['tokenizer_path']     = local_data_path+'tokenizer.p'
         self.options['train_dataset_path'] = local_data_path+'train_dataset.p'
@@ -128,118 +130,106 @@ class ModelOptions(object):
         ''' return ordered dict containing all model options '''
         return self.options
 
-    def get_dataset_path(self,datasetType):
+    @staticmethod
+    def get_dataset_path(options,datasetType):
         """
            returns the dataset path for the given datasetType
         """
         selector = {
-            DatasetType.TRAIN      : self.options["train_dataset_path"]
-            DatasetType.VALIDATION : self.options["val_dataset_path"]
-            DatasetType.TEST       : self.options["test_dataset_path"]
-            DatasetType.EVAL       : self.options["eval_dataset_path"]
+            DatasetType.TRAIN      : options["train_dataset_path"],
+            DatasetType.VALIDATION : options["val_dataset_path"],
+            DatasetType.TEST       : options["test_dataset_path"],
+            DatasetType.EVAL       : options["eval_dataset_path"]
         }
         return selector.get(datasetType)
 
-    def get_questions_path(self,datasetType):
+    @staticmethod
+    def get_questions_path(options,datasetType):
         """
            returns the questions path for the given datasetType
         """
         selector = {
-            DatasetType.TRAIN      : self.options["questions_train_path"]
-            DatasetType.VALIDATION : self.options["questions_val_path"]
-            DatasetType.TEST       : self.options["questions_test_path"]
-            DatasetType.EVAL       : self.options["questions_val_path"]
+            DatasetType.TRAIN      : options["questions_train_path"],
+            DatasetType.VALIDATION : options["questions_val_path"],
+            DatasetType.TEST       : options["questions_test_path"],
+            DatasetType.EVAL       : options["questions_val_path"]
         }
         return selector.get(datasetType)
 
-    def get_annotations_path(self,datasetType):
+    @staticmethod
+    def get_annotations_path(options,datasetType):
         """
            returns the dataset path for the given datasetType
         """
         selector = {
-            DatasetType.TRAIN      : self.options["annotations_train_path"]
-            DatasetType.VALIDATION : self.options["annotations_val_path"]
-            DatasetType.TEST       : None
+            DatasetType.TRAIN      : options["annotations_train_path"],
+            DatasetType.VALIDATION : options["annotations_val_path"],
+            DatasetType.TEST       : None,
             DatasetType.EVAL       : None
         }
         return selector.get(datasetType)
 
 
-    def get_image_embed_path(self,datasetType):
+    @staticmethod
+    def get_images_embed_path(options,datasetType):
         """
            returns the dataset path for the given datasetType
         """
         selector = {
-            DatasetType.TRAIN      : self.options["images_embed_train_path"]
-            DatasetType.VALIDATION : self.options["images_embed_val_path"]
-            DatasetType.TEST       : self.options["images_embed_test_path"]
-            DatasetType.EVAL       : self.options["images_embed_val_path"]
+            DatasetType.TRAIN      : options["images_embed_train_path"],
+            DatasetType.VALIDATION : options["images_embed_val_path"],
+            DatasetType.TEST       : options["images_embed_test_path"],
+            DatasetType.EVAL       : options["images_embed_val_path"]
         }
         return selector.get(datasetType)
 
-   def get_image_path(self,datasetType):
+    @staticmethod
+    def get_images_path(options,datasetType):
         """
            returns the dataset path for the given datasetType
         """
         selector = {
-            DatasetType.TRAIN      : self.options["images_train_root_path"]
-            DatasetType.VALIDATION : self.options["images_val_root_path"]
-            DatasetType.TEST       : self.options["images_test_root_path"]
-            DatasetType.EVAL       : self.options["images_val_root_path"]
+            DatasetType.TRAIN      : options["images_train_root_path"],
+            DatasetType.VALIDATION : options["images_val_root_path"],
+            DatasetType.TEST       : options["images_test_root_path"],
+            DatasetType.EVAL       : options["images_val_root_path"]
         }
         return selector.get(datasetType)
 
-    def set_local_paths(self):
+    @staticmethod
+    def set_local_paths(options):
         """
             returns the weights and losses paths based on the dataset and 
             the -extended option
         """
-        action = self.['action_type']
-        model_num = self.options["model_num"]
-        extended = self.options['extended']
+        action    = options['action_type']
+        model_num = options["model_num"]
+        extended  = options['extended']
 
-        if (extended)
+        weights_dir_path = options['weights_dir_path']
+        results_dir_path = options['results_dir_path']
+
+        if (extended):
             prefix="_ext"
         else:
             prefix = ""
 
         if (action == "train"):
-            self.options["weighs_path"] = weights_dir_path+'model_weights_' + str(model_num) + prefix + '.{epoch:02d}.hdf5'
-            self.options['losses_path'] = results_dir_path+'losses_{}{}.hdf5'.format(model_num,prefix)
+            options["weighs_path"] = weights_dir_path+'model_weights_' + str(model_num) + prefix + '.{epoch:02d}.hdf5'
+            options['losses_path'] = results_dir_path+'losses_{}{}.hdf5'.format(model_num,prefix)
             
         elif (action == "val" ):
-            self["weights_path"] = weights_dir_path + 'model_weights_{}'.format(model_num)
+            options["weights_path"] = weights_dir_path + 'model_weights_{}'.format(model_num)
 
         elif (action == "test"):
-            self.options['weights_path'] = weights_dir_path + 'model_weights_{}{}'.format(model_num,prefix)
-            self.options['results_path'] = results_dir_path + 'test2015_results_{}{}.json'.format(model_num,prefix)
+            options['weights_path'] = weights_dir_path + 'model_weights_{}{}'.format(model_num,prefix)
+            options['results_path'] = results_dir_path + 'test2015_results_{}{}.json'.format(model_num,prefix)
         
         else:
             # action type is eval
-            self.options['weights_path'] = weights_dir_path + 'model_weights_{}{}'.format(model_num,prefix)
-            self.options['results_path'] = results_dir_path + 'val2014_results_{}{}.json'.format(model_num,prefix)
+            options['weights_path'] = weights_dir_path + 'model_weights_{}{}'.format(model_num,prefix)
+            options['results_path'] = results_dir_path + 'val2014_results_{}{}.json'.format(model_num,prefix)
+
+        return options
 
  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

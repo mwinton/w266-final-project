@@ -13,6 +13,8 @@ from keras.preprocessing.text import Tokenizer
 
 from .sample import Question, Answer, Image, VQASample
 from .types import DatasetType
+from ..model.vqa_options import ModelOptions
+
 
 
 class VQADataset:
@@ -56,29 +58,29 @@ class VQADataset:
             raise TypeError('dataset_type has to be one of the DatasetType enum values')
 
         # Questions file
-        questions_path = self.options.get_questions_path(dataset_type)
+        questions_path = ModelOptions.get_questions_path(options,dataset_type)
         if os.path.isfile(questions_path):
             self.questions_path = questions_path
         else:
             raise ValueError('The file ' + questions_path + ' does not exists')
 
         # Images path
-        images_path = self.options.get_images_path(dataset_type)
+        images_path = ModelOptions.get_images_path(options,dataset_type)
         if os.path.isdir(images_path):
             self.images_path = images_path
         else:
             raise ValueError('The directory ' + images_path + ' does not exists')
 
         # Features path
-        features_path = self.options.get_images_embed_path(dataset_type)
-        if os.path.isfile(features_path)
+        features_path = ModelOptions.get_images_embed_path(options,dataset_type)
+        if os.path.isfile(features_path):
             self.features_path = features_path
         else:
             raise ValueError('The file ' + features_path + ' does not exists')
 
 
         # Answers file
-        answers_path = self.options.get_annotations_path(dataset_type)
+        answers_path = ModelOptions.get_annotations_path(options,dataset_type)
         if answers_path and (not os.path.isfile(answers_path)):
             raise ValueError('The directory ' + answers_path + ' does not exists')
         elif (not answers_path) and (dataset_type != DatasetType.TEST and dataset_type != DatasetType.EVAL):
@@ -90,7 +92,7 @@ class VQADataset:
 
         # Tokenizer path
         self.tokenizer_path = self.options['tokenizer_path']
-        print("Debug: Tokenizer path -> ",tokenizer_path)
+        print("Debug: Tokenizer path -> ",self.tokenizer_path)
         tokenizer_dir = os.path.dirname(os.path.abspath(self.tokenizer_path))
         if not os.path.isdir(tokenizer_dir):
             os.mkdir(tokenizer_dir)
@@ -108,7 +110,7 @@ class VQADataset:
 
         if (dataset_type == DatasetType.TRAIN):
             self.max_sample_size = self.options['max_train_size']
-        elif (dataset_type == DatasetType.VALIDATION)
+        elif (dataset_type == DatasetType.VALIDATION):
             self.max_sample_size = self.options['max_val_size']
 
         # List with samples
