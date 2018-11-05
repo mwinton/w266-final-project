@@ -29,8 +29,7 @@ class VQADataset:
         vocab_size (int):
     """
 
-    def __init__(self, dataset_type, questions_path, answers_path, images_path, tokenizer_path, max_sample_size =None,vocab_size=20000,
-                 question_max_len=None):
+    def __init__(self, dataset_type, options):
         """Instantiate a new VQADataset that will hold the whole dataset.
 
         Args:
@@ -48,6 +47,8 @@ class VQADataset:
                 length of the longest question
         """
 
+        self.options = options
+
         # Dataset Type
         if isinstance(dataset_type, DatasetType):
             self.dataset_type = dataset_type
@@ -55,37 +56,40 @@ class VQADataset:
             raise TypeError('dataset_type has to be one of the DatasetType enum values')
 
         # Questions file
+        questions_path = self.options.get_questions_path(dataset_type)
         if os.path.isfile(questions_path):
             self.questions_path = questions_path
         else:
             raise ValueError('The file ' + questions_path + ' does not exists')
 
         # Images path
+        images_path = self.options.get_images_path(dataset_type)
         if os.path.isdir(images_path):
             self.images_path = images_path
         else:
             raise ValueError('The directory ' + images_path + ' does not exists')
 
         # Features path
-        if self.dataset_type == DatasetType.TRAIN:
-            self.features_path = images_path + 'train.hdf5'
-        elif (self.dataset_type == DatasetType.VALIDATION) or (self.dataset_type == DatasetType.EVAL):
-            self.features_path = images_path + 'val.hdf5'
+        features_path = self.options.get_images_embed_path(dataset_type)
+        if os.path.isfile(features_path)
+            self.features_path = features_path
         else:
-            self.features_path = images_path + 'test.hdf5'
+            raise ValueError('The file ' + features_path + ' does not exists')
+
 
         # Answers file
-        self.answers_path = answers_path
+        answers_path = self.options.get_annotations_path(dataset_type)
         if answers_path and (not os.path.isfile(answers_path)):
             raise ValueError('The directory ' + answers_path + ' does not exists')
         elif (not answers_path) and (dataset_type != DatasetType.TEST and dataset_type != DatasetType.EVAL):
             raise ValueError('Answers path needed to proceed further')
+        self.answers_path = answers_path
 
         # Vocabulary size
-        self.vocab_size = vocab_size
+        self.vocab_size = self.options['n_vocab']
 
         # Tokenizer path
-        self.tokenizer_path = tokenizer_path
+        self.tokenizer_path = self.options['tokenizer_path']
         print("Debug: Tokenizer path -> ",tokenizer_path)
         tokenizer_dir = os.path.dirname(os.path.abspath(self.tokenizer_path))
         if not os.path.isdir(tokenizer_dir):
@@ -100,9 +104,12 @@ class VQADataset:
             self.tokenizer = Tokenizer(num_words=self.vocab_size)
 
         # Question max len
-        self.question_max_len = question_max_len
+        self.question_max_len = self.options['max_sentence_len']
 
-        self.max_sample_size = max_sample_size
+        if (dataset_type == DatasetType.TRAIN):
+            self.max_sample_size = self.options['max_train_size']
+        elif (dataset_type == DatasetType.VALIDATION)
+            self.max_sample_size = self.options['max_val_size']
 
         # List with samples
         self.samples = []
@@ -284,7 +291,7 @@ class VQADataset:
 
         return next_chunk_idx
 
-    def batch_generator(self, batch_size):
+    def batch_generator(self):
         """
           Yields a batch of data of size batch_size
           Assumes the samples are sorted by their image indices , see the prepare() function
@@ -292,6 +299,7 @@ class VQADataset:
           In doing so we can prevent the large memory footprint needed to load all the images in memory
         """
 
+        batch_size = self.options['batch_size']
         assert(self.max_sample_size != None and self.max_sample_size <= len(self.samples))
 
         num_samples = self.max_sample_size
@@ -310,6 +318,9 @@ class VQADataset:
         batch_end = batch_size
         current_chunk_idx = 0
 
+        n_image_regions = self.options['n_image_regions']
+        n_image_embed   = self.options['n_image_embed']
+
 
         print("Total Sample size -> ", num_samples)
 
@@ -322,7 +333,7 @@ class VQADataset:
                 current_chunk_idx = self.load_batch_images(current_chunk_idx)
             
             # Initialize matrix
-            I = np.zeros((batch_size,196,512), dtype=np.float32)
+            I = np.zeros((batch_size,n_image_regions,n_image_embed), dtype=np.float32)
             Q = np.zeros((batch_size, self.question_max_len), dtype=np.int32)
             A = np.zeros((batch_size, self.vocab_size), dtype=np.bool_)
 
@@ -350,8 +361,12 @@ class VQADataset:
                 batch_end = num_samples
 
     def get_dataset_input(self):
-        #features = scipy.io.loadmat(self.features_path)['features']
-        # Load all the images in memory
+        # this is called in test model
+        # Load all the images in memory in this mode. TODO, need to chunk this
+
+        with h5py.File(self.features_path,"r") as f:
+            features = f['embeddings'][:]
+
         for sample in self.samples:
             sample.image.load(features, True)
         images_list = []

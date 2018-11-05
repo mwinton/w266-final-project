@@ -14,48 +14,12 @@ from vqa.dataset.types import DatasetType
 from vqa.dataset.dataset import VQADataset, MergeDataset
 
 from vqa.model.library import ModelLibrary
+from vqa.model.vqa_options import ModelOptions 
 
 # ------------------------------ GLOBALS ------------------------------
 # Constants
 ACTIONS = ['train', 'val', 'test', 'eval']
-VOCABULARY_SIZE = 20000
-NUM_EPOCHS = 40
-BATCH_SIZE = 128
 
-# Paths
-DATA_PATH = '../data/'
-DATA_ROOT = '/home/ram_iyer/vqa_data/'
-PREPROCESSED_PATH = DATA_PATH + 'preprocessed/'
-TOKENIZER_PATH = PREPROCESSED_PATH + 'tokenizer.p'
-FEATURES_DIR_PATH = DATA_ROOT + 'images/mscoco/embeddings/'
-WEIGHTS_DIR_PATH = '../models/weights/'
-RESULTS_DIR_PATH = '../results/'
-
-# Config
-CONFIG_TRAIN = {
-    'dataset_type': DatasetType.TRAIN,
-    'dataset_path': PREPROCESSED_PATH + 'train_dataset.p',
-    'questions_path': DATA_ROOT + 'questions/train/v2_OpenEnded_mscoco_train2014_questions.json',
-    'annotations_path': DATA_ROOT + 'annotations/train/v2_mscoco_train2014_annotations.json'
-}
-CONFIG_VAL = {
-    'dataset_type': DatasetType.VALIDATION,
-    'dataset_path': PREPROCESSED_PATH + 'validate_dataset.p',
-    'questions_path': DATA_ROOT + 'questions/val/v2_OpenEnded_mscoco_val2014_questions.json',
-    'annotations_path': DATA_ROOT + '/annotations/val/v2_mscoco_val2014_annotations.json'
-}
-CONFIG_TEST = {
-    'dataset_type': DatasetType.TEST,
-    'dataset_path': PREPROCESSED_PATH + 'test_dataset.p',
-    'questions_path': DATA_ROOT + 'questions/v2_OpenEnded_mscoco_test2015_questions.json',
-    'annotations_path': None
-}
-CONFIG_EVAL = {
-    'dataset_type': DatasetType.EVAL,
-    'dataset_path': PREPROCESSED_PATH + 'eval_dataset.p',
-    'questions_path': DATA_ROOT + 'questions/val/v2_mscoco_val2014_annotations.json',
-    'annotations_path': None
-}
 
 # Defaults
 DEFAULT_MODEL = 1 
@@ -65,77 +29,62 @@ DEFAULT_ACTION = 'train'
 
 # ------------------------------- SCRIPT FUNCTIONALITY -------------------------------
 
-def main(action, model_num, extended,max_train_size,max_val_size):
-    print('Action: ' + action)
-    print('Model number: {}'.format(model_num))
-    print('Extended: {}'.format(extended))
-    if (max_train_size != None):
-        print('Training Set Size: {}'.format(max_train_size))
-    if (max_val_size != None):
-       print('Validation set size: {}'.format(max_val_size))
+def main(options):
 
+
+    print('Action: ' + options['action_type'])
+    print('Model number: {}'.format(options['model_name']))
+    print('Extended: {}'.format(options['extended']))
+
+    if (options['max_train_size'] != None):
+        print('Training Set Size: {}'.format(options['max_train_size']))
+    if (options['max_val_size'] != None):
+       print('Validation set size: {}'.format(options['max_val_size']))
+
+    # set paths for weights and results.
+    options.set_local_paths()
 
     # set numpy random seed for deterministic results
     np.random.seed(2018)
     
     # Always load train dataset to obtain the question_max_len from it
-    train_dataset = load_dataset(CONFIG_TRAIN['dataset_type'], CONFIG_TRAIN['dataset_path'],
-                                 CONFIG_TRAIN['questions_path'], CONFIG_TRAIN['annotations_path'], FEATURES_DIR_PATH,
-                                 TOKENIZER_PATH,max_train_size)
-    question_max_len = train_dataset.question_max_len
+    train_dataset = load_dataset(DatasetType.TRAIN,options)
+    options['max_sentence_len'] = train_dataset.question_max_len
 
     # Load model
-    vqa_model = ModelLibrary.get_model(model_num, vocabulary_size=VOCABULARY_SIZE, question_max_len=question_max_len)
+    vqa_model = ModelLibrary.get_model(options)
 
     # Load dataset depending on the action to perform
     if action == 'train':
         dataset = train_dataset
-        val_dataset = load_dataset(CONFIG_VAL['dataset_type'], CONFIG_VAL['dataset_path'],
-                                   CONFIG_VAL['questions_path'], CONFIG_VAL['annotations_path'], FEATURES_DIR_PATH,
-                                   TOKENIZER_PATH,max_val_size)
+        val_dataset = load_dataset(DatasetType.VALIDATION,options)
         if extended:
             extended_dataset = MergeDataset(train_dataset, val_dataset)
-            weights_path = WEIGHTS_DIR_PATH + 'model_weights_' + str(model_num) + '_ext.{epoch:02d}.hdf5'
-            losses_path = RESULTS_DIR_PATH + 'losses_{}_ext.h5'.format(model_num)
-            train(vqa_model, extended_dataset, model_num, weights_path, losses_path,max_train_size,max_val_size, extended=True)
+            train(vqa_model, extended_dataset, options)
         else:
-            weights_path = WEIGHTS_DIR_PATH + 'model_weights_' + str(model_num) + '.{epoch:02d}.hdf5'
-            losses_path = RESULTS_DIR_PATH + 'losses_{}.h5'.format(model_num)
-            train(vqa_model, dataset, model_num, weights_path, losses_path,max_train_size,max_val_size, val_dataset=val_dataset)
+            train(vqa_model, dataset, options,val_dataset=val_dataset)
 
     elif action == 'val':
-        dataset = load_dataset(CONFIG_VAL['dataset_type'], CONFIG_VAL['dataset_path'],
-                               CONFIG_VAL['questions_path'], CONFIG_VAL['annotations_path'], FEATURES_DIR_PATH,
-                               TOKENIZER_PATH,max_val_size)
-        weights_path = WEIGHTS_DIR_PATH + 'model_weights_{}'.format(model_num)
-        validate(vqa_model, dataset, weights_path)
+        dataset = load_dataset(DatasetType.VALIDATION,options)
+        validate(vqa_model, dataset, options)
+
     elif action == 'test':
-        dataset = load_dataset(CONFIG_TEST['dataset_type'], CONFIG_TEST['dataset_path'],
-                               CONFIG_TEST['questions_path'], CONFIG_TEST['annotations_path'], FEATURES_DIR_PATH,
-                               TOKENIZER_PATH)
-        if not extended:
-            weights_path = WEIGHTS_DIR_PATH + 'model_weights_{}'.format(model_num)
-            results_path = RESULTS_DIR_PATH + 'test2015_results_{}.json'.format(model_num)
-        else:
-            weights_path = WEIGHTS_DIR_PATH + 'model_weights_{}_ext'.format(model_num)
-            results_path = RESULTS_DIR_PATH + 'test2015_results_{}_ext.json'.format(model_num)
-        test(vqa_model, dataset, weights_path, results_path)
+        dataset = load_dataset(DatasetType.TEST,options)
+        test(vqa_model, dataset, options)
+
     elif action == 'eval':
-        dataset = load_dataset(CONFIG_EVAL['dataset_type'], CONFIG_EVAL['dataset_path'],
-                               CONFIG_EVAL['questions_path'], CONFIG_EVAL['annotations_path'], FEATURES_DIR_PATH,
-                               TOKENIZER_PATH)
-        if not extended:
-            weights_path = WEIGHTS_DIR_PATH + 'model_weights_{}'.format(model_num)
-            results_path = RESULTS_DIR_PATH + 'val2014_results_{}.json'.format(model_num)
-        else:
-            weights_path = WEIGHTS_DIR_PATH + 'model_weights_{}_ext'.format(model_num)
-            results_path = RESULTS_DIR_PATH + 'val2014_results_{}_ext.json'.format(model_num)
-        test(vqa_model, dataset, weights_path, results_path)
+        dataset = load_dataset(DatasetType.EVAL,options)
+        test(vqa_model, dataset, options)
+
     else:
-        raise ValueError('The action you provided do not exist')
+        raise ValueError('The action type is unrecognized')
 
 
-def load_dataset(dataset_type, dataset_path, questions_path, annotations_path, features_dir_path, tokenizer_path, max_size=None):
+def load_dataset(dataset_type, options):
+    
+
+    dataset_path = options.get_dataset_path()
+
     try:
         with open(dataset_path, 'rb') as f:
             print('Loading dataset...')
@@ -156,8 +105,7 @@ def load_dataset(dataset_type, dataset_path, questions_path, annotations_path, f
 
     except IOError:
         print('Creating dataset...')
-        dataset = VQADataset(dataset_type, questions_path, annotations_path, features_dir_path,
-                             tokenizer_path, max_sample_size=max_size ,vocab_size=VOCABULARY_SIZE)
+        dataset = VQADataset(dataset_type, options)
         print('Preparing dataset...')
         dataset.prepare()
         print('Dataset size: %d' % dataset.size())
@@ -171,62 +119,78 @@ def load_dataset(dataset_type, dataset_path, questions_path, annotations_path, f
     return dataset
 
 
-def train(model, dataset, model_num, model_weights_path, losses_path,max_train_size,max_val_size, val_dataset=None, extended=False):
+def train(model, dataset, options, val_dataset=None):
     if (not extended) and (not val_dataset):
         raise ValueError('If not using the extended dataset, a validation dataset must be provided')
 
+
+    model_num = options["model_num"]
+    model_weights_path = options["weights_path"]
+    losses_path = options["results_path"]
+
+    max_train_size = options["max_train_size"]
+    max_val_size   = options['max_val_size']
+
     loss_callback = LossHistoryCallback(losses_path)
-    save_weights_callback = CustomModelCheckpoint(model_weights_path, WEIGHTS_DIR_PATH, model_num)
-    stop_callback = EarlyStopping(patience=5)
+    save_weights_callback = CustomModelCheckpoint(model_weights_path, options['weights_dir_path'], model_num)
+    stop_callback = EarlyStopping(patience=options['early_stop_patience'])
+    batch_size = options['batch_size']
+    max_epochs = options['max_epochs']
+
 
     if(max_train_size != None):
         samples_per_train_epoch = min(max_train_size,dataset.size()) 
-        samples_per_train_epoch = max(BATCH_SIZE,samples_per_train_epoch)
+        samples_per_train_epoch = max(batch_size,samples_per_train_epoch)
     else:
         samples_per_train_epoch = dataset.size()
 
     if(val_dataset != None):
         if(max_val_size !=None ):
             samples_per_val_epoch = min(max_val_size,val_dataset.size()) 
-            samples_per_val_epoch = max(BATCH_SIZE,samples_per_val_epoch)
+            samples_per_val_epoch = max(batch_size,samples_per_val_epoch)
         else:
             samples_per_val_epoch = val_dataset.size()
 
     print('Start training...')
     if not extended:
-        model.fit_generator(dataset.batch_generator(BATCH_SIZE), steps_per_epoch=samples_per_train_epoch//BATCH_SIZE, epochs=NUM_EPOCHS,
+        model.fit_generator(dataset.batch_generator(), steps_per_epoch=samples_per_train_epoch//batch_size, epochs=max_epochs,
                             callbacks=[save_weights_callback, loss_callback, stop_callback],
-                            validation_data=val_dataset.batch_generator(BATCH_SIZE), 
-                            validation_steps=samples_per_val_epoch//BATCH_SIZE,max_queue_size=20,use_multiprocessing=False)
+                            validation_data=val_dataset.batch_generator(), 
+                            validation_steps=samples_per_val_epoch//batch_size,max_queue_size=20)
     else:
-        model.fit_generator(dataset.batch_generator(BATCH_SIZE, split='train'), steps_per_epoch=dataset.train_size()/BATCH_SIZE,
-                            epochs=NUM_EPOCHS, callbacks=[save_weights_callback, loss_callback, stop_callback],
-                            validation_data=dataset.batch_generator(BATCH_SIZE, split='val'),
-                            validation_steps=dataset.val_size()/BATCH_SIZE,max_queue_size=20,use_multiprocessing=False)
+        model.fit_generator(dataset.batch_generator(batch_size, split='train'), steps_per_epoch=dataset.train_size()/batch_size,
+                            epochs=num_epochs, callbacks=[save_weights_callback, loss_callback, stop_callback],
+                            validation_data=dataset.batch_generator(batch_size, split='val'),
+                            validation_steps=dataset.val_size()/batch_size,max_queue_size=20)
     print('Trained')
 
 
-def validate(model, dataset, weights_path):
+def validate(model, dataset, options):
+
+    weights_path = options['weights_path']
+    batch_size   = options['batch_size']
     print('Loading weights...')
     model.load_weights(weights_path)
     print('Weights loaded')
     print('Start validation...')
-    result = model.evaluate_generator(dataset.batch_generator(BATCH_SIZE), val_samples=dataset.size())
+    result = model.evaluate_generator(dataset.batch_generator(batch_size), val_samples=dataset.size())
     print('Validated. Loss: {}'.format(result))
 
     return result
 
 
-def test(model, dataset, weights_path, results_path):
+def test(model, dataset, options):
 
-    ## Not implemented - TODO check if needed
-    """
+
+    weights_path = options['weights_path']
+    results_path = options['results_path']
+
     print('Loading weights...')
     model.load_weights(weights_path)
     print('Weights loaded')
     print('Predicting...')
     images, questions = dataset.get_dataset_input()
-    results = model.predict([images, questions], BATCH_SIZE)
+    results = model.predict([images, questions], options['batch_size'])
     print('Answers predicted')
 
     print('Transforming results...')
@@ -244,7 +208,7 @@ def test(model, dataset, weights_path, results_path):
     with open(results_path, 'w') as f:
         json.dump(results_dict, f)
     print('Results saved')
-    """
+
 
 # ------------------------------- CALLBACKS -------------------------------
 
@@ -301,7 +265,20 @@ class CustomModelCheckpoint(ModelCheckpoint):
 # ------------------------------- ENTRY POINT -------------------------------
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Main entry point to interact with the VQA module')
+
+    # parse command line parameters and flags
+    parser = argparse.ArgumentParser(description='VQA Stacked Attention Networks',
+                        epilog='W266 Final Project (Fall 2018) by Rachel Ho, Ram Iyer, Mike Winton')
+
+    parser.add_argument('-f', '--fake', action='store_true',
+                        help = 'run fake data through pipeline')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help = 'turn on verbose output')
+    parser.add_argument('-b', '--batch_size', type=int,
+                        help = 'set batch size (int)')
+    parser.add_argument('-e', '--epochs', type=int,
+                        help = 'set max number of epochs (int)')
+
     parser.add_argument(
         '-m',
         '--model',
@@ -327,6 +304,61 @@ if __name__ == '__main__':
     )
     parser.add_argument("--max_train_size",type=int,help="maximum number of training samples to use")
     parser.add_argument("--max_val_size",type=int,help="maximum number of validation samples to use")
+
     # Start script
     args = parser.parse_args()
-    main(args.action, args.model, args.extended,args.max_train_size,args.max_val_size)
+    if args.verbose:
+        pprint(args)
+
+   # load model options from config file
+    model_options = ModelOptions().get_options()
+    
+    # override default for max_epochs if specified
+    if args.epochs:
+        model_options['max_epochs'] = args.epochs
+        
+    # override default for batch_size if specified
+    if args.batch_size:
+        model_options['batch_size'] = args.batch_size
+        
+
+    # parse args with defaults
+    model_options['model_num'] = args.model 
+    model_options['action'] = args.action
+        
+    # print all options before building graph
+    if args.verbose:
+        # TODO: implement mlflow logging of params
+        model_options['verbose'] = args.verbose
+        pprint(options)
+
+    """
+    # always build graph
+    san = StackedAttentionNetwork(options)
+    san.build_graph(options)
+
+    # build fake data if flag was set for a test run
+    if args.fake:
+        options['fake'] = args.fake
+        (images_x_train, sentences_x_train, y_train,
+         images_x_test, sentences_x_test, y_test) = FakeData(options).get_fakes()
+
+    # train if flag was set
+    if args.train:
+        san.train(options, x=[images_x_train, sentences_x_train], y=y_train)
+
+    # evaluate if flag was set
+    if args.score:
+        score=san.evaluate(options, x=[images_x_test, sentences_x_test], y=y_test)
+        # TODO: implement mlflow logging of score
+        
+    # predict if flag was set
+    if args.predict:
+        san.predict(options)
+
+    """     
+
+    main(model_options)
+
+    print('Completed!')
+

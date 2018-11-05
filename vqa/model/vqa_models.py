@@ -12,7 +12,7 @@ import mlflow.keras
 from pprint import pprint
 
 # our own imports
-from vqa_options import ModelOptions
+from . vqa_options import ModelOptions
 
 class StackedAttentionNetwork(object):
     
