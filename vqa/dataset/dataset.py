@@ -13,7 +13,7 @@ from keras.preprocessing.text import Tokenizer
 
 from .sample import Question, Answer, Image, VQASample
 from .types import DatasetType
-from ..model.vqa_options import ModelOptions
+from ..model.options import ModelOptions
 
 
 
@@ -129,7 +129,7 @@ class VQADataset:
         print('Questions dict created')
         answers = self._create_answers_dict(self.answers_path)
         print('Answers dict created')
-        image_ids = self._get_image_ids(self.images_path)
+        image_ids = self._get_image_ids(self.features_path)
         images = self._create_images_dict(image_ids)
         print('Images dict created')
 
@@ -220,7 +220,7 @@ class VQADataset:
             self.chunk_dict[chunk_num] = (start_sample_idx,end_sample_idx - 1)
             print(" {} Chunk {}, start-index : {}, end index : {}, Memory idx {} to {}"
                   .format(self.dataset_type,chunk_num,start_sample_idx,end_sample_idx - 1,
-                          self.samples[start_sample_idx].image.features_idx, self.samples[end_sample_idx].image.features_idx))
+                          self.samples[start_sample_idx].image.features_idx, self.samples[end_sample_idx-1].image.features_idx))
 
 
     def load_batch_images(self,current_chunk_idx):
@@ -270,9 +270,9 @@ class VQADataset:
                 chunks_to_clean.append(chunk_idx)
 
         for chunk_idx in chunks_to_clean:
-            print("Freeing image indices from {} to {} for samples from {} to {}"
-                 .format(self.samples[self.chunk_dict[chunk_idx][0]].image.features_idx,self.samples[self.chunk_dict[chunk_idx][1]].image.features_idx,
-                         self.chunk_dict[chunk_idx][0],self.chunk_dict[chunk_idx][1]))
+            #print("Freeing image indices from {} to {} for samples from {} to {}"
+            #     .format(self.samples[self.chunk_dict[chunk_idx][0]].image.features_idx,self.samples[self.chunk_dict[chunk_idx][1]].image.features_idx,
+            #             self.chunk_dict[chunk_idx][0],self.chunk_dict[chunk_idx][1]))
             for sample_idx in range(self.chunk_dict[chunk_idx][0],self.chunk_dict[chunk_idx][1] + 1):
                 self.samples[sample_idx].image.reset() 
 
@@ -479,17 +479,10 @@ class VQADataset:
             # Save tokenizer object
             pickle.dump(self.tokenizer, open(self.tokenizer_path, 'wb'))
 
-    def _get_image_ids(self, images_path):
+    def _get_image_ids(self, features_path):
 
-        if self.dataset_type == DatasetType.TRAIN:
-            image_ids_path = images_path + 'train.hdf5'
-        elif self.dataset_type == DatasetType.VALIDATION or self.dataset_type == DatasetType.EVAL:
-            image_ids_path = images_path + 'val.hdf5'
-        else:
-            image_ids_path = images_path + 'test.hdf5'
-
-        print("Accessing file =>",image_ids_path)
-        with h5py.File(image_ids_path,"r") as f:
+        print("Accessing file =>",features_path)
+        with h5py.File(features_path,"r") as f:
             image_ids = f['imageIds'][:]
 
         image_ids_dict = {}

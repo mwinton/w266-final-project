@@ -2,6 +2,7 @@ import argparse
 import pickle
 import json
 import sys
+import pprint
 
 import h5py
 import numpy as np
@@ -13,8 +14,8 @@ sys.path.append('..')
 from vqa.dataset.types import DatasetType
 from vqa.dataset.dataset import VQADataset, MergeDataset
 
-from vqa.model.library import ModelLibrary
-from vqa.model.vqa_options import ModelOptions 
+from vqa.model.model_select import ModelLibrary
+from vqa.model.options import ModelOptions 
 
 # ------------------------------ GLOBALS ------------------------------
 # Constants
@@ -55,10 +56,11 @@ def main(options):
     vqa_model = ModelLibrary.get_model(options)
 
     # Load dataset depending on the action to perform
+    action = options['action_type']
     if action == 'train':
         dataset = train_dataset
         val_dataset = load_dataset(DatasetType.VALIDATION,options)
-        if extended:
+        if options['extended']:
             extended_dataset = MergeDataset(train_dataset, val_dataset)
             train(vqa_model, extended_dataset, options)
         else:
@@ -92,6 +94,11 @@ def load_dataset(dataset_type, options):
             print('Dataset loaded')
             samples = dataset.samples
 
+            if dataset_type == DatasetType.TRAIN:
+                max_size = options['max_train_size'] 
+            elif dataset_type == DatasetType.VALIDATION:
+                max_size = options["max_val_size"]   
+
             if(max_size == None):
                 dataset.max_sample_size = len(samples)
             else:
@@ -102,6 +109,8 @@ def load_dataset(dataset_type, options):
                  print("Passed sorted sample array check")
             else:
                  assert(0)
+
+            print("{} loaded from disk. Dataset size {}, maxSize from user {} ".format(dataset_type,len(samples),max_size))
 
     except IOError:
         print('Creating dataset...')
@@ -120,19 +129,21 @@ def load_dataset(dataset_type, options):
 
 
 def train(model, dataset, options, val_dataset=None):
+
+    extended = options['extended']
     if (not extended) and (not val_dataset):
         raise ValueError('If not using the extended dataset, a validation dataset must be provided')
 
 
     model_num = options["model_num"]
     model_weights_path = options["weights_path"]
-    losses_path = options["results_path"]
+    losses_path = options["losses_path"]
 
     max_train_size = options["max_train_size"]
     max_val_size   = options['max_val_size']
 
     loss_callback = LossHistoryCallback(losses_path)
-    save_weights_callback = CustomModelCheckpoint(model_weights_path, options['weights_dir_path'], model_num)
+    save_weights_callback = CustomModelCheckpoint(model_weights_path, options["weights_dir_path"]  , model_num)
     stop_callback = EarlyStopping(patience=options['early_stop_patience'])
     batch_size = options['batch_size']
     max_epochs = options['max_epochs']
@@ -161,7 +172,7 @@ def train(model, dataset, options, val_dataset=None):
         model.fit_generator(dataset.batch_generator(batch_size, split='train'), steps_per_epoch=dataset.train_size()/batch_size,
                             epochs=num_epochs, callbacks=[save_weights_callback, loss_callback, stop_callback],
                             validation_data=dataset.batch_generator(batch_size, split='val'),
-                            validation_steps=dataset.val_size()/batch_size,max_queue_size=20)
+                            validation_steps=dataset.val_size()//batch_size,max_queue_size=20)
     print('Trained')
 
 
@@ -224,6 +235,7 @@ class LossHistoryCallback(Callback):
 
     def on_epoch_end(self, epoch, logs={}):
         self.val_losses.append(logs.get('val_loss'))
+        print("Loss history: saving in file {}".format(self.results_path))
         try:
             with h5py.File(self.results_path, 'a') as f:
                 if 'train_losses' in f:
@@ -306,8 +318,6 @@ if __name__ == '__main__':
 
     # Start script
     args = parser.parse_args()
-    if args.verbose:
-        pprint(args)
 
    # load model options from config file
     model_options = ModelOptions().get_options()
@@ -324,12 +334,16 @@ if __name__ == '__main__':
     # parse args with defaults
     model_options['model_num'] = args.model 
     model_options['action'] = args.action
+
+    model_options['max_train_size'] = args.max_train_size
+    model_options['max_val_size']   = args.max_val_size
+
         
     # print all options before building graph
     if args.verbose:
         # TODO: implement mlflow logging of params
         model_options['verbose'] = args.verbose
-        pprint(options)
+        pprint.pprint(model_options)
 
     """
     # always build graph

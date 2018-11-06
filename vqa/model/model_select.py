@@ -4,7 +4,7 @@ from keras.models import Model, model_from_json
 from keras.optimizers import Adam
 
 from vqa import BASE_DIR
-from .vqa_models import StackedAttentionNetwork
+from . san_model import StackedAttentionNetwork
 
 
 class ModelLibrary:
@@ -21,7 +21,7 @@ class ModelLibrary:
     EMBED_HIDDEN_SIZE = 100
 
     # Path
-    MODELS_PATH = BASE_DIR + 'models/'
+    MODELS_PATH = BASE_DIR + 'saved_models/'
 
     # ---------------------------------- FUNCTIONS --------------------------------
 
@@ -76,13 +76,13 @@ class ModelLibrary:
 
             # Question
             question_input = Input(shape=(max_sentence_len,), dtype='int32')
-            question_embedded = Embedding(input_dim=vocabulary_size, output_dim=ModelLibrary.sentence_embed_size,
+            question_embedded = Embedding(input_dim=vocabulary_size, output_dim=sentence_embed_size,
                                           input_length=max_sentence_len)(question_input)  # Can't use masking
             question_embedded = Dropout(0.5)(question_embedded)
 
             # Merge
             merged = concatenate([image_repeat, question_embedded])  # Merge for layers merge for tensors
-            x = LSTM(ModelLibrary.sentence_embed_size, return_sequences=False)(merged)
+            x = LSTM(sentence_embed_size, return_sequences=False)(merged)
             x = Dropout(0.5)(x)
             output = Dense(units=vocabulary_size, activation='softmax')(x)
 

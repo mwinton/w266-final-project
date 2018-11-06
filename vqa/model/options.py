@@ -15,6 +15,8 @@ class ModelOptions(object):
         data_root = "/home/"+user_name+"/vqa_data/"
         self.options['data_root'] = data_root
 
+        self.options['user_name'] = user_name
+
         self.options['images_train_root_path'] = data_root+'images/mscoco/train2014/'
         self.options['images_val_root_path']   = data_root+'images/mscoco/val2014/'
         self.options['images_test_root_path']   = data_root+'images/mscoco/test2015/'
@@ -29,7 +31,7 @@ class ModelOptions(object):
         self.options['annotations_train_path'] = data_root+'annotations/mscoco_train2014_annotations.json'
         self.options['annotations_val_path']   = data_root+'annotations/mscoco_val2014_annotations.json'
 
-        image_embed_root = data_root+'images/mscoco/embeddings/'
+        image_embed_root = data_root+'images/mscoco/embeddings/vgg16/'
         self.options['images_embed_train_path'] = image_embed_root+'train.hdf5'
         self.options['images_embed_val_path']   = image_embed_root+'val.hdf5'
         self.options['images_embed_test_path'] = image_embed_root+'test.hdf5'
@@ -39,7 +41,7 @@ class ModelOptions(object):
 
         ## files created during train/val/test phases
         self.options['local_data_path']  =  "../data/preprocessed/"
-        self.options['weights_dir_path'] =  "../models/weights/"
+        self.options['weights_dir_path'] =  "../saved_models/weights/"
         self.options['results_dir_path'] =  "../results/"
 
         ## create directories if they don't exist
@@ -73,6 +75,8 @@ class ModelOptions(object):
         self.options['vggnet_input_dim'] = 448  # expected x, y dim of VGGNet
         self.options['image_depth'] = 3         # 3 color channels (RGB)
         self.options['image_init_type'] = None  # random initialization (or 'imagenet')
+
+        self.options['start_with_image_embed'] = True
 
         # Text model parameters
         self.options['n_vocab'] = 13746             # TODO: calculate this ourselves
@@ -119,6 +123,7 @@ class ModelOptions(object):
         self.options['drop_ratio'] = 0.5
         self.options['smooth'] = 1e-8
         self.options['grad_clip'] = 0.1
+        self.options['early_stop_patience'] = 5
 
         # MLFlow logging parameters
         self.options['mlflow_tracking_uri'] = 'http://35.236.106.47:5000'  # Mike's GCE instance
@@ -215,7 +220,7 @@ class ModelOptions(object):
             prefix = ""
 
         if (action == "train"):
-            options["weighs_path"] = weights_dir_path+'model_weights_' + str(model_num) + prefix + '.{epoch:02d}.hdf5'
+            options["weights_path"] = weights_dir_path+'model_weights_' + str(model_num) + prefix + '.{epoch:02d}.hdf5'
             options['losses_path'] = results_dir_path+'losses_{}{}.hdf5'.format(model_num,prefix)
             
         elif (action == "val" ):
