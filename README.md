@@ -18,7 +18,7 @@ First, download the appropriate datasets, and extract components into the path s
 * [VQA v1 dataset](http://visualqa.org/vqa_v1_download.html)
 * [VQA v2 "balanced" dataset](http://visualqa.org/download.html)
 
-In the /home/<userName>/vqa_data the following directory structure is expected:
+In the /home/&lt;username&gt;/vqa_data the following directory structure is expected:
 ```
 .
 ├── annotations
