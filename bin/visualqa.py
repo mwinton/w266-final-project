@@ -300,7 +300,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-m',
         '--model',
-        type=str,
+        type=str.lower,
         choices=ModelLibrary.get_valid_model_names(),
         default=DEFAULT_MODEL,
         help='Specify the model architecture to interact with. Each model architecture has a model number associated.'

@@ -22,11 +22,11 @@ Sample runs:
 
 All runs need to be launched from the ./bin directory
 
-1. Train the SAN model (model num 2) on all the train/val samples. runtime will be quite high (~3hrs per epoch on Nvidia K80)
+1. Train the SAN model on all the train/val samples. runtime will be quite high (~3hrs per epoch on Nvidia K80)
 
-   > python3 ./visualqa.py --verbose --model 2
+   > python3 ./visualqa.py --verbose --model SAN  
 
 2. Train the SAN model with smaller train/val set
 
-   > python3 ./visualqa.py --verbose --model 2 --max_train_size 20000 -max_val_size 10000
+   > python3 ./visualqa.py --verbose --model SAN  --max_train_size 20000 -max_val_size 10000
 
