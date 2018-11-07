@@ -90,7 +90,8 @@ class ModelLibrary:
             print('Model created')
 
             print('Compiling model...')
-            vqa_model.compile(optimizer='adam', loss='categorical_crossentropy')
+            vqa_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
             vqa_model.summary()
             print('Model compiled')
 

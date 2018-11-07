@@ -200,7 +200,7 @@ class VQADataset:
            creates the self.chunk_dict
         """
 
-        batches_per_chunk = 1000 
+        batches_per_chunk = 200 
 
         # num_samples should be exactly divisible by batch_size
         self.num_chunks = math.ceil((num_samples // batch_size) /  batches_per_chunk)
@@ -281,7 +281,7 @@ class VQADataset:
         if ((np.shape(self.samples[start_sample_idx].image.features)[0] == 0) or
              (np.shape(self.samples[end_sample_idx].image.features)[0] == 0)):
 
-            print("loading {} images from index {} to {} for samples {} to {}"
+            print("\t loading {} images from index {} to {} for samples {} to {}"
                           .format(end_image_idx - start_image_idx, start_image_idx, 
                                   end_image_idx,start_sample_idx,end_sample_idx))
 
@@ -291,6 +291,12 @@ class VQADataset:
             for sample_idx in range(start_sample_idx,end_sample_idx + 1):
                 self.samples[sample_idx].image.load(image_cache,offset = start_image_idx)
 
+        # samples inside the chunks can be shuffled as long as the 1st and last elements are preserved for index comparison
+        #randomize indices exclusing the first and last
+        shuffle_list = self.samples[start_sample_idx + 1: end_sample_idx]
+        np.random.shuffle(shuffle_list)
+        self.samples[start_sample_idx + 1 : end_sample_idx] =  shuffle_list
+            
         return next_chunk_idx
 
     def batch_generator(self):
@@ -430,10 +436,18 @@ class VQADataset:
         # As question_id is composed by appending the question number (0-2) to the image_id (which is unique)
         # we've composed the answer id the same way. The substraction of 1 is due to the fact that the
         # answer['answer_id'] ranges from 1 to 10 instead of 0 to 9
-        answers = {(annotation['question_id'] * 10 + (answer['answer_id'] - 1)):
+
+       
+        if (self.options["keep_single_answer"] == False): 
+            answers = {(annotation['question_id'] * 10 + (answer['answer_id'] - 1)):
                        Answer(answer['answer_id'], answer['answer'], annotation['question_id'],
                               annotation['image_id'], self.vocab_size)
-                   for annotation in answers_json['annotations'] for answer in annotation['answers']}
+                       for annotation in answers_json['annotations'] for answer in annotation['answers']}
+        else:
+            answers  = answers = {annotation['question_id'] * 10 :
+                                  Answer(annotation['question_id'] * 10, annotation['multiple_choice_answer'], annotation['question_id'],
+                                  annotation['image_id'], self.vocab_size)
+                                  for annotation in answers_json['annotations'] }
         return answers
 
     def _create_images_dict(self, image_ids):

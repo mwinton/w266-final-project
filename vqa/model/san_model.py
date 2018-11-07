@@ -348,9 +348,11 @@ class StackedAttentionNetwork(object):
         # assemble all these layers into model
         self.model = Model(inputs=[layer_image_input, layer_sent_input], outputs=layer_prob_answer)
         if verbose: print(self.model.summary())
+
+        optimizer = keras.optimizers.Adam(lr=0.001)
         
         # compile model so that it's ready to train
-        self.model.compile (optimizer='adagrad',
+        self.model.compile (optimizer= optimizer,
                             loss='categorical_crossentropy',  # can train if not using the sparse version
                             # TODO: to match Yang's paper we may need to write our own loss function
                             # see https://github.com/keras-team/keras/blob/master/keras/losses.py

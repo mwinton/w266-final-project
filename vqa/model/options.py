@@ -75,7 +75,6 @@ class ModelOptions(object):
         self.options['vggnet_input_dim'] = 448  # expected x, y dim of VGGNet
         self.options['image_depth'] = 3         # 3 color channels (RGB)
         self.options['image_init_type'] = None  # random initialization (or 'imagenet')
-
         self.options['start_with_image_embed'] = True
 
         # Text model parameters
@@ -84,6 +83,7 @@ class ModelOptions(object):
         self.options['n_sent_embed'] = 500          # TODO: change this when we use GloVe
         self.options['sent_init_type'] = 'uniform'  # TODO: experiment with GloVe
         self.options['sent_init_range'] = 0.01
+        self.options['keep_single_answer'] = True
 
 
         self.options['n_filters_unigram'] = 256

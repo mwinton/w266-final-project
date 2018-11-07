@@ -92,6 +92,7 @@ def load_dataset(dataset_type, options):
             print('Loading dataset...')
             dataset = pickle.load(f)
             print('Dataset loaded')
+            dataset.samples = sorted(dataset.samples, key=lambda sample: sample.image.features_idx)
             samples = dataset.samples
 
             if dataset_type == DatasetType.TRAIN:
