@@ -68,6 +68,9 @@ class ModelOptions(object):
         # Type of action to be performed
         self.options['action_type'] = "train"
 
+        # Experiment to be performed
+        self.options['experiment_id'] = 0       # default is no experiment
+        
         # Image model parameters
         self.options['n_image_embed'] = 512     # VGGNet
         self.options['n_image_regions'] = 196   # 14x14 regions
@@ -126,7 +129,11 @@ class ModelOptions(object):
         self.options['early_stop_patience'] = 5
 
         # MLFlow logging parameters
-        self.options['mlflow_tracking_uri'] = 'http://35.236.106.47:5000'  # Mike's GCE instance
+        if os.environ['MLFLOW_TRACKING_URL']:
+            self.options['logging'] = True
+            self.options['mlflow_url'] = os.environ['MLFLOW_TRACKING_URL']
+        else:
+            self.options['logging'] = False
         self.options['verbose'] = False
         self.options['log_interval'] = 500
         self.options['display_interval'] = 1000    

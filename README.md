@@ -18,7 +18,7 @@ First, download the appropriate datasets, and extract components into the path s
 * [VQA v1 dataset](http://visualqa.org/vqa_v1_download.html)
 * [VQA v2 "balanced" dataset](http://visualqa.org/download.html)
 
-In the /home/<userName>/vqa_data the following directory structure is expected:
+In the /home/&lt;username&gt;/vqa_data the following directory structure is expected:
 ```
 .
 ├── annotations
@@ -29,6 +29,7 @@ In the /home/<userName>/vqa_data the following directory structure is expected:
 ├── images
 │   └── mscoco
     	├── embeddings
+            ├── vgg16
         ├── test2015
     	├── train2014
     	└── val2014
@@ -53,15 +54,28 @@ In the /home/<userName>/vqa_data the following directory structure is expected:
     └── mscoco_question_types.txt
 ```
 
+### Enabling logging:
+
+To enable [MLFlow](https://www.mlflow.org) logging, set the `MLFLOW_TRACKING_URL` environment variable in your `~/.bashrc` file:
+
+```
+export MLFLOW_TRACKING_URL="http://xxx.xxx.xxx.xxx:5000"
+```
+
+If the environment variable isn't set, then logging will be automatically disabled.
+
 ### Training the model:
 
 All runs need to be launched from the ./bin directory
 
 1. Train the SAN model on all the train/val samples. runtime will be quite high (~3hrs per epoch on Nvidia K80)
 
-   > python3 ./visualqa.py --verbose --model SAN  
+```
+python3 ./visualqa.py --verbose --model SAN  
+```
 
 2. (Optional) Train the SAN model with smaller train/val set
 
-   > python3 ./visualqa.py --verbose --model SAN  --max_train_size 20000 --max_val_size 10000
-
+```
+python3 ./visualqa.py --verbose --model SAN  --max_train_size 20000 --max_val_size 10000
+```
