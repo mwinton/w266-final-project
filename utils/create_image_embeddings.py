@@ -23,7 +23,7 @@ from keras.layers import Reshape
 
 import h5py
 
-class imageBatchGenerator(Sequence):
+class ImageBatchGenerator(Sequence):
     """
        Generate batches of images for prediction with indices from batch_start to batch_start+batch_size
        The last batch  requested might not be an exact match with the remaining elements in the image file list  passed.
@@ -43,7 +43,8 @@ class imageBatchGenerator(Sequence):
         self.image_filenames = image_filenames[self.loop_start : self.loop_start + self.items_in_loop]
  
         if  (self.items_in_loop % self.batch_size != 0)  :
-            # pad the list with duplicates
+            # pad the list with duplicates for the last batch  as Keras requires uniform size batches
+            # These are only used to generate embeddings and will be dropped before embeddings are saved.
             lastfile = self.image_filenames[-1]
             padLen = self.batch_size  - (self.items_in_loop % self.batch_size)   
             for _ in range(padLen):
@@ -75,11 +76,12 @@ class imageBatchGenerator(Sequence):
         return (len(self.image_filenames)//(self.batch_size) + 1)
 
     def __getitem__(self, idx):
-        #print("In __getitem__")
+        """
+            provide the images related to  batch (idx)
+            will be called from predict_generator function 
+            Also preprocess the images loaded from disk to confirm with the VGG16 model
+        """
         batch_x = self.image_filenames[idx * self.batch_size:(idx + 1) * self.batch_size]
-        #imgArray = np.vstack([
-        #           self.image_preprocess_VGG16_SAN(imread(self.dir_prefix+file_name))
-        #           for file_name in batch_x])
         imgList = []
         for file_name in batch_x:
             #print("getitem -> loading image {}".format(self.dir_prefix+file_name))
@@ -90,11 +92,10 @@ class imageBatchGenerator(Sequence):
                    self.image_preprocess_VGG16_SAN(img)
                    for img in imgList ])
 
-        #print("__getitem: Image Array shape : ", imgArray.shape)
         return imgArray
 
 
-class createImageVectors():
+class CreateImageVectors():
 
     def __init__(self,rootDir,destDir,targetTask,batch_size,
                  datasetType="mscoco",modelName="VGG16",testDir="test2015/",trainDir="train2014/",valDir="val2014/"):
@@ -176,7 +177,7 @@ class createImageVectors():
         if(self.datasetType == "mscoco"):
             self.getCocoFiles()
         else:
-            print("Only MSCO is currently supported for datasetType")
+            print("Only MSCOCO is currently supported for datasetType")
             return
 
         if(self.modelName=="VGG16"):
@@ -198,7 +199,7 @@ class createImageVectors():
         for loopNum in range (math.ceil(self.numSamples/ maxSampleSizePerLoop)):
             items_in_loop = min(maxSampleSizePerLoop,self.numSamples-loopNum*maxSampleSizePerLoop)
 
-            batchGenerator = imageBatchGenerator(self.dirLoc,fileList,self.batch_size,
+            batchGenerator = ImageBatchGenerator(self.dirLoc,fileList,self.batch_size,
                              loopNum*maxSampleSizePerLoop,
                              items_in_loop, self.numSamples)
             print("In loop => steps {}".format(math.ceil(maxSampleSizePerLoop / self.batch_size)))
@@ -208,7 +209,7 @@ class createImageVectors():
 
 def main(rootDir,destDir,targetTask,batch_size=15):
     ## TODO, need to validate the directories
-    imgClass = createImageVectors(rootDir,destDir,targetTask,batch_size);     
+    imgClass = CreateImageVectors(rootDir,destDir,targetTask,batch_size);     
     imgClass.processImages()
 
 
@@ -243,8 +244,9 @@ if __name__ == "__main__":
             else:
                 raise argparse.ArgumentTypeError(self,"readableDir:{0} is not a readable dir".format(prospective_dir))
 
-    parser = argparse.ArgumentParser(description='Creates Image Embeddings from raw images')
-    parser.add_argument("--rootDir",required=True, action=readableDir,
+    parser = argparse.ArgumentParser(description='Creates Image Embeddings from raw images',
+                        epilog='W266 Final Project (Fall 2018) by Rachel Ho, Ram Iyer, Mike Winton')
+    parser.add_argument("--root_dir",required=True, action=readableDir,
                         help="root directory for all the images. test/train/val directories should reside below this directory")
     parser.add_argument("--destDir",required=True,action=writeableDir,
                         help="destination directory for all the embeddings  ")

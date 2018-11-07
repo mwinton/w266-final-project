@@ -111,14 +111,19 @@ def load_dataset(dataset_type, options):
                 dataset.max_sample_size = max_size
 
             # check to make sure the samples list is sorted by image indices
-            if( all(samples[i].image.features_idx <= samples[i+1].image.features_idx for i in range(len(samples)-1))) :
+            if( all(samples[i].image.features_idx <= samples[i+1].image.features_idx
+                    for i in range(len(samples)-1))) :
+
                  print("Passed sorted sample array check")
             else:
                  assert(0)
 
-            print("{} loaded from disk. Dataset size {}, maxSize from user {} ".format(dataset_type,len(samples),max_size))
+            print("{} loaded from disk. Dataset size {}, Processing {} samples ".format(dataset_type, len(samples), max_size))
 
     except IOError:
+
+        # If dataset does not exist create it and save it for future runs.   
+
         print('Creating dataset...')
         dataset = VQADataset(dataset_type, options)
         print('Preparing dataset...')
@@ -170,16 +175,18 @@ def train(model, dataset, options, val_dataset=None):
 
     print('Start training...')
     if not extended:
-        model.fit_generator(dataset.batch_generator(), steps_per_epoch=samples_per_train_epoch//batch_size, epochs=max_epochs,
-                            callbacks=[save_weights_callback, loss_callback, stop_callback],
+        model.fit_generator(dataset.batch_generator(), steps_per_epoch=samples_per_train_epoch//batch_size,
+                            epochs=max_epochs, callbacks=[save_weights_callback, loss_callback, stop_callback],
                             validation_data=val_dataset.batch_generator(), 
                             validation_steps=samples_per_val_epoch//batch_size,max_queue_size=20)
     else:
-        model.fit_generator(dataset.batch_generator(batch_size, split='train'), steps_per_epoch=dataset.train_size()/batch_size,
+        model.fit_generator(dataset.batch_generator(batch_size, split='train'), 
+                            steps_per_epoch=dataset.train_size()/batch_size,
                             epochs=num_epochs, callbacks=[save_weights_callback, loss_callback, stop_callback],
                             validation_data=dataset.batch_generator(batch_size, split='val'),
                             validation_steps=dataset.val_size()//batch_size,max_queue_size=20)
     print('Trained')
+    # TODO generate plots
 
 
 def validate(model, dataset, options):
@@ -217,7 +224,7 @@ def test(model, dataset, options):
 
     print('Building reverse word dictionary...')
     word_dict = {idx: word for word, idx in dataset.tokenizer.word_index.iteritems()}
-    print('Reverse dictionary build')
+    print('Reverse dictionary built')
 
     print('Saving results...')
     results_dict = [{'answer': word_dict[results[idx]], 'question_id': sample.question.id}
@@ -230,6 +237,10 @@ def test(model, dataset, options):
 # ------------------------------- CALLBACKS -------------------------------
 
 class LossHistoryCallback(Callback):
+    """
+       Registering keras callbacks to be called during training iterations
+       Records the losses for each batch/epoch and stores it to file
+    """
     def __init__(self, results_path):
         super(LossHistoryCallback, self).__init__()
         self.train_losses = []
@@ -255,6 +266,9 @@ class LossHistoryCallback(Callback):
 
 
 class CustomModelCheckpoint(ModelCheckpoint):
+    """
+        Save the model weights at the end of each epoch.
+    """
     def __init__(self, filepath, weights_dir_path, model_num, monitor='val_loss', verbose=0, save_best_only=False,
                  mode='auto'):
         super(CustomModelCheckpoint, self).__init__(filepath, monitor=monitor, verbose=verbose,
@@ -268,6 +282,10 @@ class CustomModelCheckpoint(ModelCheckpoint):
         self.last_epoch = epoch
 
     def on_train_end(self, logs={}):
+        """
+           symlink to the last epoch weights, for easy reference to the final epoch.
+
+        """
         try:
             os.symlink(self.weights_dir_path + 'model_weights_{}.{}.hdf5'.format(self.model_num, self.last_epoch),
                        self.weights_dir_path + 'model_weights_{}'.format(self.model_num))
@@ -288,14 +306,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='VQA Stacked Attention Networks',
                         epilog='W266 Final Project (Fall 2018) by Rachel Ho, Ram Iyer, Mike Winton')
 
-    parser.add_argument('-f', '--fake', action='store_true',
-                        help = 'run fake data through pipeline')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help = 'turn on verbose output')
     parser.add_argument('-b', '--batch_size', type=int,
                         help = 'set batch size (int)')
     parser.add_argument('-e', '--epochs', type=int,
                         help = 'set max number of epochs (int)')
+    parser.add_argument("--max_train_size",type=int,help="maximum number of training samples to use")
+    parser.add_argument("--max_val_size",type=int,help="maximum number of validation samples to use")
 
     parser.add_argument(
         '-m',
@@ -319,8 +337,6 @@ if __name__ == '__main__':
         help='Add this flag if you want to use the extended dataset, this is, use part of the validation dataset to'
              'train your model. Only valid for the --action=train'
     )
-    parser.add_argument("--max_train_size",type=int,help="maximum number of training samples to use")
-    parser.add_argument("--max_val_size",type=int,help="maximum number of validation samples to use")
 
     # Start script
     args = parser.parse_args()
@@ -351,31 +367,6 @@ if __name__ == '__main__':
         model_options['verbose'] = args.verbose
         pprint.pprint(model_options)
 
-    """
-    # always build graph
-    san = StackedAttentionNetwork(options)
-    san.build_graph(options)
-
-    # build fake data if flag was set for a test run
-    if args.fake:
-        options['fake'] = args.fake
-        (images_x_train, sentences_x_train, y_train,
-         images_x_test, sentences_x_test, y_test) = FakeData(options).get_fakes()
-
-    # train if flag was set
-    if args.train:
-        san.train(options, x=[images_x_train, sentences_x_train], y=y_train)
-
-    # evaluate if flag was set
-    if args.score:
-        score=san.evaluate(options, x=[images_x_test, sentences_x_test], y=y_test)
-        # TODO: implement mlflow logging of score
-        
-    # predict if flag was set
-    if args.predict:
-        san.predict(options)
-
-    """     
 
     main(model_options)
 

@@ -44,7 +44,7 @@ def main(model_num, plot_type):
 # ------------------------------- ENTRY POINT -------------------------------
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Main entry point to interact with the VQA module')
+    parser = argparse.ArgumentParser(description='To generate loss plots')
     parser.add_argument(
         '-m',
         '--model',
