@@ -1,3 +1,10 @@
+
+## File to load the dataset and prepare batches for training 
+## Adapted from https://github.com/imatge-upc/vqa-2016-cvprw, Issey Masuda Mora 
+## 
+## Added Memory management related code for Image Embeddings
+
+
 import pickle
 import json
 import random

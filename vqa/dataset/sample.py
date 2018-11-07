@@ -1,3 +1,9 @@
+
+## Datastructures to store questions/answers and images
+## Adapted from https://github.com/imatge-upc/vqa-2016-cvprw, Issey Masuda Mora 
+
+
+
 import os
 
 import numpy as np

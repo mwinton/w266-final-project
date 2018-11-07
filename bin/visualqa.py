@@ -1,3 +1,8 @@
+
+## Main file to launch runs.
+## Adapted from https://github.com/imatge-upc/vqa-2016-cvprw, Issey Masuda Mora	
+
+
 import argparse
 import pickle
 import json

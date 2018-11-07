@@ -1,3 +1,7 @@
+
+## Adapted from https://github.com/imatge-upc/vqa-2016-cvprw, Issey Masuda Mora 
+
+
 from enum import Enum
 
 

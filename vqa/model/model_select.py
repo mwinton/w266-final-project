@@ -1,3 +1,7 @@
+
+## Adapted from https://github.com/imatge-upc/vqa-2016-cvprw, Issey Masuda Mora 
+
+
 from keras.layers import Input, Embedding, merge, LSTM, Dropout, Dense, RepeatVector, BatchNormalization, \
     TimeDistributed, Reshape, concatenate
 from keras.models import Model, model_from_json
