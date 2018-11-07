@@ -29,7 +29,6 @@ ACTIONS = ['train', 'val', 'test', 'eval']
 
 # Defaults
 DEFAULT_MODEL = "baseline"
-#DEFAULT_MODEL = 1  max(ModelLibrary.get_valid_model_nums())
 DEFAULT_ACTION = 'train'
 
 
@@ -39,7 +38,7 @@ def main(options):
 
 
     print('Action: ' + options['action_type'])
-    print('Model number: {}'.format(options['model_num']))
+    print('Model name: {}'.format(options['model_name']))
     print('Extended: {}'.format(options['extended']))
 
     if (options['max_train_size'] != None):
@@ -146,7 +145,7 @@ def train(model, dataset, options, val_dataset=None):
         raise ValueError('If not using the extended dataset, a validation dataset must be provided')
 
 
-    model_num = options["model_num"]
+    model_name = options["model_name"]
     model_weights_path = options["weights_path"]
     losses_path = options["losses_path"]
 
@@ -154,7 +153,7 @@ def train(model, dataset, options, val_dataset=None):
     max_val_size   = options['max_val_size']
 
     loss_callback = LossHistoryCallback(losses_path)
-    save_weights_callback = CustomModelCheckpoint(model_weights_path, options["weights_dir_path"]  , model_num)
+    save_weights_callback = CustomModelCheckpoint(model_weights_path, options["weights_dir_path"]  , model_name)
     stop_callback = EarlyStopping(patience=options['early_stop_patience'])
     batch_size = options['batch_size']
     max_epochs = options['max_epochs']
@@ -269,11 +268,11 @@ class CustomModelCheckpoint(ModelCheckpoint):
     """
         Save the model weights at the end of each epoch.
     """
-    def __init__(self, filepath, weights_dir_path, model_num, monitor='val_loss', verbose=0, save_best_only=False,
+    def __init__(self, filepath, weights_dir_path, model_name, monitor='val_loss', verbose=0, save_best_only=False,
                  mode='auto'):
         super(CustomModelCheckpoint, self).__init__(filepath, monitor=monitor, verbose=verbose,
                                                     save_best_only=save_best_only, mode=mode)
-        self.model_num = model_num
+        self.model_name = model_name
         self.weights_dir_path = weights_dir_path
         self.last_epoch = 0
 
@@ -287,14 +286,14 @@ class CustomModelCheckpoint(ModelCheckpoint):
 
         """
         try:
-            os.symlink(self.weights_dir_path + 'model_weights_{}.{}.hdf5'.format(self.model_num, self.last_epoch),
-                       self.weights_dir_path + 'model_weights_{}'.format(self.model_num))
+            os.symlink(self.weights_dir_path + 'model_weights_{}.{}.hdf5'.format(self.model_name, self.last_epoch),
+                       self.weights_dir_path + 'model_weights_{}'.format(self.model_name))
         except OSError:
             # If the symlink already exist, delete and create again
-            os.remove(self.weights_dir_path + 'model_weights_{}'.format(self.model_num))
+            os.remove(self.weights_dir_path + 'model_weights_{}'.format(self.model_name))
             # Recreate
-            os.symlink(self.weights_dir_path + 'model_weights_{}.{}.hdf5'.format(self.model_num, self.last_epoch),
-                       'model_weights_{}'.format(self.model_num))
+            os.symlink(self.weights_dir_path + 'model_weights_{}.{}.hdf5'.format(self.model_name, self.last_epoch),
+                       'model_weights_{}'.format(self.model_name))
             pass
 
 
@@ -354,7 +353,7 @@ if __name__ == '__main__':
         
 
     # parse args with defaults
-    model_options['model_num'] = args.model 
+    model_options['model_name'] = args.model 
     model_options['action_type'] = args.action
 
     model_options['max_train_size'] = args.max_train_size

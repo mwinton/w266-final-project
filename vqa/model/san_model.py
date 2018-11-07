@@ -347,7 +347,6 @@ class StackedAttentionNetwork(object):
         
         # assemble all these layers into model
         self.model = Model(inputs=[layer_image_input, layer_sent_input], outputs=layer_prob_answer)
-        if verbose: print(self.model.summary())
 
         optimizer = keras.optimizers.Adam(lr=0.001)
         
