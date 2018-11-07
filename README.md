@@ -63,5 +63,5 @@ All runs need to be launched from the ./bin directory
 
 2. (Optional) Train the SAN model with smaller train/val set
 
-   > python3 ./visualqa.py --verbose --model SAN  --max_train_size 20000 -max_val_size 10000
+   > python3 ./visualqa.py --verbose --model SAN  --max_train_size 20000 --max_val_size 10000
 
