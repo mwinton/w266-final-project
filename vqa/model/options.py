@@ -129,6 +129,7 @@ class ModelOptions(object):
         self.options['early_stop_patience'] = 5
 
         # MLFlow logging parameters
+        self.options['logging'] = True
         self.options['mlflow_tracking_uri'] = 'http://35.236.106.47:5000'  # Mike's GCE instance
         self.options['verbose'] = False
         self.options['log_interval'] = 500

@@ -309,6 +309,9 @@ if __name__ == '__main__':
 
     parser.add_argument('-v', '--verbose', action='store_true',
                         help = 'turn on verbose output')
+    parser.add_argument('--no_logging', action='store_true',
+                        help = 'turn off logging to MLFlow server')
+
     parser.add_argument('-b', '--batch_size', type=int,
                         help = 'set batch size (int)')
     parser.add_argument('-e', '--epochs', type=int,
@@ -354,6 +357,10 @@ if __name__ == '__main__':
     # load model options from config file
     model_options = ModelOptions().get_options()
     
+    # disable logging to MLFlow server; usually only used for debugging
+    if args.no_logging:
+        model_options['logging'] = False
+
     # load experiment attributes; override model defaults
     if args.experiment:
         model_options = ExperimentLibrary.get_experiment(args.experiment, model_options)
