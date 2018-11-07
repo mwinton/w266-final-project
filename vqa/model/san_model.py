@@ -12,7 +12,7 @@ import mlflow.keras
 from pprint import pprint
 
 # our own imports
-from vqa_options import ModelOptions
+from . options import ModelOptions
 
 class StackedAttentionNetwork(object):
     
@@ -149,38 +149,45 @@ class StackedAttentionNetwork(object):
         image_input_dim = self.options['vggnet_input_dim']
         image_input_depth = self.options['image_depth']
 
-        # image input as [batch_size, image_input_dim, image_input_dim, image_input_depth] of floats
-        layer_image_input = Input(batch_shape=(None, image_input_dim, image_input_dim, image_input_depth),
-                                  dtype='float32',
-                                  sparse=False,
-                                  name='image_input'
-                                 )
-        if verbose: print('layer_image_input shape:', layer_image_input._keras_shape)
-        
-        # Runs VGGNet16 model and extracts last pooling layeer
-        # in:  [batch_size, image_input_dim, image_input_dim, image_input_depth]
-        # out: [batch_size, image_output_dim, image_output_dim, image_output_depth]
-        image_model_initializer = self.options.get('image_init_type', None)
-        model_vgg16 = VGG16(include_top=False,
-                            weights=image_model_initializer,  # None = random initialization
-                            input_tensor=layer_image_input,
-                            input_shape=(image_input_dim, image_input_dim, image_input_depth),
-                            pooling=None  # output is 4D tensor from last convolutional layer
-                            # TODO: check the order of returned tensor dimensions
-                           )
-        if verbose: print('model_vgg16 output shape:', model_vgg16.output_shape)
-        
         # TODO: determine these dynamically from the VGG16 output
         n_image_regions = self.options['n_image_regions']
         n_image_embed = self.options['n_image_embed']
 
-        # Reshaped image output to flatten the image region vectors
-        # in:  [batch_size, image_output_dim, image_output_dim, n_image_embed]
-        # out: [batch_size, n_image_regions, n_image_embed]
-        layer_reshaped_vgg16 = Reshape((n_image_regions, n_image_embed),  # excludes batch size
-                                       name='reshaped_vgg16'
-                                      )(model_vgg16.output)  # model.output gives a tensor
-        if verbose: print('layer_reshaped_vgg16 output shape:', layer_reshaped_vgg16.shape)
+        if options['start_with_image_embed']:
+            # if loading embeddings directly, we can start with this layer
+            layer_image_input = layer_reshaped_vgg16  = Input(batch_shape=(None,n_image_regions,n_image_embed),name="reshaped_vgg16")
+            
+            if verbose: print('layer_reshaped_vgg16 output shape:', layer_reshaped_vgg16.shape)
+        else:
+            # image input as [batch_size, image_input_dim, image_input_dim, image_input_depth] of floats
+            layer_image_input = Input(batch_shape=(None, image_input_dim, image_input_dim, image_input_depth),
+                                      dtype='float32',
+                                      sparse=False,
+                                      name='image_input'
+                                     )
+            if verbose: print('layer_image_input shape:', layer_image_input._keras_shape)
+        
+            # Runs VGGNet16 model and extracts last pooling layeer
+            # in:  [batch_size, image_input_dim, image_input_dim, image_input_depth]
+            # out: [batch_size, image_output_dim, image_output_dim, image_output_depth]
+            image_model_initializer = self.options.get('image_init_type', None)
+            model_vgg16 = VGG16(include_top=False,
+                                weights=image_model_initializer,  # None = random initialization
+                                input_tensor=layer_image_input,
+                                input_shape=(image_input_dim, image_input_dim, image_input_depth),
+                                pooling=None  # output is 4D tensor from last convolutional layer
+                                # TODO: check the order of returned tensor dimensions
+                               )
+            if verbose: print('model_vgg16 output shape:', model_vgg16.output_shape)
+        
+
+            # Reshaped image output to flatten the image region vectors
+            # in:  [batch_size, image_output_dim, image_output_dim, n_image_embed]
+            # out: [batch_size, n_image_regions, n_image_embed]
+            layer_reshaped_vgg16 = Reshape((n_image_regions, n_image_embed),  # excludes batch size
+                                           name='reshaped_vgg16'
+                                          )(model_vgg16.output)  # model.output gives a tensor
+            if verbose: print('layer_reshaped_vgg16 output shape:', layer_reshaped_vgg16.shape)
         
         # Single dense layer to transform dimensions to match sentence dims
         # in:  [batch_size, n_image_regions, image_output_depth]
@@ -325,7 +332,8 @@ class StackedAttentionNetwork(object):
         # final classification
         # in:  [batch_size, n_attention_input]
         # out: [batch_size, n_answer_classes]
-        n_answer_classes = self.options['n_answer_classes']
+        #n_answer_classes = self.options['n_answer_classes']
+        n_answer_classes = options['n_vocab']
         layer_prob_answer = Dense(units=n_answer_classes,
                                   activation='softmax',
                                   use_bias=True,
@@ -340,10 +348,12 @@ class StackedAttentionNetwork(object):
         # assemble all these layers into model
         self.model = Model(inputs=[layer_image_input, layer_sent_input], outputs=layer_prob_answer)
         if verbose: print(self.model.summary())
+
+        optimizer = keras.optimizers.Adam(lr=0.001)
         
         # compile model so that it's ready to train
-        self.model.compile (optimizer='adagrad',
-                            loss='sparse_categorical_crossentropy',  # can train if not using the sparse version
+        self.model.compile (optimizer= optimizer,
+                            loss='categorical_crossentropy',  # can train if not using the sparse version
                             # TODO: to match Yang's paper we may need to write our own loss function
                             # see https://github.com/keras-team/keras/blob/master/keras/losses.py
                             metrics=['accuracy'])
