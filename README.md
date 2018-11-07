@@ -19,6 +19,7 @@ First, download the appropriate datasets, and extract components into the path s
 * [VQA v2 "balanced" dataset](http://visualqa.org/download.html)
 
 In the /home/<userName>/vqa_data the following directory structure is expected:
+```
 .
 ├── annotations
 │   ├── mscoco_train2014_annotations.json
@@ -50,7 +51,7 @@ In the /home/<userName>/vqa_data the following directory structure is expected:
 ├── questiontypes
     ├── abstract_v002_question_types.txt
     └── mscoco_question_types.txt
-
+```
 
 ### Training the model:
 
