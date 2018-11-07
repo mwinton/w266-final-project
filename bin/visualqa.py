@@ -339,7 +339,7 @@ if __name__ == '__main__':
 
     # parse args with defaults
     model_options['model_num'] = args.model 
-    model_options['action'] = args.action
+    model_options['action_type'] = args.action
 
     model_options['max_train_size'] = args.max_train_size
     model_options['max_val_size']   = args.max_val_size
