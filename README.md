@@ -53,6 +53,16 @@ In the /home/&lt;username&gt;/vqa_data the following directory structure is expe
     └── mscoco_question_types.txt
 ```
 
+### Enabling logging:
+
+To enable [MLFlow](https://www.mlflow.org) logging, set the `MLFLOW_TRACKING_URL` environment variable in your `~/.bashrc` file:
+
+```
+export MLFLOW_TRACKING_URL="http://xxx.xxx.xxx.xxx:5000"
+```
+
+If the environment variable isn't set, then logging will be automatically disabled.
+
 ### Training the model:
 
 All runs need to be launched from the ./bin directory
