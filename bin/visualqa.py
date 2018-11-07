@@ -19,6 +19,7 @@ sys.path.append('..')
 from vqa.dataset.types import DatasetType
 from vqa.dataset.dataset import VQADataset, MergeDataset
 
+from vqa.experiments.experiment_select import ExperimentLibrary
 from vqa.model.model_select import ModelLibrary
 from vqa.model.options import ModelOptions 
 
@@ -29,6 +30,7 @@ ACTIONS = ['train', 'val', 'test', 'eval']
 
 # Defaults
 DEFAULT_MODEL = "baseline"
+DEFAULT_EXPERIMENT = 0
 DEFAULT_ACTION = 'train'
 
 
@@ -311,8 +313,10 @@ if __name__ == '__main__':
                         help = 'set batch size (int)')
     parser.add_argument('-e', '--epochs', type=int,
                         help = 'set max number of epochs (int)')
-    parser.add_argument("--max_train_size",type=int,help="maximum number of training samples to use")
-    parser.add_argument("--max_val_size",type=int,help="maximum number of validation samples to use")
+    parser.add_argument("--max_train_size", type=int,
+                        help="maximum number of training samples to use")
+    parser.add_argument("--max_val_size", type=int,
+                        help="maximum number of validation samples to use")
 
     parser.add_argument(
         '-m',
@@ -320,8 +324,7 @@ if __name__ == '__main__':
         type=str.lower,
         choices=ModelLibrary.get_valid_model_names(),
         default=DEFAULT_MODEL,
-        help='Specify the model architecture to interact with. Each model architecture has a model number associated.'
-             'By default, the model will be the last architecture created, i.e., the model with the biggest number'
+        help='Specify the model architecture to interact with. Each model architecture has a model name associated.'
     )
     parser.add_argument(
         '-a',
@@ -336,12 +339,24 @@ if __name__ == '__main__':
         help='Add this flag if you want to use the extended dataset, this is, use part of the validation dataset to'
              'train your model. Only valid for the --action=train'
     )
+    parser.add_argument(
+        '-x',
+        '--experiment',
+        type=int,
+        default=DEFAULT_EXPERIMENT,
+        choices=ExperimentLibrary.get_valid_experiment_ids(),
+        help='Specify the experiment configuration ID. Omitting argument or selecting 0 means no experiment.'
+    )
 
     # Start script
     args = parser.parse_args()
 
-   # load model options from config file
+    # load model options from config file
     model_options = ModelOptions().get_options()
+    
+    # load experiment attributes; override model defaults
+    if args.experiment:
+        model_options = ExperimentLibrary.get_experiment(args.experiment, model_options)
     
     # override default for max_epochs if specified
     if args.epochs:

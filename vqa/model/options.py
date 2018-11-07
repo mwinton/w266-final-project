@@ -68,6 +68,9 @@ class ModelOptions(object):
         # Type of action to be performed
         self.options['action_type'] = "train"
 
+        # Experiment to be performed
+        self.options['experiment_id'] = 0       # default is no experiment
+        
         # Image model parameters
         self.options['n_image_embed'] = 512     # VGGNet
         self.options['n_image_regions'] = 196   # 14x14 regions
