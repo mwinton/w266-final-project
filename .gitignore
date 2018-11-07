@@ -8,6 +8,5 @@ __pycache__/
 *.swo
 
 data/preprocessed/
-bin/.visualqa.py.swp
 saved_models/
 results/
