@@ -208,7 +208,7 @@ class ModelOptions(object):
             the -extended option
         """
         action    = options['action_type']
-        model_num = options["model_num"]
+        model_name = options["model_name"]
         extended  = options['extended']
 
         weights_dir_path = options['weights_dir_path']
@@ -220,20 +220,20 @@ class ModelOptions(object):
             prefix = ""
 
         if (action == "train"):
-            options["weights_path"] = weights_dir_path+'model_weights_' + str(model_num) + prefix + '.{epoch:02d}.hdf5'
-            options['losses_path'] = results_dir_path+'losses_{}{}.hdf5'.format(model_num,prefix)
+            options["weights_path"] = weights_dir_path+'model_weights_' + model_name + prefix + '.{epoch:02d}.hdf5'
+            options['losses_path'] = results_dir_path+'losses_{}{}.hdf5'.format(model_name,prefix)
             
         elif (action == "val" ):
-            options["weights_path"] = weights_dir_path + 'model_weights_{}'.format(model_num)
+            options["weights_path"] = weights_dir_path + 'model_weights_{}'.format(model_name)
 
         elif (action == "test"):
-            options['weights_path'] = weights_dir_path + 'model_weights_{}{}'.format(model_num,prefix)
-            options['results_path'] = results_dir_path + 'test2015_results_{}{}.json'.format(model_num,prefix)
+            options['weights_path'] = weights_dir_path + 'model_weights_{}{}'.format(model_name,prefix)
+            options['results_path'] = results_dir_path + 'test2015_results_{}{}.json'.format(model_name,prefix)
         
         else:
             # action type is eval
-            options['weights_path'] = weights_dir_path + 'model_weights_{}{}'.format(model_num,prefix)
-            options['results_path'] = results_dir_path + 'val2014_results_{}{}.json'.format(model_num,prefix)
+            options['weights_path'] = weights_dir_path + 'model_weights_{}{}'.format(model_name,prefix)
+            options['results_path'] = results_dir_path + 'val2014_results_{}{}.json'.format(model_name,prefix)
 
         return options
 
