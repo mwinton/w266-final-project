@@ -12,6 +12,7 @@ The [`vqa_demo.ipynb`](vqa_demo.ipynb) notebook demonstrates the format of the d
 In order to run this demo notebook, you must first download and extract the various components of the [VQA 2.0 "balanced" dataset](http://visualqa.org/download.html) and the corresponding COCO images linked from that page.  Downloading the images took me ~1.5 hours from a Google Cloud Compute instance.
 
 In the /home/<userName>/vqa_data the following directory structure is expected:
+```
 .
 ├── annotations
 │   ├── mscoco_train2014_annotations.json
@@ -43,7 +44,7 @@ In the /home/<userName>/vqa_data the following directory structure is expected:
 ├── questiontypes
     ├── abstract_v002_question_types.txt
     └── mscoco_question_types.txt
-
+```
 
 Sample runs:
 
