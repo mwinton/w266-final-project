@@ -29,6 +29,7 @@ In the /home/&lt;username&gt;/vqa_data the following directory structure is expe
 ├── images
 │   └── mscoco
     	├── embeddings
+            ├── vgg16
         ├── test2015
     	├── train2014
     	└── val2014
