@@ -63,7 +63,7 @@ class ModelOptions(object):
         self.options['losses_path']  = ""
 
         # Model selection parameter
-        self.options['model_num'] = 1 # default is the first/baseline model
+        self.options['model_name'] = "baseline"  # default is the first/baseline model
 
         # Type of action to be performed
         self.options['action_type'] = "train"

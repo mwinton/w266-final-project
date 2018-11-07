@@ -14,15 +14,9 @@ from . san_model import StackedAttentionNetwork
 class ModelLibrary:
     # ---------------------------------- CONSTANTS --------------------------------
     # Model identifiers
-    MODEL_ONE = 1       # Base model
-    MODEL_TWO = 2       # Batch normalization
-    MODEL_THREE = 3     # Modified learning rate
-    MODEL_FOUR = 4      # Multi-word answer
-    MODEL_FIVE = 5      # Sentence embedding
-    MODEL_SIX = 6       # Sentence embedding + batch norm
+    MODEL_BASELINE = "baseline"        # Base model
+    MODEL_SAN      = "san"       # SAN Model  (To reproduce Yang's paper results)
 
-    # Generic model parameters
-    EMBED_HIDDEN_SIZE = 100
 
     # Path
     MODELS_PATH = BASE_DIR + 'saved_models/'
@@ -33,19 +27,20 @@ class ModelLibrary:
         pass
 
     @classmethod
-    def get_valid_model_nums(cls):
-        valid_nums = [cls.__dict__[key] for key in cls.__dict__.keys() if key.startswith('MODEL_')]
-        valid_nums.sort()
-        return valid_nums
+    def get_valid_model_names(cls):
+        valid_names = [cls.__dict__[key] for key in cls.__dict__.keys() if key.startswith('MODEL_')]
+        valid_names.sort()
+        print("Valid Model Names",valid_names)
+        return valid_names
 
     @staticmethod
     def get_model(options):
 
-        model_num = options['model_num']
+        model_name = options['model_name']
 
-        if model_num == ModelLibrary.MODEL_ONE:
+        if model_name == ModelLibrary.MODEL_BASELINE:
             return ModelLibrary.get_baseline_model(options)
-        elif model_num == ModelLibrary.MODEL_TWO:
+        elif model_name == ModelLibrary.MODEL_SAN:
             return ModelLibrary.get_san_model(options)
         else:
             print("Model not registered")
@@ -53,8 +48,8 @@ class ModelLibrary:
 
     @staticmethod
     def get_baseline_model(options):
-        model_num = ModelLibrary.MODEL_ONE
-        model_path = ModelLibrary.MODELS_PATH + 'model_{}.json'.format(model_num)
+        model_name = ModelLibrary.MODEL_BASELINE
+        model_path = ModelLibrary.MODELS_PATH + 'model_{}.json'.format(model_name)
         try:
             with open(model_path, 'r') as f:
                 print('Loading model...')
@@ -111,8 +106,8 @@ class ModelLibrary:
 
     @staticmethod
     def get_san_model(options):
-        model_num = ModelLibrary.MODEL_ONE
-        model_path = ModelLibrary.MODELS_PATH + 'model_{}.json'.format(model_num)
+        model_name = ModelLibrary.MODEL_SAN
+        model_path = ModelLibrary.MODELS_PATH + 'model_{}.json'.format(model_name)
 
         optimizer     = options['optimizer']
         loss_function = options['loss_function']

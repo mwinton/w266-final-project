@@ -28,7 +28,7 @@ ACTIONS = ['train', 'val', 'test', 'eval']
 
 
 # Defaults
-DEFAULT_MODEL = 1 
+DEFAULT_MODEL = "baseline"
 #DEFAULT_MODEL = 1  max(ModelLibrary.get_valid_model_nums())
 DEFAULT_ACTION = 'train'
 
@@ -300,8 +300,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-m',
         '--model',
-        type=int,
-        choices=ModelLibrary.get_valid_model_nums(),
+        type=str,
+        choices=ModelLibrary.get_valid_model_names(),
         default=DEFAULT_MODEL,
         help='Specify the model architecture to interact with. Each model architecture has a model number associated.'
              'By default, the model will be the last architecture created, i.e., the model with the biggest number'
