@@ -30,8 +30,11 @@ class ExperimentLibrary:
         print('Setting up experiment {}'.format(id))
         options['experiment_id'] = id
         
+        # TODO: replace this statement to load experiment_name from json file
+        options['experiment_name'] = 'experiment_{}'.format(id)
+        
         if id != ExperimentLibrary.EXPERIMENT_0:
-            # TODO: implement experiment loading
+            # TODO: load json; save parameters to options
             pass
         
         return options

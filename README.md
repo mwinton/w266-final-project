@@ -56,10 +56,10 @@ In the /home/&lt;username&gt;/vqa_data the following directory structure is expe
 
 ### Enabling logging:
 
-To enable [MLFlow](https://www.mlflow.org) logging, set the `MLFLOW_TRACKING_URL` environment variable in your `~/.bashrc` file:
+To enable [MLFlow](https://www.mlflow.org) logging, set the `MLFLOW_TRACKING_URI` environment variable in your `~/.bashrc` file:
 
 ```
-export MLFLOW_TRACKING_URL="http://xxx.xxx.xxx.xxx:5000"
+export MLFLOW_TRACKING_URI="http://xxx.xxx.xxx.xxx:5000"
 ```
 
 If the environment variable isn't set, then logging will be automatically disabled.
