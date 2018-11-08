@@ -12,6 +12,7 @@ from . san_model import StackedAttentionNetwork
 
 class ModelLibrary:
     # ---------------------------------- CONSTANTS --------------------------------
+
     # Model identifiers
     MODEL_BASELINE = "baseline"  # Base model
     MODEL_SAN      = "san"       # SAN Model  (To reproduce Yang's paper results)
