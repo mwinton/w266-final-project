@@ -89,11 +89,11 @@ class VQASample:
                             'associated output')
 
         answer = self.answer.get_tokens()
-        one_hot_ans = np.zeros(self.answer.vocab_size)
+        one_hot_ans = np.zeros(self.answer.n_answer_classes)
 
         if answer:
-            # TODO: extend to multiple word answers
-            idx = answer[0]  # Get only one word
+            idx = self.answer.one_hot_index
+            assert(idx != -1)
             # One-hot vector
             one_hot_ans[idx] = 1
 
@@ -186,7 +186,7 @@ class Question:
 class Answer:
     """Class that holds the information of a single answer of a VQA sample"""
 
-    def __init__(self, answer_id, answer, question_id, image_id, vocab_size, tokenizer=None):
+    def __init__(self, answer_id, answer, question_id, image_id, vocab_size, n_answer_classes, tokenizer=None):
         """Instantiates an Answer object.
 
         Args:
@@ -229,6 +229,11 @@ class Answer:
                 raise ValueError('vocab_size has to be a positive integer')
         except:
             raise ValueError('vocab_size has to be a positive integer')
+
+        self.n_answer_classes = n_answer_classes
+
+        # will be set later when the top answers are known
+        self.one_hot_index = -1 
 
         self.answer = answer
         self._tokens_idx = []

@@ -16,6 +16,8 @@ import scipy.io
 import h5py
 import time
 
+from collections import Counter
+
 from keras.preprocessing.text import Tokenizer
 
 from .sample import Question, Answer, Image, VQASample
@@ -97,6 +99,9 @@ class VQADataset:
         # Vocabulary size
         self.vocab_size = self.options['n_vocab']
 
+        # Number of answer classes
+        self.n_answer_classes = self.options['n_answer_classes']
+
         # Tokenizer path
         self.tokenizer_path = self.options['tokenizer_path']
         print("Debug: Tokenizer path -> ",self.tokenizer_path)
@@ -115,6 +120,8 @@ class VQADataset:
         # Question max len
         self.question_max_len = self.options['max_sentence_len']
 
+        self.answer_one_hot_mapping = None
+
         if (dataset_type == DatasetType.TRAIN):
             self.max_sample_size = self.options['max_train_size']
         elif (dataset_type == DatasetType.VALIDATION):
@@ -123,13 +130,20 @@ class VQADataset:
         # List with samples
         self.samples = []
 
-    def prepare(self):
+    def prepare(self,answer_one_hot_mapping):
         """Prepares the dataset to be used.
 
         It will load all the questions and answers in memory and references to the images. It will also create a
         tokenizer holding the word dictionary and both answers and questions will be tokenized and encoded using that
         tokenizer.
+
+        As a side result, this function also creates a one hot encoding index for all the top (n_answer_classes) answer choices
+        Any answer outside the scope of this is tagged with a special out of vocab index - index 0
         """
+
+        # if this isn't a training dataset, the answer one hot indices are expected to be available
+        if (self.dataset_type != DatasetType.TRAIN):
+            assert(answer_one_hot_mapping != None)
 
         # Load QA
         questions = self._create_questions_dict(self.questions_path)
@@ -139,6 +153,10 @@ class VQADataset:
         image_ids = self._get_image_ids(self.features_path)
         images = self._create_images_dict(image_ids)
         print('Images dict created')
+
+        # We only keep the n_answer_classes choices for answers as this
+        # is formulated as a classification problem
+        answers = self.encode_answers(answers,answer_one_hot_mapping)
 
         # Ensure we have a tokenizer with a dictionary
         self._init_tokenizer(questions, answers)
@@ -169,6 +187,44 @@ class VQADataset:
         if (self.max_sample_size == None):
             self.max_sample_size = len(self.samples)
 
+
+    def encode_answers(self,answers,answer_one_hot_mapping):
+        """
+           keep top n_answer_classes  most common answers to reduce the number of answer classes
+           returns the reduced set of answers and corresponding questions.
+        """
+
+        if answer_one_hot_mapping == None:
+
+            answer_counts = Counter() 
+            for answer in answers.values():
+                answer_counts[answer.answer] += 1
+
+            sorted_answers = answer_counts.most_common(self.n_answer_classes) 
+
+            print("Top 100 answers are ", sorted_answers[:100])
+
+            # one slot is reserved for out of vocabulary words
+            top_k = self.n_answer_classes - 1
+
+            # Note that sorted_answers are ("answer text",count) tuples
+            # we store the index as that would be used for the one hot encoding
+            # index starts at 1 for valid training words. index 0 is reserved for out of vocab words seen in validation/test
+            self.answer_one_hot_mapping = {answer_tuple[0]:one_hot_idx+1 
+                                           for one_hot_idx,answer_tuple in enumerate(sorted_answers[:top_k])}
+            self.answer_one_hot_mapping['<unk>'] = 0
+
+        else:
+            self.answer_one_hot_mapping = answer_one_hot_mapping
+
+        print("Length of one hot mapping vector",len(self.answer_one_hot_mapping))
+
+
+        for answer_id, answer in answers.items():
+            one_hot_index = self.answer_one_hot_mapping.get(answer.answer,0)
+            answers[answer_id].one_hot_index = one_hot_index
+
+        return answers    
 
     def pad_samples(self,num_samples,batch_size):
         """
@@ -350,7 +406,7 @@ class VQADataset:
             # Initialize matrix
             I = np.zeros((batch_size,n_image_regions,n_image_embed), dtype=np.float32)
             Q = np.zeros((batch_size, self.question_max_len), dtype=np.int32)
-            A = np.zeros((batch_size, self.vocab_size), dtype=np.bool_)
+            A = np.zeros((batch_size, self.n_answer_classes), dtype=np.bool_)
 
             # randomize order of samples within a batch
             batch_indices = [i for i in range(batch_start,batch_end)]
@@ -448,12 +504,12 @@ class VQADataset:
         if (self.options["keep_single_answer"] == False): 
             answers = {(annotation['question_id'] * 10 + (answer['answer_id'] - 1)):
                        Answer(answer['answer_id'], answer['answer'], annotation['question_id'],
-                              annotation['image_id'], self.vocab_size)
+                              annotation['image_id'], self.vocab_size, self.n_answer_classes)
                        for annotation in answers_json['annotations'] for answer in annotation['answers']}
         else:
             answers  = answers = {annotation['question_id'] * 10 :
-                                  Answer(annotation['question_id'] * 10, annotation['multiple_choice_answer'], annotation['question_id'],
-                                  annotation['image_id'], self.vocab_size)
+                                  Answer(annotation['question_id'] * 10, annotation['multiple_choice_answer'], 
+                                  annotation['question_id'], annotation['image_id'], self.vocab_size, self.n_answer_classes)
                                   for annotation in answers_json['annotations'] }
         return answers
 

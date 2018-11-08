@@ -67,6 +67,7 @@ class ModelLibrary:
             max_sentence_len = options['max_sentence_len']
             vocabulary_size  = options['n_vocab']
             sentence_embed_size  = options['n_sent_embed']
+            n_answer_classes   = options['n_answer_classes']
 
             image_input = Input(batch_shape=(None,n_image_regions,n_image_embed))
             image_reshape  = Reshape((n_image_regions * n_image_embed,))(image_input)
@@ -83,7 +84,7 @@ class ModelLibrary:
             merged = concatenate([image_repeat, question_embedded])  # Merge for layers merge for tensors
             x = LSTM(sentence_embed_size, return_sequences=False)(merged)
             x = Dropout(0.5)(x)
-            output = Dense(units=vocabulary_size, activation='softmax')(x)
+            output = Dense(units=n_answer_classes, activation='softmax')(x)
 
             vqa_model = Model(inputs=[image_input, question_input], outputs=output)
             print('Model created')

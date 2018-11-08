@@ -129,7 +129,7 @@ class ModelOptions(object):
         self.options['early_stop_patience'] = 5
 
         # MLFlow logging parameters
-        if os.environ['MLFLOW_TRACKING_URL']:
+        if 'MLFLOW_TRACKING_URL' in  os.environ:
             self.options['logging'] = True
             self.options['mlflow_url'] = os.environ['MLFLOW_TRACKING_URL']
         else:
