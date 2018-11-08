@@ -23,6 +23,7 @@ from keras.preprocessing.text import Tokenizer
 from .sample import Question, Answer, Image, VQASample
 from .types import DatasetType
 from ..model.options import ModelOptions
+from .process_tokens import process_sentence, process_answer
 
 
 
@@ -190,15 +191,14 @@ class VQADataset:
 
     def encode_answers(self,answers,answer_one_hot_mapping):
         """
-           keep top n_answer_classes  most common answers to reduce the number of answer classes
-           returns the reduced set of answers and corresponding questions.
+           keep top [n_answer_classes]  most common answers to reduce the number of answer classes
         """
 
         if answer_one_hot_mapping == None:
 
             answer_counts = Counter() 
             for answer in answers.values():
-                answer_counts[answer.answer] += 1
+                answer_counts[answer.answer_string] += 1
 
             sorted_answers = answer_counts.most_common(self.n_answer_classes) 
 
@@ -221,7 +221,7 @@ class VQADataset:
 
 
         for answer_id, answer in answers.items():
-            one_hot_index = self.answer_one_hot_mapping.get(answer.answer,0)
+            one_hot_index = self.answer_one_hot_mapping.get(answer.answer_string,0)
             answers[answer_id].one_hot_index = one_hot_index
 
         return answers    
@@ -473,7 +473,7 @@ class VQADataset:
 
         questions_json = json.load(open(questions_json_path))
         questions = {question['question_id']:
-                         Question(question['question_id'], question['question'], question['image_id'],
+                         Question(question['question_id'], process_sentence(question['question']), question['image_id'],
                                   self.vocab_size)
                      for question in questions_json['questions']}
         return questions
@@ -503,12 +503,12 @@ class VQADataset:
        
         if (self.options["keep_single_answer"] == False): 
             answers = {(annotation['question_id'] * 10 + (answer['answer_id'] - 1)):
-                       Answer(answer['answer_id'], answer['answer'], annotation['question_id'],
+                       Answer(answer['answer_id'], process_answer(answer['answer']), annotation['question_id'],
                               annotation['image_id'], self.vocab_size, self.n_answer_classes)
                        for annotation in answers_json['annotations'] for answer in annotation['answers']}
         else:
             answers  = answers = {annotation['question_id'] * 10 :
-                                  Answer(annotation['question_id'] * 10, annotation['multiple_choice_answer'], 
+                                  Answer(annotation['question_id'] * 10, process_answer(annotation['multiple_choice_answer']), 
                                   annotation['question_id'], annotation['image_id'], self.vocab_size, self.n_answer_classes)
                                   for annotation in answers_json['annotations'] }
         return answers
@@ -542,7 +542,7 @@ class VQADataset:
 
         if not hasattr(self.tokenizer, 'word_index'):
             questions_list = [question.question for _, question in questions.items()]
-            answers_list = [answer.answer for _, answer in answers.items()]
+            answers_list = [answer.answer_string for _, answer in answers.items()]
 
             print("Sample Questions : \n {}".format(questions_list[:10]))
 

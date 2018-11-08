@@ -71,7 +71,7 @@ class ModelLibrary:
 
             image_input = Input(batch_shape=(None,n_image_regions,n_image_embed))
             image_reshape  = Reshape((n_image_regions * n_image_embed,))(image_input)
-            image_flat  = Dense(1024,activation="relu")(image_reshape)
+            image_flat  = Dense(1024, activation="relu")(image_reshape)
             image_repeat = RepeatVector(n=max_sentence_len)(image_flat)
 
             # Question

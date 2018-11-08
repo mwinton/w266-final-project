@@ -242,11 +242,11 @@ def test(model, dataset, options):
     print('Results transformed')
 
     print('Building reverse word dictionary...')
-    word_dict = {idx: word for word, idx in dataset.answer_one_hot_mapping.items()}
+    answer_dict = {idx: word for word, idx in dataset.answer_one_hot_mapping.items()}
     print('Reverse dictionary built')
 
     print('Saving results...')
-    results_dict = [{'answer': word_dict[results[idx]], 'question_id': sample.question.id}
+    results_dict = [{'answer': answer_dict[results[idx]], 'question_id': sample.question.id}
                     for idx, sample in enumerate(dataset.samples)]
     with open(results_path, 'w') as f:
         json.dump(results_dict, f)

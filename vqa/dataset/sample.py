@@ -93,6 +93,7 @@ class VQASample:
 
         if answer:
             idx = self.answer.one_hot_index
+            # Just to make sure that all answers have appropriate indices assigned
             assert(idx != -1)
             # One-hot vector
             one_hot_ans[idx] = 1
@@ -186,7 +187,7 @@ class Question:
 class Answer:
     """Class that holds the information of a single answer of a VQA sample"""
 
-    def __init__(self, answer_id, answer, question_id, image_id, vocab_size, n_answer_classes, tokenizer=None):
+    def __init__(self, answer_id, answer_string, question_id, image_id, vocab_size, n_answer_classes, tokenizer=None):
         """Instantiates an Answer object.
 
         Args:
@@ -235,14 +236,14 @@ class Answer:
         # will be set later when the top answers are known
         self.one_hot_index = -1 
 
-        self.answer = answer
+        self.answer_string = answer_string
         self._tokens_idx = []
 
         # Validate tokenizer class
         if tokenizer:
             if isinstance(tokenizer, Tokenizer):
                 self.tokenizer = tokenizer
-                self._tokens_idx = self.tokenizer.texts_to_sequences([self.answer])[0]
+                self._tokens_idx = self.tokenizer.texts_to_sequences([self.answer_string])[0]
             else:
                 raise TypeError('The tokenizer param must be an instance of keras.preprocessing.text.Tokenizer')
 
@@ -259,9 +260,9 @@ class Answer:
 
         if tokenizer:
             self.tokenizer = tokenizer
-            self._tokens_idx = self.tokenizer.texts_to_sequences([self.answer])[0]
+            self._tokens_idx = self.tokenizer.texts_to_sequences([self.answer_string])[0]
         elif self.tokenizer:
-            self._tokens_idx = self.tokenizer.texts_to_sequences([self.answer])[0]
+            self._tokens_idx = self.tokenizer.texts_to_sequences([self.answer_string])[0]
         else:
             raise TypeError('tokenizer cannot be of type None, you have to provide an instance of '
                             'keras.preprocessing.text.Tokenizer if you haven\'t provided one yet')
