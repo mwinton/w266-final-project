@@ -1,9 +1,9 @@
 import argparse
-import sys
-
+import datetime
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
 
 sys.path.append('..')
 
@@ -38,7 +38,11 @@ def main(model_num, plot_type):
     max_train_loss = np.amax(train_losses)
     max_val_loss = np.amax(val_losses)
     plt.ylim([0, max(max_train_loss, max_val_loss) + 1])
-    plt.savefig('../results/loss_curves_{}_{}.png'.format(plot_type, model_num))
+    
+    # save time-stamped figure
+    d = datetime.datetime.now().isoformat()
+    fig_path = '../results/loss_curves_{}_{}_{}.png'.format(plot_type, model_num, d)
+    plt.savefig(fig_path)
 
 
 # ------------------------------- ENTRY POINT -------------------------------
