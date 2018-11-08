@@ -358,20 +358,6 @@ class StackedAttentionNetwork(object):
                             # see https://github.com/keras-team/keras/blob/master/keras/losses.py
                             metrics=['accuracy'])
 
-        # TODO: calculate probabilities for the true labels
-        # prob_y = ...
-        
-        # TODO: calculate accuracy
-        
-        # Calculate loss
-        loss_function = self.options['loss_function']
-        if loss_function == 'neg_mean_log_prob_y':
-            # implement -mean(log(prob_y))
-            pass
-        else:
-            # implement cross-entropy
-            pass
-    
     def summary(self):
         ''' wrapper around keras.Model.summary()'''
         self.model.summary()
