@@ -493,8 +493,10 @@ class VQADataset:
             return {}
 
         answers_json = json.load(open(answers_json_path))
+
+        # Please note that answer_id's are not unique across all the answers. They are only unique
+        # for the particular question. We generate unique id's for answers as described below:
         # (annotation['question_id'] * 10 + (answer['answer_id'] - 1): creates a unique answer id
-        # The value answer['answer_id'] it is not unique across all the answers, only on the subset of answers
         # of that question.
         # As question_id is composed by appending the question number (0-2) to the image_id (which is unique)
         # we've composed the answer id the same way. The substraction of 1 is due to the fact that the
