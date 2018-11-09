@@ -105,7 +105,7 @@ class ModelOptions(object):
         self.options['attention_dropout_ratio'] = 0.5
 
         # Classification layer parameters
-        self.options['n_answer_classes'] = 1000  
+        self.options['n_answer_classes'] = 1001  # 1000 real classes + <unk>  
 
         # Training parameters
         self.options['batch_size'] = 100

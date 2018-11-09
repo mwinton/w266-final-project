@@ -203,6 +203,14 @@ class VQADataset:
             sorted_answers = answer_counts.most_common(self.n_answer_classes) 
 
             print("Top 100 answers are ", sorted_answers[:100])
+            
+            # TODO: change to Top k instead of hard-coded top 1000
+            print('Top 1000 answers by word count')
+            top_k_num_words = Counter()
+            for s in sorted_answers[:1000]:
+                top_k_num_words[len(s[0].split())] += 1
+            for word_count, num_answers in top_k_num_words.items():
+                print('- {} of the Top 1000 answers have {} words'.format(num_answers, word_count))
 
             # one slot is reserved for out of vocabulary words
             top_k = self.n_answer_classes - 1
