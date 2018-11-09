@@ -332,12 +332,11 @@ class CustomModelCheckpoint(ModelCheckpoint):
     def on_train_end(self, logs={}):
         """
            symlink to the last epoch weights, for easy reference to the final epoch.
-
         """
         try:
             os.symlink(self.weights_dir_path + 'model_weights_{}.{}.hdf5'.format(self.model_name, self.last_epoch),
                        self.weights_dir_path + 'model_weights_{}'.format(self.model_name))
-        except OSError:
+        except FileExistsError:
             # If the symlink already exist, delete and create again
             os.remove(self.weights_dir_path + 'model_weights_{}'.format(self.model_name))
             # Recreate

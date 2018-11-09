@@ -1,6 +1,9 @@
-from collections import OrderedDict
 import getpass
+import datetime
 import os
+
+from collections import OrderedDict
+
 from .. dataset.types import DatasetType
 
 class ModelOptions(object):
@@ -224,25 +227,31 @@ class ModelOptions(object):
         results_dir_path = options['results_dir_path']
 
         if (extended):
-            prefix="_ext"
+            suffix = "_ext"
         else:
-            prefix = ""
-
+            suffix = ""
+            
+        # timestamp string to use in appropriate filenames
+        # not timestamping weight files this point since they need to be re-read
+        date_str = datetime.datetime.now().isoformat()
+        
         if (action == "train"):
-            options["weights_path"] = weights_dir_path+'model_weights_' + model_name + prefix + '.{epoch:02d}.hdf5'
-            options['losses_path'] = results_dir_path+'losses_{}{}.hdf5'.format(model_name,prefix)
+            options["weights_path"] = weights_dir_path+'model_weights_' + model_name + suffix + '.{epoch:02d}.hdf5'
+            
+            # timestamp the losses_path for logging purposes
+            options['losses_path'] = results_dir_path+'losses_{}{}_{}.hdf5'.format(model_name, suffix, date_str)
             
         elif (action == "val" ):
             options["weights_path"] = weights_dir_path + 'model_weights_{}'.format(model_name)
 
         elif (action == "test"):
-            options['weights_path'] = weights_dir_path + 'model_weights_{}{}'.format(model_name,prefix)
-            options['results_path'] = results_dir_path + 'test2015_results_{}{}.json'.format(model_name,prefix)
+            options['weights_path'] = weights_dir_path + 'model_weights_{}{}'.format(model_name, suffix)
+            options['results_path'] = results_dir_path + 'test2015_results_{}{}.json'.format(model_name, suffix)
         
         else:
             # action type is eval
-            options['weights_path'] = weights_dir_path + 'model_weights_{}{}'.format(model_name,prefix)
-            options['results_path'] = results_dir_path + 'val2014_results_{}{}.json'.format(model_name,prefix)
+            options['weights_path'] = weights_dir_path + 'model_weights_{}{}'.format(model_name, suffix)
+            options['results_path'] = results_dir_path + 'val2014_results_{}{}.json'.format(model_name, suffix)
 
         return options
 

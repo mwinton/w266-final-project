@@ -1,19 +1,16 @@
-
 ## File to load the dataset and prepare batches for training 
 ## Adapted from https://github.com/imatge-upc/vqa-2016-cvprw, Issey Masuda Mora 
 ## 
 ## Added Memory management related code for Image Embeddings
 
-
-import pickle
+import h5py
 import json
-import random
 import math
-
 import numpy as np
 import os
+import pickle
+import random
 import scipy.io
-import h5py
 import time
 
 from collections import Counter
