@@ -87,7 +87,7 @@ class ModelOptions(object):
 
         # Text model parameters
         self.options['n_vocab'] = 13746             # TODO: calculate this ourselves
-        self.options['max_sentence_len'] = 20       # TODO: calculate this ourselves
+        # self.options['max_sentence_len'] = 20      # actual max is 23, so don't override it   
         self.options['n_sent_embed'] = 500          # TODO: change this when we use GloVe
         self.options['sent_init_type'] = 'uniform'  # TODO: experiment with GloVe
         self.options['sent_init_range'] = 0.01
