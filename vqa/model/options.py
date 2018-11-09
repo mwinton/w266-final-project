@@ -36,11 +36,11 @@ class ModelOptions(object):
         self.options['images_embed_val_path']   = image_embed_root+'val.hdf5'
         self.options['images_embed_test_path'] = image_embed_root+'test.hdf5'
         
-
-        self.options['glove_path'] = ''
+#         self.options['glove_path'] = ''
 
         ## files created during train/val/test phases
         self.options['local_data_path']  =  "../data/preprocessed/"
+        self.options['saved_models_path'] = '../saved_models/json/'
         self.options['weights_dir_path'] =  "../saved_models/weights/"
         self.options['results_dir_path'] =  "../results/"
 
@@ -58,7 +58,7 @@ class ModelOptions(object):
         self.options['eval_dataset_path']  = local_data_path+"eval_dataset.p"
 
         # to be polulated later once all options are parsed
-        self.options['weighs_path']  = ""
+        self.options['weights_path']  = ""
         self.options['results_path'] = ""
         self.options['losses_path']  = ""
 
@@ -69,7 +69,8 @@ class ModelOptions(object):
         self.options['action_type'] = "train"
 
         # Experiment to be performed
-        self.options['experiment_id'] = 0       # default is no experiment
+        self.options['experiment_id'] = 0                  # default is no experiment
+        self.options['experiment_name'] = 'VQA_default'    # name to display in MLFlow
         
         # Image model parameters
         self.options['n_image_embed'] = 512     # VGGNet
@@ -77,7 +78,7 @@ class ModelOptions(object):
         self.options['mscoco_dim'] = 256        # x, y dimension of photos
         self.options['vggnet_input_dim'] = 448  # expected x, y dim of VGGNet
         self.options['image_depth'] = 3         # 3 color channels (RGB)
-        self.options['image_init_type'] = None  # random initialization (or 'imagenet')
+#         self.options['image_init_type'] = 'imagenet'  # random initialization (or 'imagenet')
         self.options['start_with_image_embed'] = True
 
         # Text model parameters
@@ -103,11 +104,12 @@ class ModelOptions(object):
         self.options['attention_dropout_ratio'] = 0.5
 
         # Classification layer parameters
-        self.options['n_answer_classes'] = 1000  # TODO: experiment with this (1000 words ~ 82% coverage)
+        self.options['n_answer_classes'] = 1000  
 
         # Training parameters
         self.options['batch_size'] = 100
         self.options['max_epochs'] = 50
+        
         self.options['loss_function'] = 'neg_mean_log_prob_y'  # TODO: try cross-entropy -p*log(q)
         self.options['max_train_size'] = None # interpreted as full size of training set unless overridden
         self.options['max_val_size'] = None # interpreted as full validation set size unless overridden
@@ -129,9 +131,8 @@ class ModelOptions(object):
         self.options['early_stop_patience'] = 5
 
         # MLFlow logging parameters
-        if 'MLFLOW_TRACKING_URL' in  os.environ:
+        if 'MLFLOW_TRACKING_URI' in os.environ:
             self.options['logging'] = True
-            self.options['mlflow_url'] = os.environ['MLFLOW_TRACKING_URL']
         else:
             self.options['logging'] = False
         self.options['verbose'] = False

@@ -1,17 +1,17 @@
-
-## Main file to launch runs.
-## Adapted from https://github.com/imatge-upc/vqa-2016-cvprw, Issey Masuda Mora	
-
+# Main file to launch runs.
+# Adapted from https://github.com/imatge-upc/vqa-2016-cvprw, Issey Masuda Mora	
 
 import argparse
-import pickle
-import json
-import sys
-import pprint
-
+import datetime
 import h5py
+import json
+import mlflow
 import numpy as np
 import os
+import pickle
+import pprint
+import sys
+
 from keras.callbacks import EarlyStopping, Callback, ModelCheckpoint
 
 sys.path.append('..')
@@ -63,18 +63,47 @@ def main(options):
 
     # Load model
     vqa_model = ModelLibrary.get_model(options)
+    
+    # Save time-stamped model json file
+    d = datetime.datetime.now().isoformat()
+    json_path = options['saved_models_path'] + 'model_{}_{}.json'.format(options['experiment_id'], d)
+    with open(json_path, 'w') as json_file:
+        json_file.write(vqa_model.to_json())
 
     # Load dataset depending on the action to perform
     action = options['action_type']
     if action == 'train':
+        if options['logging']:
+            # log params before training starts
+            
+            # TODO: debug why set_experiment API is breaking
+            # mlflow.set_experiment(options['experiment_id'])
+            mlflow.start_run()
+
+            # log Keras model configuration
+            mlflow.log_artifact(json_path)
+
+            # log non-empty model parameters (else mlflow crashes)
+            for key, val in options.items():
+                if val != '' and val != None:
+                    mlflow.log_param(key, val)
+            print('Logged experiment params to MLFlow')
+                    
         dataset = train_dataset
         val_dataset = load_dataset(DatasetType.VALIDATION,options,answer_one_hot_mapping)
         if options['extended']:
             extended_dataset = MergeDataset(train_dataset, val_dataset)
             train(vqa_model, extended_dataset, options)
         else:
-            train(vqa_model, dataset, options,val_dataset=val_dataset)
+            train(vqa_model, dataset, options, val_dataset=val_dataset)
+        
+        if options['logging']:
+            # log metrics after training ends
+            # TODO: add mlflow.log_metric() calls
+            mlflow.end_run()
+            print('Logged experiment metrics to MLFlow')
 
+            
     elif action == 'val':
         dataset = load_dataset(DatasetType.VALIDATION,options,answer_one_hot_mapping)
         validate(vqa_model, dataset, options)
@@ -406,6 +435,9 @@ if __name__ == '__main__':
         model_options['verbose'] = args.verbose
         pprint.pprint(model_options)
 
+#     if model_options['logging']:
+#         # create a new experiment in MLFlow if one doesn't exist
+#         mlflow.set_experiment(model_options['experiment_name'])
 
     main(model_options)
 

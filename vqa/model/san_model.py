@@ -347,6 +347,7 @@ class StackedAttentionNetwork(object):
         # assemble all these layers into model
         self.model = Model(inputs=[layer_image_input, layer_sent_input], outputs=layer_prob_answer)
 
+        # TODO: read the choice of optimizer in from options.py
         optimizer = keras.optimizers.Adam(lr=0.001)
         
         # compile model so that it's ready to train
@@ -356,54 +357,6 @@ class StackedAttentionNetwork(object):
                             # see https://github.com/keras-team/keras/blob/master/keras/losses.py
                             metrics=['accuracy'])
 
-        # TODO: calculate probabilities for the true labels
-        # prob_y = ...
-        
-        # TODO: calculate accuracy
-        
-        # Calculate loss
-        loss_function = self.options['loss_function']
-        if loss_function == 'neg_mean_log_prob_y':
-            # implement -mean(log(prob_y))
-            pass
-        else:
-            # implement cross-entropy
-            pass
-    
     def summary(self):
         ''' wrapper around keras.Model.summary()'''
         self.model.summary()
-    
-    def train (self, options, x, y):
-        ''' Train graph '''
-        
-        print('Training...')        
-        verbose = options['verbose']
-
-        # set early stopping monitor to stop training when it won't improve anymore
-        # appears to only work if we enable validation split, as it relies on val_loss
-        # but as-is, it only has access to loss.  It gives a warning, not an error.
-        early_stopping_monitor = EarlyStopping(patience=3)
-
-        self.model.fit(x=x,
-                       y=y,
-                       batch_size=options.get('batch_size', 3),
-                       epochs=options.get('max_epochs', 2),
-                       verbose=1 if verbose else 0,  # 2 is max verbosity level
-                       # validation_split=0.2,
-                       callbacks=[early_stopping_monitor]
-                      )
-    
-    def evaluate (self, options, x, y):
-        ''' Make predictions with labeled test set and evaluate'''
-
-        print('Evaluating...')
-        verbose = options['verbose']
-
-        score = self.model.evaluate(x=x, 
-                                    y=y,
-                                    batch_size=options.get('batch_size', 3),
-                                    verbose=1 if verbose else 0  # 2 is max verbosity level
-                                   )
-        if verbose: print('score:', score)
-        return score
