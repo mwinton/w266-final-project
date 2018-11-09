@@ -45,9 +45,10 @@ class ModelOptions(object):
         self.options['results_dir_path'] =  "../results/"
 
         ## create directories if they don't exist
-        os.makedirs(self.options['local_data_path'],exist_ok=True)
-        os.makedirs(self.options['weights_dir_path'],exist_ok=True)
-        os.makedirs(self.options['results_dir_path'],exist_ok=True)
+        os.makedirs(self.options['local_data_path'],   exist_ok=True)
+        os.makedirs(self.options['weights_dir_path'],  exist_ok=True)
+        os.makedirs(self.options['results_dir_path'],  exist_ok=True)
+        os.makedirs(self.options['saved_models_path'], exist_ok=True) 
 
         local_data_path = self.options['local_data_path']
 

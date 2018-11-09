@@ -332,8 +332,7 @@ class StackedAttentionNetwork(object):
         # final classification
         # in:  [batch_size, n_attention_input]
         # out: [batch_size, n_answer_classes]
-        #n_answer_classes = self.options['n_answer_classes']
-        n_answer_classes = options['n_vocab']
+        n_answer_classes = self.options['n_answer_classes']
         layer_prob_answer = Dense(units=n_answer_classes,
                                   activation='softmax',
                                   use_bias=True,

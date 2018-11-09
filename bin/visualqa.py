@@ -54,9 +54,12 @@ def main(options):
     # set numpy random seed for deterministic results
     np.random.seed(2018)
     
-    # Always load train dataset to obtain the question_max_len from it
+    # Always load train dataset to obtain the one hot encoding indices 
+    # and  question_max_len from it
     train_dataset = load_dataset(DatasetType.TRAIN,options)
     options['max_sentence_len'] = train_dataset.question_max_len
+
+    answer_one_hot_mapping = train_dataset.answer_one_hot_mapping
 
     # Load model
     vqa_model = ModelLibrary.get_model(options)
@@ -87,7 +90,7 @@ def main(options):
             print('Logged experiment params to MLFlow')
                     
         dataset = train_dataset
-        val_dataset = load_dataset(DatasetType.VALIDATION,options)
+        val_dataset = load_dataset(DatasetType.VALIDATION,options,answer_one_hot_mapping)
         if options['extended']:
             extended_dataset = MergeDataset(train_dataset, val_dataset)
             train(vqa_model, extended_dataset, options)
@@ -102,25 +105,32 @@ def main(options):
 
             
     elif action == 'val':
-        dataset = load_dataset(DatasetType.VALIDATION,options)
+        dataset = load_dataset(DatasetType.VALIDATION,options,answer_one_hot_mapping)
         validate(vqa_model, dataset, options)
 
     elif action == 'test':
-        dataset = load_dataset(DatasetType.TEST,options)
+        dataset = load_dataset(DatasetType.TEST,options,answer_one_hot_mapping)
         test(vqa_model, dataset, options)
 
     elif action == 'eval':
-        dataset = load_dataset(DatasetType.EVAL,options)
+        dataset = load_dataset(DatasetType.EVAL,options,answer_one_hot_mapping)
         test(vqa_model, dataset, options)
 
     else:
         raise ValueError('The action type is unrecognized')
 
 
-def load_dataset(dataset_type, options):
+def load_dataset(dataset_type, options,answer_one_hot_mapping = None):
     
+    """
+        Load the dataset from disk if available. If not, build it from the questions/answers json and image embeddings
+        If this is the training dataset, retrieve the answer one hot mapping from disk or re-create it.
+    """ 
 
     dataset_path = ModelOptions.get_dataset_path(options,dataset_type)
+    # if this isn't a training dataset, the answer one hot indices are expected to be available
+    if (dataset_type != DatasetType.TRAIN):
+        assert(answer_one_hot_mapping != None) 
 
     try:
         with open(dataset_path, 'rb') as f:
@@ -140,6 +150,9 @@ def load_dataset(dataset_type, options):
             else:
                 dataset.max_sample_size = max_size
 
+            if dataset_type==DatasetType.TRAIN :
+                answer_one_hot_mapping = dataset.answer_one_hot_mapping
+
             # check to make sure the samples list is sorted by image indices
             if( all(samples[i].image.features_idx <= samples[i+1].image.features_idx
                     for i in range(len(samples)-1))) :
@@ -148,7 +161,8 @@ def load_dataset(dataset_type, options):
             else:
                  assert(0)
 
-            print("{} loaded from disk. Dataset size {}, Processing {} samples ".format(dataset_type, len(samples), max_size))
+            print("{} loaded from disk. Dataset size {}, Processing {} samples "
+                                   .format(dataset_type, len(samples), max_size))
 
     except IOError:
 
@@ -157,7 +171,10 @@ def load_dataset(dataset_type, options):
         print('Creating dataset...')
         dataset = VQADataset(dataset_type, options)
         print('Preparing dataset...')
-        dataset.prepare()
+
+        # if the one-hot mapping is not provided, generate one
+        dataset.prepare(answer_one_hot_mapping)
+
         print('Dataset size: %d' % dataset.size())
         print('Dataset ready.')
 
@@ -233,6 +250,7 @@ def validate(model, dataset, options):
     return result
 
 
+# TODO: Needs to be modified for one hot encoding of answers
 def test(model, dataset, options):
 
 
@@ -253,11 +271,11 @@ def test(model, dataset, options):
     print('Results transformed')
 
     print('Building reverse word dictionary...')
-    word_dict = {idx: word for word, idx in dataset.tokenizer.word_index.iteritems()}
+    answer_dict = {idx: word for word, idx in dataset.answer_one_hot_mapping.items()}
     print('Reverse dictionary built')
 
     print('Saving results...')
-    results_dict = [{'answer': word_dict[results[idx]], 'question_id': sample.question.id}
+    results_dict = [{'answer': answer_dict[results[idx]], 'question_id': sample.question.id}
                     for idx, sample in enumerate(dataset.samples)]
     with open(results_path, 'w') as f:
         json.dump(results_dict, f)
