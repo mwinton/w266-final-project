@@ -55,9 +55,9 @@ def main(options):
     np.random.seed(2018)
     
     # Always load train dataset to obtain the one hot encoding indices 
-    # and  question_max_len from it
+    # and  max_sentence_len from it
     train_dataset = load_dataset(DatasetType.TRAIN,options)
-    options['max_sentence_len'] = train_dataset.question_max_len
+    options['max_sentence_len'] = train_dataset.max_sentence_len
 
     answer_one_hot_mapping = train_dataset.answer_one_hot_mapping
 

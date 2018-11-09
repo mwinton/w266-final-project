@@ -46,17 +46,7 @@ class VQADataset:
 
         Args:
             dataset_type (DatasetType): type of dataset
-            questions_path (str): full path (including filename) to the .json included in the VQA dataset holding the
-                questions
-            answers_path (str): full path (including filename) to the .json included in the VQA dataset holding the
-                answers. If dataset_type=TEST, it will be ignored, so None can be passed in this case
-            images_path (str): path to the directory where the images for this dataset are stored
-            tokenizer_path (str): full path (including filename) to the .p file containing the Tokenizer object. If it
-                doesn't exists, this will be the path where the new tokenizer will be saved. It needs to have .p
-                extension
-            vocab_size (int): size of the vocabulary size
-            question_max_len (int): maximum length of the question. If None passed, the max len will be set to the
-                length of the longest question
+            options: model options
         """
 
         self.options = options
@@ -105,21 +95,26 @@ class VQADataset:
 
         # Tokenizer path
         self.tokenizer_path = self.options['tokenizer_path']
-        print("Debug: Tokenizer path -> ",self.tokenizer_path)
+        print("Tokenizer path -> ", self.tokenizer_path)
         tokenizer_dir = os.path.dirname(os.path.abspath(self.tokenizer_path))
+        print("Tokenizer directory -> ", tokenizer_dir)
         if not os.path.isdir(tokenizer_dir):
             os.mkdir(tokenizer_dir)
 
-        # Tokenizer
+        # Load pre-trained Tokenizer if one exists
         if os.path.isfile(self.tokenizer_path):
             self.tokenizer = pickle.load(open(self.tokenizer_path, 'rb'))
-            print("Debug: open existing tokenizer")
+            print("Opening existing Tokenizer...")
+        # Create new Tokenizer, but it can't be used until training
         else:
-            print("Build Tokenizer")
-            self.tokenizer = Tokenizer(num_words=self.vocab_size)
+            print("Building tokenizer...")
+            # TODO: determine if we need to set the oov_token param for the Tokenizer
+            # NOTE: 0 is a reserved index that won't be assigned to any word.
+            # NOTE: Tokenizer removes all punctuation, so contraction preprocessing isn't needed
+            self.tokenizer = Tokenizer(num_words=self.vocab_size, lower=True)
 
-        # Question max len
-        self.question_max_len = self.options['max_sentence_len']
+        # Check if max sentence length has been specified
+        self.max_sentence_len = self.options.get('max_sentence_len', None)
 
         self.answer_one_hot_mapping = None
 
@@ -134,9 +129,9 @@ class VQADataset:
     def prepare(self,answer_one_hot_mapping):
         """Prepares the dataset to be used.
 
-        It will load all the questions and answers in memory and references to the images. It will also create a
-        tokenizer holding the word dictionary and both answers and questions will be tokenized and encoded using that
-        tokenizer.
+        It will load all the questions and answers in memory and references to the images. It will also train a
+        Tokenizer holding the word dictionary and both answers and questions will be tokenized and encoded using that
+        Tokenizer.
 
         As a side result, this function also creates a one hot encoding index for all the top (n_answer_classes) answer choices
         Any answer outside the scope of this is tagged with a special out of vocab index - index 0
@@ -146,34 +141,45 @@ class VQADataset:
         if (self.dataset_type != DatasetType.TRAIN):
             assert(answer_one_hot_mapping != None)
 
-        # Load QA
+        # Load Questions and Answers
         questions = self._create_questions_dict(self.questions_path)
-        print('Questions dict created')
+        print('Questions dict created. Num entries: {}'.format(len(questions)))        
         answers = self._create_answers_dict(self.answers_path)
-        print('Answers dict created')
+        print('Answers dict created. Num entries: {}'.format(len(answers)))
+        
+        # Load Image IDs
         image_ids = self._get_image_ids(self.features_path)
         images = self._create_images_dict(image_ids)
         print('Images dict created')
 
         # We only keep the n_answer_classes choices for answers as this
         # is formulated as a classification problem
-        answers = self.encode_answers(answers,answer_one_hot_mapping)
+        answers = self.encode_answers(answers, answer_one_hot_mapping)
 
-        # Ensure we have a tokenizer with a dictionary
+        # Ensure we have a trained tokenizer with a dictionary
         self._init_tokenizer(questions, answers)
 
         aux_len = 0  # To compute the maximum question length
         # Tokenize and encode questions and answers
+        debug = 0
         for _, question in questions.items():
-            question.tokenize(self.tokenizer)
+            if debug < 5:
+                print('Sample question string to tokenize: ', question.question_str)
+                print('- corresponding token sequence: ', question.tokenize(self.tokenizer))
+            else:
+                question.tokenize(self.tokenizer)
+            debug += 1
             # Get the maximum question length
             if question.get_tokens_length() > aux_len:
                 aux_len = question.get_tokens_length()
 
-        # If the question max len has not been set, assign to the maximum question length in the dataset
-        if not self.question_max_len:
-            self.question_max_len = aux_len
-
+        # If the question max len has not been set in options file, assign to the
+        # maximum question length in the dataset
+        if not self.max_sentence_len:
+            self.max_sentence_len = aux_len
+        print('Actual max sentence length: {}'.format(aux_len))
+        print('Model uses max sentence length: {}'.format(self.max_sentence_len))
+        
         for _, answer in answers.items():
             answer.tokenize(self.tokenizer)
 
@@ -198,7 +204,7 @@ class VQADataset:
 
             answer_counts = Counter() 
             for answer in answers.values():
-                answer_counts[answer.answer_string] += 1
+                answer_counts[answer.answer_str] += 1
 
             sorted_answers = answer_counts.most_common(self.n_answer_classes) 
 
@@ -229,7 +235,7 @@ class VQADataset:
 
 
         for answer_id, answer in answers.items():
-            one_hot_index = self.answer_one_hot_mapping.get(answer.answer_string,0)
+            one_hot_index = self.answer_one_hot_mapping.get(answer.answer_str,0)
             answers[answer_id].one_hot_index = one_hot_index
 
         return answers    
@@ -413,7 +419,7 @@ class VQADataset:
             
             # Initialize matrix
             I = np.zeros((batch_size,n_image_regions,n_image_embed), dtype=np.float32)
-            Q = np.zeros((batch_size, self.question_max_len), dtype=np.int32)
+            Q = np.zeros((batch_size, self.max_sentence_len), dtype=np.int32)
             A = np.zeros((batch_size, self.n_answer_classes), dtype=np.bool_)
 
             # randomize order of samples within a batch
@@ -424,7 +430,7 @@ class VQADataset:
                     #print("Error for batch ({}-{}), sample-idx {}, image {} is missing".format(
                     #       batch_start,batch_end,sample_idx,self.samples[sample_idx].image.features_idx))
 
-                I[idx], Q[idx] = self.samples[sample_idx].get_input(self.question_max_len)
+                I[idx], Q[idx] = self.samples[sample_idx].get_input(self.max_sentence_len)
                 A[idx] = self.samples[sample_idx].get_output()
 
             yield ([I, Q], A)
@@ -452,8 +458,8 @@ class VQADataset:
         questions_list = []
 
         for sample in self.samples:
-            images_list.append(sample.get_input(self.question_max_len)[0])
-            questions_list.append(sample.get_input(self.question_max_len)[1])
+            images_list.append(sample.get_input(self.max_sentence_len)[0])
+            questions_list.append(sample.get_input(self.max_sentence_len)[1])
 
         return np.array(images_list), np.array(questions_list)
 
@@ -550,21 +556,18 @@ class VQADataset:
     def _init_tokenizer(self, questions, answers):
         """Fits the tokenizer with the questions and answers and saves this tokenizer into a file for later use"""
 
-        if not hasattr(self.tokenizer, 'word_index'):
-            questions_list = [question.question for _, question in questions.items()]
-            answers_list = [answer.answer_string for _, answer in answers.items()]
+        print('Training tokenizer...')
+        questions_list = [question.question_str for _, question in questions.items()]
+        answers_list = [answer.answer_str for _, answer in answers.items()]
 
-            print("Sample Questions : \n {}".format(questions_list[:10]))
+        print("Sample Questions : \n {}".format(questions_list[:10]))
+        print ("\n*************\n")
+        print("Sample Answers : \n {}".format(answers_list[:10]))
 
-            print ("\n*************\n")
-
-            print("Sample Answers : \n {}".format(answers_list[:10]))
-
-            
-            self.tokenizer.fit_on_texts(questions_list + answers_list)
-
-            # Save tokenizer object
-            pickle.dump(self.tokenizer, open(self.tokenizer_path, 'wb'))
+        self.tokenizer.fit_on_texts(questions_list + answers_list)
+        print('Words in tokenizer index: ', len(self.tokenizer.word_index))
+        # Save tokenizer object
+        pickle.dump(self.tokenizer, open(self.tokenizer_path, 'wb'))
 
     def _get_image_ids(self, features_path):
 
@@ -591,7 +594,7 @@ class MergeDataset:
 
         # Get parameters
         self.features_path = train_dataset.features_path
-        self.question_max_len = train_dataset.question_max_len
+        self.max_sentence_len = train_dataset.max_sentence_len
         self.vocab_size = train_dataset.vocab_size
 
         # Split validation dataset to use some of it for training
@@ -627,11 +630,11 @@ class MergeDataset:
         while True:
             # Initialize matrix
             I = np.zeros((batch_size, 1024), dtype=np.float16)
-            Q = np.zeros((batch_size, self.question_max_len), dtype=np.int32)
+            Q = np.zeros((batch_size, self.max_sentence_len), dtype=np.int32)
             A = np.zeros((batch_size, self.vocab_size), dtype=np.bool_)
             # Assign each sample in the batch
             for idx, sample in enumerate(samples[batch_start:batch_end]):
-                I[idx], Q[idx] = sample.get_input(self.question_max_len)
+                I[idx], Q[idx] = sample.get_input(self.max_sentence_len)
                 A[idx] = sample.get_output()
 
             yield ([I, Q], A)
