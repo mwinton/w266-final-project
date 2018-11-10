@@ -12,6 +12,11 @@ import pickle
 import pprint
 import sys
 
+# import matplotlib this way to run without a display
+import matplotlib
+matplotlib.use('Agg')  
+import matplotlib.pyplot as plt
+
 from keras.callbacks import EarlyStopping, Callback, ModelCheckpoint
 
 sys.path.append('..')
@@ -52,8 +57,18 @@ def main(options):
     options = ModelOptions.set_local_paths(options)
 
     # set numpy random seed for deterministic results
-    np.random.seed(2018)
+    seed = 2018
+    np.random.seed(seed)
     
+    # open mlflow context for logging
+    if (options['logging']):
+        mlflow.start_run()
+        mlflow.log_param('random_seed', seed)
+#             # TODO: monitor for next release of MLFlow (beyond 0.7.0).
+#             # https://pypi.org/project/mlflow/#history
+#             # mlflow.set_experiment(options['experiment_id'])
+        print('Enabled logging to MLFlow server for experiment_id = {}...'.format(options['experiment_id']))
+
     # Always load train dataset to obtain the one hot encoding indices 
     # and  max_sentence_len from it
     train_dataset = load_dataset(DatasetType.TRAIN,options)
@@ -74,20 +89,13 @@ def main(options):
     action = options['action_type']
     if action == 'train':
         if options['logging']:
-            # log params before training starts
-            
-            # TODO: debug why set_experiment API is breaking
-            # mlflow.set_experiment(options['experiment_id'])
-            mlflow.start_run()
-
             # log Keras model configuration
             mlflow.log_artifact(json_path)
-
             # log non-empty model parameters (else mlflow crashes)
             for key, val in options.items():
                 if val != '' and val != None:
                     mlflow.log_param(key, val)
-            print('Logged experiment params to MLFlow')
+            print('Logged experiment params to MLFlow...')
                     
         dataset = train_dataset
         val_dataset = load_dataset(DatasetType.VALIDATION,options,answer_one_hot_mapping)
@@ -97,13 +105,6 @@ def main(options):
         else:
             train(vqa_model, dataset, options, val_dataset=val_dataset)
         
-        if options['logging']:
-            # log metrics after training ends
-            # TODO: add mlflow.log_metric() calls
-            mlflow.end_run()
-            print('Logged experiment metrics to MLFlow')
-
-            
     elif action == 'val':
         dataset = load_dataset(DatasetType.VALIDATION,options,answer_one_hot_mapping)
         validate(vqa_model, dataset, options)
@@ -118,6 +119,10 @@ def main(options):
 
     else:
         raise ValueError('The action type is unrecognized')
+
+    if options['logging']:
+        mlflow.end_run()
+        print('Closed MLFlow logging context...')
 
 
 def load_dataset(dataset_type, options,answer_one_hot_mapping = None):
@@ -161,6 +166,11 @@ def load_dataset(dataset_type, options,answer_one_hot_mapping = None):
             else:
                  assert(0)
 
+            # log dataset size to MLFlow
+            if options['logging']:
+                mlflow.log_param('dataset_size', len(samples))
+                mlflow.log_param('training_set_size', max_size)
+
             print("{} loaded from disk. Dataset size {}, Processing {} samples "
                                    .format(dataset_type, len(samples), max_size))
 
@@ -184,6 +194,59 @@ def load_dataset(dataset_type, options,answer_one_hot_mapping = None):
         print('Dataset saved')
 
     return dataset
+
+def plot_train_metrics(train_stats, options, plot_type='epochs'):
+    """
+        Generate and save figure with plot of train and validation losses.
+        Currently, plot_type='epochs' is the only option supported.
+        
+        train_stats is a Keras History object.  History.history is a dict containing lists
+    """
+    
+    # extract data from history dict
+    train_losses = train_stats.history['loss']
+    val_losses = train_stats.history['val_loss']    
+    train_acc = train_stats.history['acc']
+    val_acc = train_stats.history['val_acc']
+
+    # define filenames
+    d = datetime.datetime.now().isoformat()
+    loss_fig_path = options['results_dir_path'] + \
+        'loss_curves/losses_{}_{}_{}_{}.png'.format(plot_type, options['model_name'], options['experiment_id'], d)
+    acc_fig_path = options['results_dir_path'] + \
+        'acc_curves/accuracies_{}_{}_{}_{}.png'.format(plot_type, options['model_name'], options['experiment_id'], d)
+    
+    if plot_type == 'epochs':
+        # generate and save loss plot
+        plt.plot(train_losses)
+        plt.plot(val_losses)
+        plt.xticks(np.arange(0, len(train_losses), step=1))
+        plt.xlabel('Epoch Number')
+        plt.ylabel('Loss')
+        plt.title('Model: {}; Experiment: {}\nRun time: {}'.format(options['model_name'], options['experiment_id'], d))
+        plt.legend(('Training', 'Validation'))
+        plt.savefig(loss_fig_path)
+        print('Saved loss plot at: ', loss_fig_path)
+        
+        # clear axes and figure to reset for next plot
+        plt.cla()
+        plt.clf()
+        
+        # generate and save accuracy plot
+        plt.plot(train_acc)
+        plt.plot(val_acc)
+        plt.xticks(np.arange(0, len(train_acc), step=1))
+        plt.xlabel('Epoch Numbeer')
+        plt.ylabel('Accuracy')
+        plt.title('Model: {}; Experiment: {}\nRun time: {}'.format(options['model_name'], options['experiment_id'], d))
+        plt.legend(('Training', 'Validation'))
+        plt.savefig(acc_fig_path)
+        print('Saved accuracy plot at: ', acc_fig_path)
+    else:
+        # Keras history object doesn't capture batch-level data; only epoch
+        raise TypeError('Plot type {} does not exist'.format(plot_type))
+    
+    return loss_fig_path, acc_fig_path
 
 
 def train(model, dataset, options, val_dataset=None):
@@ -222,18 +285,32 @@ def train(model, dataset, options, val_dataset=None):
 
     print('Start training...')
     if not extended:
-        model.fit_generator(dataset.batch_generator(), steps_per_epoch=samples_per_train_epoch//batch_size,
+        train_stats = model.fit_generator(dataset.batch_generator(), steps_per_epoch=samples_per_train_epoch//batch_size,
                             epochs=max_epochs, callbacks=[save_weights_callback, loss_callback, stop_callback],
                             validation_data=val_dataset.batch_generator(), 
                             validation_steps=samples_per_val_epoch//batch_size,max_queue_size=20)
     else:
-        model.fit_generator(dataset.batch_generator(batch_size, split='train'), 
+        train_stats = model.fit_generator(dataset.batch_generator(batch_size, split='train'), 
                             steps_per_epoch=dataset.train_size()/batch_size,
                             epochs=num_epochs, callbacks=[save_weights_callback, loss_callback, stop_callback],
                             validation_data=dataset.batch_generator(batch_size, split='val'),
                             validation_steps=dataset.val_size()//batch_size,max_queue_size=20)
-    print('Trained')
-    # TODO generate plots
+
+    # save loss and accuracy plots
+    loss_fig_path, acc_fig_path = plot_train_metrics(train_stats, options)
+    
+    if options['logging']:
+        # each list contains one entry per epoch; log final value in each list to mlflow
+        # NOTE: mlflow `log_metric` API can be called multiple times per run, so we could
+        # iterate through the entire list to log values from each epoch if desired
+        mlflow.log_metric('train_acc', train_stats.history['acc'][-1])
+        mlflow.log_metric('val_acc', train_stats.history['val_acc'][-1])
+        mlflow.log_metric('train_loss', train_stats.history['loss'][-1])
+        mlflow.log_metric('val_loss', train_stats.history['val_loss'][-1])
+        mlflow.log_artifact(loss_fig_path)
+        mlflow.log_artifact(acc_fig_path)
+        
+    print('Trained!')
 
 
 def validate(model, dataset, options):
