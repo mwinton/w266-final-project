@@ -1,17 +1,14 @@
-
 ## Datastructures to store questions/answers and images
 ## Adapted from https://github.com/imatge-upc/vqa-2016-cvprw, Issey Masuda Mora 
-
-
 
 import os
 
 import numpy as np
 
 from scipy.misc import imread, imresize
+# from keras.preprocessing.text import text_to_word_sequence
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
-
 from .types import DatasetType
 
 
@@ -36,7 +33,7 @@ class VQASample:
         """
         # Question
         if isinstance(question, Question):
-            self.question = question
+            self.question_str = question
         else:
             raise TypeError('question has to be an instance of class Question')
 
@@ -59,11 +56,11 @@ class VQASample:
         else:
             raise TypeError('dataset_type has to be one of the DatasetType defined values')
 
-    def get_input(self, question_max_len, mem=True):
+    def get_input(self, max_sentence_len, mem=True):
         """Gets the prepared input to be injected into the NN.
 
         Args:
-            question_max_len (int): The maximum length of the question. The question will be truncated if it's larger
+            max_sentence_len (int): The maximum length of the question. The question will be truncated if it's larger
                 or padded with zeros if it's shorter
 
         Returns:
@@ -71,9 +68,9 @@ class VQASample:
             one the image, both processed to be ready to be injected into the model
         """
 
-        # Prepare question
-        question = self.question.get_tokens()
-        question = pad_sequences([question], question_max_len)[0]
+        # Prepare question np array representation
+        question = self.question_str.get_tokens()
+        question = pad_sequences([question], max_sentence_len)[0]
 
         # Prepare image
         image = self.image.features
@@ -104,12 +101,12 @@ class VQASample:
 class Question:
     """Class that holds the information of a single question of a VQA sample"""
 
-    def __init__(self, question_id, question, image_id, vocab_size, tokenizer=None):
+    def __init__(self, question_id, question_str, image_id, vocab_size, tokenizer=None):
         """Instantiates a Question object.
 
         Args:
             question_id (int): unique question indentifier
-            question (str): question as a string
+            question_str (str): question as a string
             image_id (int): unique image identifier of the image related to this question
             vocab_size (int): size of the vocabulary
             tokenizer (Tokenizer): if given, the question will be tokenized with it
@@ -138,20 +135,22 @@ class Question:
         except:
             raise ValueError('vocab_size has to be a positive integer')
 
-        self.question = question
+        # Store question string
+        self.question_str = question_str
         self._tokens_idx = []
 
         # Validate tokenizer class
         if tokenizer:
             if isinstance(tokenizer, Tokenizer):
                 self.tokenizer = tokenizer
-                self._tokens_idx = self.tokenizer.texts_to_sequences([self.question])[0]
+                self._tokens_idx = self.tokenizer.texts_to_sequences([self.question_str])[0]
             else:
                 raise TypeError('The tokenizer param must be an instance of keras.preprocessing.text.Tokenizer')
 
     def tokenize(self, tokenizer=None):
-        """Tokenizes the question using the specified tokenizer. If none provided, it will use the one passed in the
-        constructor.
+        """
+        Tokenizes the question using the specified tokenizer. If none is provided, it will use the one
+        passed in the constructor.
 
         Returns:
             A list with integer indexes, each index representing a word in the question
@@ -160,17 +159,22 @@ class Question:
             Error in case that a tokenizer hasn't been provided in the method or at any point before
         """
 
+        # replace self.tokenizer if one was passed in
         if tokenizer:
             self.tokenizer = tokenizer
-            self._tokens_idx = self.tokenizer.texts_to_sequences([self.question])[0]
-        elif self.tokenizer:
-            self._tokens_idx = self.tokenizer.texts_to_sequences([self.question])[0]
-        else:
+
+        # enforce that we must have a tokenizer
+        if not hasattr(self, 'tokenizer'):
             raise TypeError('tokenizer cannot be of type None, you have to provide an instance of '
                             'keras.preprocessing.text.Tokenizer if you haven\'t provided one yet')
 
-        # Update question_max_length if not provided
-
+        # texts_to_sequences takes a list of strings and returns a list of sequences
+        # because we only pass in one string, we only want the first sequence from returned list
+        self._tokens_idx = self.tokenizer.texts_to_sequences([self.question_str])[0]
+        
+        # This temporary "hack" doesn't work because it returns strings not ints
+        # self._tokens_idx = text_to_word_sequence(self.question_str)
+        
         return self._tokens_idx
 
     def get_tokens(self):
@@ -187,7 +191,7 @@ class Question:
 class Answer:
     """Class that holds the information of a single answer of a VQA sample"""
 
-    def __init__(self, answer_id, answer_string, question_id, image_id, vocab_size, n_answer_classes, tokenizer=None):
+    def __init__(self, answer_id, answer_str, question_id, image_id, vocab_size, n_answer_classes, tokenizer=None):
         """Instantiates an Answer object.
 
         Args:
@@ -236,14 +240,14 @@ class Answer:
         # will be set later when the top answers are known
         self.one_hot_index = -1 
 
-        self.answer_string = answer_string
+        self.answer_str = answer_str
         self._tokens_idx = []
 
         # Validate tokenizer class
         if tokenizer:
             if isinstance(tokenizer, Tokenizer):
                 self.tokenizer = tokenizer
-                self._tokens_idx = self.tokenizer.texts_to_sequences([self.answer_string])[0]
+                self._tokens_idx = self.tokenizer.texts_to_sequences([self.answer_str])[0]
             else:
                 raise TypeError('The tokenizer param must be an instance of keras.preprocessing.text.Tokenizer')
 
@@ -260,9 +264,9 @@ class Answer:
 
         if tokenizer:
             self.tokenizer = tokenizer
-            self._tokens_idx = self.tokenizer.texts_to_sequences([self.answer_string])[0]
+            self._tokens_idx = self.tokenizer.texts_to_sequences([self.answer_str])[0]
         elif self.tokenizer:
-            self._tokens_idx = self.tokenizer.texts_to_sequences([self.answer_string])[0]
+            self._tokens_idx = self.tokenizer.texts_to_sequences([self.answer_str])[0]
         else:
             raise TypeError('tokenizer cannot be of type None, you have to provide an instance of '
                             'keras.preprocessing.text.Tokenizer if you haven\'t provided one yet')

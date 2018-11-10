@@ -347,11 +347,23 @@ class StackedAttentionNetwork(object):
         # assemble all these layers into model
         self.model = Model(inputs=[layer_image_input, layer_sent_input], outputs=layer_prob_answer)
 
-        # TODO: read the choice of optimizer in from options.py
-        optimizer = keras.optimizers.Adam(lr=0.001)
+        if self.options['optimizer'] == 'sgd':
+            optimizer = keras.optimizers.SGD(lr=options['sgd_learning_rate'],
+                                             momentum=options['sgd_momentum'],
+                                             decay=options['sgd_decay_rate'],
+                                             clipnorm=options['sgd_grad_clip']
+                                            )
+        elif self.options['optimizer'] == 'adam':
+            # TODO: if we want to keep Adam, move params into options.py
+            # optimizer = keras.optimizers.Adam(lr=0.001)
+            pass
+        else:
+            raise TypeError('Invalid optimizer specified.')
+        
+        print('Compiling model with {} optimizer...'.format(self.options['optimizer']))
         
         # compile model so that it's ready to train
-        self.model.compile (optimizer= optimizer,
+        self.model.compile (optimizer=optimizer,
                             loss='categorical_crossentropy',  # can train if not using the sparse version
                             # TODO: to match Yang's paper we may need to write our own loss function
                             # see https://github.com/keras-team/keras/blob/master/keras/losses.py

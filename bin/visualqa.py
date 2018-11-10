@@ -55,9 +55,9 @@ def main(options):
     np.random.seed(2018)
     
     # Always load train dataset to obtain the one hot encoding indices 
-    # and  question_max_len from it
+    # and  max_sentence_len from it
     train_dataset = load_dataset(DatasetType.TRAIN,options)
-    options['max_sentence_len'] = train_dataset.question_max_len
+    options['max_sentence_len'] = train_dataset.max_sentence_len
 
     answer_one_hot_mapping = train_dataset.answer_one_hot_mapping
 
@@ -192,20 +192,20 @@ def train(model, dataset, options, val_dataset=None):
     if (not extended) and (not val_dataset):
         raise ValueError('If not using the extended dataset, a validation dataset must be provided')
 
-
-    model_name = options["model_name"]
-    model_weights_path = options["weights_path"]
-    losses_path = options["losses_path"]
-
-    max_train_size = options["max_train_size"]
-    max_val_size   = options['max_val_size']
-
-    loss_callback = LossHistoryCallback(losses_path)
-    save_weights_callback = CustomModelCheckpoint(model_weights_path, options["weights_dir_path"]  , model_name)
-    stop_callback = EarlyStopping(patience=options['early_stop_patience'])
     batch_size = options['batch_size']
     max_epochs = options['max_epochs']
+    max_train_size = options['max_train_size']
+    max_val_size   = options['max_val_size']
 
+    losses_path = options['losses_path']
+    model_weights_path = options['weights_path']
+    model_weights_dir_path = options['weights_dir_path']
+    model_name = options['model_name']
+    early_stop_patience = options['early_stop_patience']
+
+    loss_callback = LossHistoryCallback(losses_path)
+    save_weights_callback = CustomModelCheckpoint(model_weights_path, model_weights_dir_path, model_name)
+    stop_callback = EarlyStopping(patience=early_stop_patience)
 
     if(max_train_size != None):
         samples_per_train_epoch = min(max_train_size,dataset.size()) 
@@ -317,12 +317,14 @@ class CustomModelCheckpoint(ModelCheckpoint):
     """
         Save the model weights at the end of each epoch.
     """
-    def __init__(self, filepath, weights_dir_path, model_name, monitor='val_loss', verbose=0, save_best_only=False,
-                 mode='auto'):
-        super(CustomModelCheckpoint, self).__init__(filepath, monitor=monitor, verbose=verbose,
-                                                    save_best_only=save_best_only, mode=mode)
-        self.model_name = model_name
+    def __init__(self, weights_path, weights_dir_path, model_name,
+                 monitor='val_loss', verbose=0, save_best_only=False, mode='auto'):
+
+        super(CustomModelCheckpoint, self).__init__(filepath=weights_path, monitor=monitor,
+                                                    verbose=verbose, save_best_only=save_best_only, mode=mode)
+        self.weights_path = weights_path
         self.weights_dir_path = weights_dir_path
+        self.model_name = model_name
         self.last_epoch = 0
 
     def on_epoch_end(self, epoch, logs={}):
@@ -332,19 +334,21 @@ class CustomModelCheckpoint(ModelCheckpoint):
     def on_train_end(self, logs={}):
         """
            symlink to the last epoch weights, for easy reference to the final epoch.
-
         """
+        
+        final_epoch = self.last_epoch + 1
+        wt_file = self.weights_path.format(epoch=final_epoch)
+        symlink = self.weights_dir_path + 'model_weights_{}_latest'.format(self.model_name)
+        print('DEBUG: wt_file = ', wt_file)
+        print('DEBUG: symlink = ', symlink)
+        
+        # TODO: symlinking needs to point to absolute path.  Can't just use '../'
         try:
-            os.symlink(self.weights_dir_path + 'model_weights_{}.{}.hdf5'.format(self.model_name, self.last_epoch),
-                       self.weights_dir_path + 'model_weights_{}'.format(self.model_name))
-        except OSError:
+            os.symlink(wt_file, symlink)
+        except FileExistsError:
             # If the symlink already exist, delete and create again
-            os.remove(self.weights_dir_path + 'model_weights_{}'.format(self.model_name))
-            # Recreate
-            os.symlink(self.weights_dir_path + 'model_weights_{}.{}.hdf5'.format(self.model_name, self.last_epoch),
-                       'model_weights_{}'.format(self.model_name))
-            pass
-
+            os.remove(self.weights_dir_path + 'model_weights_{}_latest'.format(self.model_name))
+            os.symlink(wt_file, symlink)
 
 # ------------------------------- ENTRY POINT -------------------------------
 
@@ -408,10 +412,6 @@ if __name__ == '__main__':
     if args.no_logging:
         model_options['logging'] = False
 
-    # load experiment attributes; override model defaults
-    if args.experiment:
-        model_options = ExperimentLibrary.get_experiment(args.experiment, model_options)
-    
     # override default for max_epochs if specified
     if args.epochs:
         model_options['max_epochs'] = args.epochs
@@ -419,7 +419,6 @@ if __name__ == '__main__':
     # override default for batch_size if specified
     if args.batch_size:
         model_options['batch_size'] = args.batch_size
-        
 
     # parse args with defaults
     model_options['model_name'] = args.model 
@@ -428,10 +427,16 @@ if __name__ == '__main__':
     model_options['max_train_size'] = args.max_train_size
     model_options['max_val_size']   = args.max_val_size
 
-        
+    # set the optimizer params (learning rate, etc...)
+    ModelOptions.set_optimizer_params(model_options)
+    
+    # process experiments last
+    # load experiment attributes from json (overrides model defaults and CLI args)
+    if args.experiment:
+        model_options = ExperimentLibrary.get_experiment(args.experiment, model_options)
+    
     # print all options before building graph
     if args.verbose:
-        # TODO: implement mlflow logging of params
         model_options['verbose'] = args.verbose
         pprint.pprint(model_options)
 
