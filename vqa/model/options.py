@@ -3,6 +3,7 @@ import datetime
 import os
 
 from collections import OrderedDict
+from keras.optimizers import SGD
 
 from .. dataset.types import DatasetType
 
@@ -113,26 +114,18 @@ class ModelOptions(object):
         # Training parameters
         self.options['batch_size'] = 100
         self.options['max_epochs'] = 50
-        
-        self.options['loss_function'] = 'neg_mean_log_prob_y'  # TODO: try cross-entropy -p*log(q)
+        self.options['early_stop_patience'] = 5
         self.options['max_train_size'] = None # interpreted as full size of training set unless overridden
         self.options['max_val_size'] = None # interpreted as full validation set size unless overridden
         self.options['extended']  = False # use train+val set for training
+        # When changing the optimize, also update set_optimizer_params()
+        self.options['optimizer'] = 'sgd'       
 
-        # SGD training parameters
-        self.options['optimizer'] = 'sgd'
-        self.options['learning_rate'] = 0.1
-        self.options['word_embed_lr'] = 80
-        self.options['momentum'] = 0.9
-        self.options['gamma'] = 1
-        self.options['step'] = 10
-        self.options['step_start'] = 100
-        self.options['weight_decay'] = 0.0005
-        self.options['decay_rate'] = 0.999
-        self.options['drop_ratio'] = 0.5
-        self.options['smooth'] = 1e-8
-        self.options['grad_clip'] = 0.1
-        self.options['early_stop_patience'] = 5
+        # TODO: implement custom loss function
+        # self.options['loss_function'] = 'neg_mean_log_prob_y'  # TODO: try cross-entropy -p*log(q)
+
+        # Regularization / weight decay parameters
+        self.options['weight_decay'] = 0.0005   # in Keras we have to apply layer-by-layer
 
         # MLFlow logging parameters
         if 'MLFLOW_TRACKING_URI' in os.environ:
@@ -236,23 +229,51 @@ class ModelOptions(object):
         date_str = datetime.datetime.now().isoformat()
         
         if (action == "train"):
-            options["weights_path"] = weights_dir_path+'model_weights_' + model_name + suffix + '.{epoch:02d}.hdf5'
+            # timestamp the weights; later we create a symlink to the most recent set (for prediction)
+            options["weights_path"] = weights_dir_path + 'model_weights_' + \
+                model_name + suffix + '_' + date_str + '.{epoch:02d}.hdf5'  # must use named `epoch` placeholder
             
             # timestamp the losses_path for logging purposes
             options['losses_path'] = results_dir_path+'losses_{}{}_{}.hdf5'.format(model_name, suffix, date_str)
             
         elif (action == "val" ):
+            # TODO: update to handle timestamped files if necessary
             options["weights_path"] = weights_dir_path + 'model_weights_{}'.format(model_name)
 
         elif (action == "test"):
+            # TODO: update to handle timestamped files if necessary
             options['weights_path'] = weights_dir_path + 'model_weights_{}{}'.format(model_name, suffix)
             options['results_path'] = results_dir_path + 'test2015_results_{}{}.json'.format(model_name, suffix)
         
         else:
             # action type is eval
+            # TODO: update to handle timestamped files if necessary
             options['weights_path'] = weights_dir_path + 'model_weights_{}{}'.format(model_name, suffix)
             options['results_path'] = results_dir_path + 'val2014_results_{}{}.json'.format(model_name, suffix)
 
         return options
-
  
+    @staticmethod
+    def set_optimizer_params(options, optimizer=None):
+        """
+            Sets optimizer-specific parameters to the options object
+        """
+        if not optimizer == None:
+            options['optimizer'] = optimizer
+        
+        if options['optimizer'] == 'sgd':
+            options['sgd_learning_rate'] = 0.1
+            options['sgd_momentum'] = 0.9
+            options['sgd_decay_rate'] = 0.999
+            options['sgd_grad_clip'] = 0.1         # clip to maximum norm
+            
+            # Unused parameters
+            # options['sgd_word_embed_lr'] = 80    # never used in Yang's code
+            # options['sgd_gamma'] = 1             # Yang's code used gamma=1, so fixed learning rate
+            # options['sgd_smooth'] = 1e-8         # never used in Yang's code
+            # options['sgd_step'] = 10             # TBD whether we need this
+            # options['sgd_step_start'] = 100      # TBD whether we need this
+        else:
+            raise TypeError('Invalid optimizer specified.  Only \'sgd\' is currently supported.')
+            
+        return options
