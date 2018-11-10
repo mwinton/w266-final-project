@@ -54,7 +54,7 @@ In the /home/&lt;username&gt;/vqa_data the following directory structure is expe
     └── mscoco_question_types.txt
 ```
 
-### Enabling logging:
+### Enabling logging of hyperparameters and plots:
 
 To enable [MLFlow](https://www.mlflow.org) logging, set the `MLFLOW_TRACKING_URI` environment variable in your `~/.bashrc` file:
 
@@ -63,6 +63,12 @@ export MLFLOW_TRACKING_URI="http://xxx.xxx.xxx.xxx:5000"
 ```
 
 If the environment variable isn't set, then logging will be automatically disabled.
+
+### Enabling TensorBoard:
+
+TensorBoard looks for its logs in the /home/&lt;username&gt;/logs directory.
+
+Assuming you have set up your SSH port mapping, you can view TensorBoard at [http://localhost:6006](http://localhost:6006).
 
 ### Training the model:
 

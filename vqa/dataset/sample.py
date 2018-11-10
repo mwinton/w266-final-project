@@ -33,7 +33,7 @@ class VQASample:
         """
         # Question
         if isinstance(question, Question):
-            self.question_str = question
+            self.question = question
         else:
             raise TypeError('question has to be an instance of class Question')
 
@@ -69,7 +69,7 @@ class VQASample:
         """
 
         # Prepare question np array representation
-        question = self.question_str.get_tokens()
+        question = self.question.get_tokens()
         question = pad_sequences([question], max_sentence_len)[0]
 
         # Prepare image

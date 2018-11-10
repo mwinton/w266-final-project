@@ -17,7 +17,7 @@ import matplotlib
 matplotlib.use('Agg')  
 import matplotlib.pyplot as plt
 
-from keras.callbacks import EarlyStopping, Callback, ModelCheckpoint
+from keras.callbacks import EarlyStopping, Callback, ModelCheckpoint, TensorBoard
 
 sys.path.append('..')
 
@@ -266,9 +266,17 @@ def train(model, dataset, options, val_dataset=None):
     model_name = options['model_name']
     early_stop_patience = options['early_stop_patience']
 
+    # define callbacks to plug into Keras training
     loss_callback = LossHistoryCallback(losses_path)
     save_weights_callback = CustomModelCheckpoint(model_weights_path, model_weights_dir_path, model_name)
     stop_callback = EarlyStopping(patience=early_stop_patience)
+    tb_logs_path = options['tb_logs_root'] + 'final/{}'.format(datetime.datetime.now())
+    tensorboard_callback = TensorBoard(log_dir=tb_logs_path,
+#                                        histogram_freq=1,
+                                       batch_size=batch_size,
+                                       write_graph=True,
+                                       write_images=True)
+    callbacks = [save_weights_callback, loss_callback, stop_callback, tensorboard_callback]
 
     if(max_train_size != None):
         samples_per_train_epoch = min(max_train_size,dataset.size()) 
@@ -286,13 +294,13 @@ def train(model, dataset, options, val_dataset=None):
     print('Start training...')
     if not extended:
         train_stats = model.fit_generator(dataset.batch_generator(), steps_per_epoch=samples_per_train_epoch//batch_size,
-                            epochs=max_epochs, callbacks=[save_weights_callback, loss_callback, stop_callback],
+                            epochs=max_epochs, callbacks=callbacks,
                             validation_data=val_dataset.batch_generator(), 
                             validation_steps=samples_per_val_epoch//batch_size,max_queue_size=20)
     else:
         train_stats = model.fit_generator(dataset.batch_generator(batch_size, split='train'), 
                             steps_per_epoch=dataset.train_size()/batch_size,
-                            epochs=num_epochs, callbacks=[save_weights_callback, loss_callback, stop_callback],
+                            epochs=num_epochs, callbacks=callbacks,
                             validation_data=dataset.batch_generator(batch_size, split='val'),
                             validation_steps=dataset.val_size()//batch_size,max_queue_size=20)
 
