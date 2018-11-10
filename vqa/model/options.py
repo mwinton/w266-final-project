@@ -18,6 +18,7 @@ class ModelOptions(object):
         user_name = getpass.getuser()
         data_root = "/home/"+user_name+"/vqa_data/"
         self.options['data_root'] = data_root
+        self.options['tb_logs_root'] = "/home/" + user_name + "/logs/"
 
         self.options['user_name'] = user_name
 
