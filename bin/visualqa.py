@@ -291,11 +291,17 @@ def train(model, dataset, options, val_dataset=None):
         else:
             samples_per_val_epoch = val_dataset.size()
 
+    # flag to tell batch_generator not to yield image data
+    if model_name == 'text_cnn':
+        is_text_only = True
+    else:
+        is_text_only = False
+        
     print('Start training...')
     if not extended:
-        train_stats = model.fit_generator(dataset.batch_generator(), steps_per_epoch=samples_per_train_epoch//batch_size,
+        train_stats = model.fit_generator(dataset.batch_generator(is_text_only), steps_per_epoch=samples_per_train_epoch//batch_size,
                             epochs=max_epochs, callbacks=callbacks,
-                            validation_data=val_dataset.batch_generator(), 
+                            validation_data=val_dataset.batch_generator(is_text_only), 
                             validation_steps=samples_per_val_epoch//batch_size,max_queue_size=20)
     else:
         train_stats = model.fit_generator(dataset.batch_generator(batch_size, split='train'), 

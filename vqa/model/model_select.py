@@ -8,6 +8,7 @@ from keras.models import Model, model_from_json
 
 from . baseline_model import BaselineModel
 from . san_model import StackedAttentionNetwork
+from . text_cnn_model import TextCNNModel
 
 
 class ModelLibrary:
@@ -16,6 +17,7 @@ class ModelLibrary:
     # Model identifiers
     MODEL_BASELINE = "baseline"  # Base model
     MODEL_SAN      = "san"       # SAN Model  (To reproduce Yang's paper results)
+    MODEL_TEXT_CNN = "text_cnn"  # Text-only CNN Model
 
     # ---------------------------------- FUNCTIONS --------------------------------
 
@@ -38,6 +40,8 @@ class ModelLibrary:
             return ModelLibrary.get_baseline_model(options)
         elif model_name == ModelLibrary.MODEL_SAN:
             return ModelLibrary.get_san_model(options)
+        elif model_name == ModelLibrary.MODEL_TEXT_CNN:
+            return ModelLibrary.get_text_cnn_model(options)
         else:
             print("Model not registered")
   
@@ -67,5 +71,19 @@ class ModelLibrary:
         vqa_model.summary()
 
         return vqa_model
+
+    @staticmethod
+    def get_text_cnn_model(options):
+
+        print('Creating model...')
+        tcnn  = TextCNNModel(options)
+        tcnn.build_graph(options)
+
+        vqa_model = tcnn.model
+        print('Model created and compiled')
+        vqa_model.summary()
+
+        return vqa_model
+
 
 
