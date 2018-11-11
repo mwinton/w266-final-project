@@ -104,7 +104,7 @@ class VQADataset:
             print("Opening existing Tokenizer...")
         # Create new Tokenizer, but it can't be used until training
         else:
-            print("Building tokenizer...")
+            print("Creating tokenizer...")
             # TODO: determine if we need to set the oov_token param for the Tokenizer
             # NOTE: 0 is a reserved index that won't be assigned to any word.
             # NOTE: Tokenizer removes all punctuation, so contraction preprocessing isn't needed
@@ -154,7 +154,11 @@ class VQADataset:
         answers = self.encode_answers(answers, answer_one_hot_mapping)
 
         # Ensure we have a trained tokenizer with a dictionary
+        print('\nDEBUG: before initialization, tokenizer word_index length= ', 
+             len(self.tokenizer.word_index))
         self._init_tokenizer(questions, answers)
+        print('DEBUG: after initialization, tokenizer word_index length= ', 
+             len(self.tokenizer.word_index))
 
         aux_len = 0  # To compute the maximum question length
         # Tokenize and encode questions and answers
@@ -553,19 +557,24 @@ class VQADataset:
     def _init_tokenizer(self, questions, answers):
         """Fits the tokenizer with the questions and answers and saves this tokenizer into a file for later use"""
 
-        print('Training tokenizer...')
-        questions_list = [question.question_str for _, question in questions.items()]
-        answers_list = [answer.answer_str for _, answer in answers.items()]
+        # contrary to the docs, `word_index` exists before training, so can't use `hasattr` check
+        if len(self.tokenizer.word_index) == 0:
+            # only have to train it once.
+            print('Tokenizer is not yet trained.  Training now...')
+            questions_list = [question.question_str for _, question in questions.items()]
+            answers_list = [answer.answer_str for _, answer in answers.items()]
 
-        print("Sample Questions : \n {}".format(questions_list[:10]))
-        print ("\n*************\n")
-        print("Sample Answers : \n {}".format(answers_list[:10]))
+            print("Sample Questions : \n {}".format(questions_list[:10]))
+            print ("\n*************\n")
+            print("Sample Answers : \n {}".format(answers_list[:10]))
 
-        self.tokenizer.fit_on_texts(questions_list + answers_list)
-        print('Words in tokenizer index: ', len(self.tokenizer.word_index))
-        # Save tokenizer object
-        pickle.dump(self.tokenizer, open(self.tokenizer_path, 'wb'))
-
+            self.tokenizer.fit_on_texts(questions_list + answers_list)
+            print('Words in tokenizer index: ', len(self.tokenizer.word_index))
+            # Save tokenizer object
+            pickle.dump(self.tokenizer, open(self.tokenizer_path, 'wb'))
+        else:
+            print('Trained Tokenizer is already available...')
+            
     def _get_image_ids(self, features_path):
 
         print("Accessing file =>",features_path)
