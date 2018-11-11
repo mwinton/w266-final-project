@@ -236,7 +236,7 @@ def plot_train_metrics(train_stats, options, plot_type='epochs'):
         plt.plot(train_acc)
         plt.plot(val_acc)
         plt.xticks(np.arange(0, len(train_acc), step=1))
-        plt.xlabel('Epoch Numbeer')
+        plt.xlabel('Epoch Number')
         plt.ylabel('Accuracy')
         plt.title('Model: {}; Experiment: {}\nRun time: {}'.format(options['model_name'], options['experiment_id'], d))
         plt.legend(('Training', 'Validation'))
