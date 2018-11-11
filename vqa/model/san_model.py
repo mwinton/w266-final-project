@@ -22,12 +22,6 @@ class StackedAttentionNetwork(object):
             print('Initializing SAN...')
         self.options = options
     
-    def build_sentence_subgraph (self, options):
-        pass
-    
-    def build_image_subgraph (self, options):
-        pass
-    
     def sum_axis_1(self, x):
         ''' need to wrap backend ops in function and call from Lambda layer'''
         return kbe.sum(x, axis=1)

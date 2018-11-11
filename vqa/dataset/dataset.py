@@ -373,17 +373,20 @@ class VQADataset:
             
         return next_chunk_idx
 
-    def batch_generator(self, text_only=False):
+    def batch_generator(self, text_only=False, img_only=False):
         """
           Yields a batch of data of size batch_size
           Assumes the samples are sorted by their image indices , see the prepare() function
           We step through the same sequence as images stored in the hdf5 file
           In doing so we can prevent the large memory footprint needed to load all the images in memory
           
-          NOTE: text_only implementation is inefficient, mainly used for debugging.  All logic for
+          NOTE: text_only and img_only implementations are inefficient, mainly used for debugging.  All logic for
           processing images into batches still happens (same code path), except the images are not yielded
         """
 
+        if text_only and img_only:
+            raise ValueError('A batch cannot be both text-only and image-only')
+            
         batch_size = self.options['batch_size']
         assert(self.max_sample_size != None and self.max_sample_size <= len(self.samples))
 
@@ -433,11 +436,13 @@ class VQADataset:
                 I[idx], Q[idx] = self.samples[sample_idx].get_input(self.max_sentence_len)
                 A[idx] = self.samples[sample_idx].get_output()
 
-            # yield (output) batches of data
-            if not text_only:
-                yield ([I, Q], A)
+            # yield (output) appropriate batches of data
+            if text_only:
+                yield([Q], A)
+            elif img_only:
+                yield([I], A)
             else:
-                yield ([Q], A)
+                yield([I, Q], A)
                 
             # Update interval
             batch_start += batch_size

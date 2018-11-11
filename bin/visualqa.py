@@ -296,14 +296,21 @@ def train(model, dataset, options, val_dataset=None):
         is_text_only = True
     else:
         is_text_only = False
+    # flag to tell batch_generator not to yield sentence data
+    if model_name == 'vggnet_only':
+        is_img_only = True
+    else:
+        is_img_only = False
         
     print('Start training...')
     if not extended:
-        train_stats = model.fit_generator(dataset.batch_generator(is_text_only), steps_per_epoch=samples_per_train_epoch//batch_size,
-                            epochs=max_epochs, callbacks=callbacks,
-                            validation_data=val_dataset.batch_generator(is_text_only), 
-                            validation_steps=samples_per_val_epoch//batch_size,max_queue_size=20)
+        train_stats = model.fit_generator(dataset.batch_generator(is_text_only, is_img_only),
+                                          steps_per_epoch=samples_per_train_epoch//batch_size,
+                                          epochs=max_epochs, callbacks=callbacks,
+                                          validation_data=val_dataset.batch_generator(is_text_only, is_img_only), 
+                                          validation_steps=samples_per_val_epoch//batch_size,max_queue_size=20)
     else:
+        # Note: no support for text-only or image-only (debugging) models with extended dataseet
         train_stats = model.fit_generator(dataset.batch_generator(batch_size, split='train'), 
                             steps_per_epoch=dataset.train_size()/batch_size,
                             epochs=num_epochs, callbacks=callbacks,
