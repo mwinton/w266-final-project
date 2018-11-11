@@ -154,11 +154,7 @@ class VQADataset:
         answers = self.encode_answers(answers, answer_one_hot_mapping)
 
         # Ensure we have a trained tokenizer with a dictionary
-        print('\nDEBUG: before initialization, tokenizer word_index length= ', 
-             len(self.tokenizer.word_index))
         self._init_tokenizer(questions, answers)
-        print('DEBUG: after initialization, tokenizer word_index length= ', 
-             len(self.tokenizer.word_index))
 
         aux_len = 0  # To compute the maximum question length
         # Tokenize and encode questions and answers
