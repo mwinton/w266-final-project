@@ -16,13 +16,6 @@ class ExperimentLibrary:
     def __init__(self):
         pass
 
-    @classmethod
-    def get_valid_experiment_ids(cls):
-        valid_ids = [cls.__dict__[key] for key in cls.__dict__.keys() if key.startswith('EXPERIMENT_')]
-        valid_ids.sort()
-        print("Valid Experiment IDs:", valid_ids)
-        return valid_ids
-
     @staticmethod
     def get_experiment(id, options):
         '''

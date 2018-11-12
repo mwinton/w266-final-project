@@ -107,7 +107,8 @@ class ModelOptions(object):
         self.options['n_attention_features'] = 512
         self.options['n_attention_layers'] = 2
         self.options['attention_merge_type'] = 'addition'
-        self.options['attention_dropout_ratio'] = 0.5
+#         self.options['attention_dropout_ratio'] = 0.5  # Yang
+        self.options['attention_dropout_ratio'] = 0.1
 
         # Classification layer parameters
         self.options['n_answer_classes'] = 1001  # 1000 real classes + <unk>  
@@ -125,8 +126,8 @@ class ModelOptions(object):
         # TODO: implement custom loss function
         # self.options['loss_function'] = 'neg_mean_log_prob_y'  # TODO: try cross-entropy -p*log(q)
 
-        # Regularization / weight decay parameters
-        self.options['weight_decay'] = 0.0005   # in Keras we have to apply layer-by-layer
+        # Regularization / weight decay parameters (assumed to go with an l2 regularizer)
+        self.options['weight_decay'] = 0.0005            # in Keras we have to apply layer-by-layer
 
         # MLFlow logging parameters
         if 'MLFLOW_TRACKING_URI' in os.environ:
