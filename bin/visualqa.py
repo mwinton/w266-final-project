@@ -216,6 +216,16 @@ def plot_train_metrics(train_stats, options, plot_type='epochs'):
     acc_fig_path = options['results_dir_path'] + \
         'acc_curves/accuracies_{}_{}_{}_{}.png'.format(plot_type, options['model_name'], options['experiment_id'], d)
     
+    # make sure directories exist before trying to save to them
+    loss_fig_dir = os.path.dirname(os.path.abspath(loss_fig_path))
+    print("Saving loss plots to directory -> ", loss_fig_dir)
+    if not os.path.isdir(loss_fig_dir):
+        os.mkdir(loss_fig_dir)
+    acc_fig_dir = os.path.dirname(os.path.abspath(acc_fig_path))
+    print("Saving accuracy plots to directory -> ", acc_fig_dir)
+    if not os.path.isdir(acc_fig_dir):
+        os.mkdir(acc_fig_dir)
+    
     if plot_type == 'epochs':
         # generate and save loss plot
         plt.plot(train_losses)
@@ -435,17 +445,16 @@ class CustomModelCheckpoint(ModelCheckpoint):
         """
         
         final_epoch = self.last_epoch + 1
-        wt_file = self.weights_path.format(epoch=final_epoch)
-        symlink = self.weights_dir_path + 'model_weights_{}_latest'.format(self.model_name)
+        wt_file = os.path.abspath(self.weights_path.format(epoch=final_epoch))
+        symlink = os.path.abspath(self.weights_dir_path + 'model_weights_{}_latest'.format(self.model_name))
         print('DEBUG: wt_file = ', wt_file)
         print('DEBUG: symlink = ', symlink)
         
-        # TODO: symlinking needs to point to absolute path.  Can't just use '../'
         try:
             os.symlink(wt_file, symlink)
         except FileExistsError:
             # If the symlink already exist, delete and create again
-            os.remove(self.weights_dir_path + 'model_weights_{}_latest'.format(self.model_name))
+            os.remove(symlink)
             os.symlink(wt_file, symlink)
 
 # ------------------------------- ENTRY POINT -------------------------------

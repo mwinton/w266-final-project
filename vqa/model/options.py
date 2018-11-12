@@ -26,7 +26,6 @@ class ModelOptions(object):
         self.options['images_val_root_path']   = data_root+'images/mscoco/val2014/'
         self.options['images_test_root_path']   = data_root+'images/mscoco/test2015/'
 
-
         self.options['questions_train_path'] = data_root+'questions/OpenEnded_mscoco_train2014_questions.json'
         self.options['questions_val_path']   = data_root+'questions/OpenEnded_mscoco_val2014_questions.json'
         self.options['questions_test_path']  = data_root+'questions/OpenEnded_mscoco_test2015_questions.json'
