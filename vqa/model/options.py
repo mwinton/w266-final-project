@@ -261,12 +261,19 @@ class ModelOptions(object):
             options['optimizer'] = optimizer
         
         if options['optimizer'] == 'sgd':
-            options['sgd_learning_rate'] = 0.1
-            options['sgd_momentum'] = 0.9
-            options['sgd_decay_rate'] = 0.999
-            options['sgd_grad_clip'] = 0.1         # clip to maximum norm
+            
+            # these work pretty well for text-only (43% val accuracy)
+            options['sgd_learning_rate'] = 0.1     # Yang
+            options['sgd_momentum'] = 0.9          # Yang (and Keras default)
+            options['sgd_decay_rate'] = 0.0        # Yang (no decay)
+            options['sgd_grad_clip'] = 0.1         # Yang
+
+            # Keras: lr = self.lr * (1. / (1. + self.decay * self.iterations))
+#             options['sgd_learning_rate'] = 0.1         # Yang
+#             options['sgd_grad_clip'] = 0.1         # Yang
             
             # Unused parameters
+            # options['sgd_decay_rate'] = 0.999    # never used in Yang's code
             # options['sgd_word_embed_lr'] = 80    # never used in Yang's code
             # options['sgd_gamma'] = 1             # Yang's code used gamma=1, so fixed learning rate
             # options['sgd_smooth'] = 1e-8         # never used in Yang's code
