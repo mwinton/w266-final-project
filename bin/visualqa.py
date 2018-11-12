@@ -139,7 +139,7 @@ def load_dataset(dataset_type, options,answer_one_hot_mapping = None):
 
     try:
         with open(dataset_path, 'rb') as f:
-            print('Loading dataset...')
+            print('Loading dataset from {}'.format(dataset_path))
             dataset = pickle.load(f)
             print('Dataset loaded')
             dataset.samples = sorted(dataset.samples, key=lambda sample: sample.image.features_idx)
@@ -176,22 +176,21 @@ def load_dataset(dataset_type, options,answer_one_hot_mapping = None):
 
     except IOError:
 
-        # If dataset does not exist create it and save it for future runs.   
+        # If dataset file does not exist create and save it for future runs.   
 
         print('Creating dataset...')
         dataset = VQADataset(dataset_type, options)
         print('Preparing dataset...')
 
-        # if the one-hot mapping is not provided, generate one
+        # as part of preparation, if one-hot mapping is not provided, generate it
         dataset.prepare(answer_one_hot_mapping)
 
-        print('Dataset size: %d' % dataset.size())
-        print('Dataset ready.')
+        print('Dataset has been prepareed.  Size: %d' % dataset.size())
 
         print('Saving dataset...')
         with open(dataset_path, 'wb') as f:
             pickle.dump(dataset, f)
-        print('Dataset saved')
+        print('Dataset saved to {}'.format(dataset_path))
 
     return dataset
 

@@ -145,19 +145,20 @@ class VQADataset:
         answers = self._create_answers_dict(self.answers_path)
         print('Answers dict created. Num entries: {}'.format(len(answers)))
         
-        # Load Image IDs
+        # Load Image IDs from the VGGNet embeddings file
         image_ids = self._get_image_ids(self.image_features_path)
         images = self._create_images_dict(image_ids)
         print('Images dict created')
 
         # We only keep the n_answer_classes choices for answers as this
         # is formulated as a classification problem
-        answers = self.encode_answers(answers, answer_one_hot_mapping)
+        answers = self._encode_answers(answers, answer_one_hot_mapping)
 
         # Ensure we have a trained tokenizer with a dictionary
         self._init_tokenizer(questions, answers)
+        print('Tokenizer trained')
 
-        aux_len = 0  # To compute the maximum question length
+        max_len = 0  # To compute the maximum question length
         # Tokenize and encode questions and answers
         debug = 0
         for _, question in questions.items():
@@ -168,38 +169,30 @@ class VQADataset:
                 question.tokenize(self.tokenizer)
             debug += 1
             # Get the maximum question length
-            if question.get_tokens_length() > aux_len:
-                aux_len = question.get_tokens_length()
+            if question.get_tokens_length() > max_len:
+                max_len = question.get_tokens_length()
+        print('Questions tokenized...')
 
         # If the question max len has not been set in options file, assign to the
         # maximum question length in the dataset
         if not self.max_sentence_len:
-            self.max_sentence_len = aux_len
-        print('Actual max sentence length: {}'.format(aux_len))
+            self.max_sentence_len = max_len
+        print('Actual max sentence length: {}'.format(max_len))
         print('Model uses max sentence length: {}'.format(self.max_sentence_len))
         
         for _, answer in answers.items():
             answer.tokenize(self.tokenizer)
-
-        print('Tokenizer created')
+        print('Answers tokenized...')
 
         self._create_samples(images, questions, answers)
 
-        print("Sorting Samples by Image indices ")
-       
-        self.samples = sorted(self.samples, key=lambda sample: sample.image.features_idx) 
-
-        if (self.max_sample_size == None):
-            self.max_sample_size = len(self.samples)
-
-
-    def encode_answers(self,answers,answer_one_hot_mapping):
+    def _encode_answers(self,answers,answer_one_hot_mapping):
         """
-           keep top [n_answer_classes]  most common answers to reduce the number of answer classes
+           keep top [n_answer_classes] most common answers to reduce the number of answer classes
         """
 
         if answer_one_hot_mapping == None:
-
+            # build the one-hot-encoding
             answer_counts = Counter() 
             for answer in answers.values():
                 answer_counts[answer.answer_str] += 1
@@ -208,32 +201,31 @@ class VQADataset:
 
             print("Top 100 answers are ", sorted_answers[:100])
             
-            # TODO: change to Top k instead of hard-coded top 1000
-            print('Top 1000 answers by word count')
-            top_k_num_words = Counter()
-            for s in sorted_answers[:1000]:
-                top_k_num_words[len(s[0].split())] += 1
-            for word_count, num_answers in top_k_num_words.items():
-                print('- {} of the Top 1000 answers have {} words'.format(num_answers, word_count))
-
             # one slot is reserved for out of vocabulary words
             top_k = self.n_answer_classes - 1
 
-            # Note that sorted_answers are ("answer text",count) tuples
+            print('Top {} answers by word count:'.format(top_k))
+            top_k_num_words = Counter()
+            for s in sorted_answers[:top_k]:
+                top_k_num_words[len(s[0].split())] += 1
+            for word_count, num_answers in top_k_num_words.items():
+                print('- {} of the Top {} answers have {} words'.format(num_answers, top_k, word_count))
+
+            # Note that sorted_answers are ("answer text", count) tuples
             # we store the index as that would be used for the one hot encoding
             # index starts at 1 for valid training words. index 0 is reserved for out of vocab words seen in validation/test
             self.answer_one_hot_mapping = {answer_tuple[0]:one_hot_idx+1 
-                                           for one_hot_idx,answer_tuple in enumerate(sorted_answers[:top_k])}
+                                           for one_hot_idx, answer_tuple in enumerate(sorted_answers[:top_k])}
             self.answer_one_hot_mapping['<unk>'] = 0
 
         else:
             self.answer_one_hot_mapping = answer_one_hot_mapping
 
         print("Length of one hot mapping vector",len(self.answer_one_hot_mapping))
-
-
+    
+        # apply the one-hot encoding and save into answer objects
         for answer_id, answer in answers.items():
-            one_hot_index = self.answer_one_hot_mapping.get(answer.answer_str,0)
+            one_hot_index = self.answer_one_hot_mapping.get(answer.answer_str, 0)  # 0 = OOV answer string
             answers[answer_id].one_hot_index = one_hot_index
 
         return answers    
@@ -496,14 +488,16 @@ class VQADataset:
         """
 
         questions_json = json.load(open(questions_json_path))
-        questions = {question['question_id']:
-                         Question(question['question_id'], process_sentence(question['question']), question['image_id'],
-                                  self.vocab_size)
+        questions = {question['question_id']: Question(question['question_id'],
+                                                       process_sentence(question['question']),
+                                                       question['image_id'],
+                                                       self.vocab_size)
                      for question in questions_json['questions']}
         return questions
 
     def _create_answers_dict(self, answers_json_path):
-        """Create a dictionary of Answer objects containing the information of the answers from the .json file.
+        """
+        Create a dictionary of Answer objects containing the information of the answers from the .json file.
 
         Args:
             answers_json_path (str): path to the JSON file with the answers
@@ -526,26 +520,39 @@ class VQADataset:
         # we've composed the answer id the same way. The substraction of 1 is due to the fact that the
         # answer['answer_id'] ranges from 1 to 10 instead of 0 to 9
 
-       
         if (self.options["keep_single_answer"] == False): 
+            # keep all answers given by the 10 human raters
             answers = {(annotation['question_id'] * 10 + (answer['answer_id'] - 1)):
                        Answer(answer['answer_id'], process_answer(answer['answer']), annotation['question_id'],
                               annotation['image_id'], self.vocab_size, self.n_answer_classes)
                        for annotation in answers_json['annotations'] for answer in annotation['answers']}
         else:
-            answers  = answers = {annotation['question_id'] * 10 :
-                                  Answer(annotation['question_id'] * 10, process_answer(annotation['multiple_choice_answer']), 
-                                  annotation['question_id'], annotation['image_id'], self.vocab_size, self.n_answer_classes)
+            # keep only the defined label from the annotations.json file
+            answers  = answers = {annotation['question_id'] * 10: Answer(annotation['question_id'] * 10,
+                                                                         process_answer(annotation['multiple_choice_answer']),
+                                                                         annotation['question_id'],
+                                                                         annotation['image_id'],
+                                                                         annotation['question_type'],
+                                                                         annotation['answer_type'],
+                                                                         self.vocab_size,
+                                                                         self.n_answer_classes)
                                   for annotation in answers_json['annotations'] }
+
         return answers
 
     def _create_images_dict(self, image_ids):
-        images = {image_id: Image(image_id, features_idx) for image_id, features_idx in image_ids.items()}
+        """
+            Creates and returns a dict allowing for the lookup of an Image object given an image_id.
+        """
+        
+        images = {image_id: Image(image_id, features_idx)
+                  for image_id, features_idx in image_ids.items()}
 
         return images
 
     def _create_samples(self, images, questions, answers ):
-        """Fills the list of samples with VQASample instances given questions and answers dictionary.
+        """
+        Fills the list of samples with VQASample instances given questions and answers dictionary.
 
         If dataset_type is DatasetType.TEST, answers will be ignored.
         """
@@ -563,6 +570,14 @@ class VQADataset:
                 image = images[image_id]
                 self.samples.append(VQASample(question, image, dataset_type=self.dataset_type))
 
+        # samples are sorted by image index to enable sequential disk IO
+        print("Sorting samples by Image indices...")
+        self.samples = sorted(self.samples, key=lambda sample: sample.image.features_idx) 
+
+        if (self.max_sample_size == None):
+            self.max_sample_size = len(self.samples)
+            print('Saved max_sample_size = {}'.format(self.max_sample_size))
+            
     def _init_tokenizer(self, questions, answers):
         """Fits the tokenizer with the questions and answers and saves this tokenizer into a file for later use"""
 
@@ -585,8 +600,13 @@ class VQADataset:
             print('Trained Tokenizer is already available...')
             
     def _get_image_ids(self, image_features_path):
-
-        print("Accessing file =>",image_features_path)
+        """
+            Load image IDs from the hdf5 file containing the VGGNet embeddings.  Create and return
+            a dict that allows us to return the index within the embeddings matrix for a given
+            image ID key (where image ID is defined in the questions.json file).
+        """
+        
+        print("Loading image ids from file ->", image_features_path)
         with h5py.File(image_features_path,"r") as f:
             image_ids = f['imageIds'][:]
 

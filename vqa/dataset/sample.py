@@ -191,7 +191,8 @@ class Question:
 class Answer:
     """Class that holds the information of a single answer of a VQA sample"""
 
-    def __init__(self, answer_id, answer_str, question_id, image_id, vocab_size, n_answer_classes, tokenizer=None):
+    def __init__(self, answer_id, answer_str, question_id, image_id, question_type,
+                 answer_type, vocab_size, n_answer_classes, tokenizer=None):
         """Instantiates an Answer object.
 
         Args:
@@ -199,6 +200,8 @@ class Answer:
             answer (str): answer as a string
             question_id (int): unique question identifier of the question related to this answer
             image_id (int): unique image identifier of the image related to this answer
+            question_type (str): type of question (e.g. 'what', 'how many')
+            answer_type (str): type of answer (e.g. 'other')
             vocab_size (int): size of the vocabulary
             tokenizer (Tokenizer): if given, the question will be tokenized with it
         """
@@ -237,6 +240,10 @@ class Answer:
 
         self.n_answer_classes = n_answer_classes
 
+        # keep question and answer types (no validation on strings)
+        self.question_type = question_type
+        self.answer_type = answer_type
+        
         # will be set later when the top answers are known
         self.one_hot_index = -1 
 
