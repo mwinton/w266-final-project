@@ -62,12 +62,12 @@ def main(options):
     
     # open mlflow context for logging
     if (options['logging']):
+        # set experiment before starting run; else MLFlow default expt will be used
+        expt_name = '{}_{}'.format(options['experiment_name'], options['experiment_id'])
+        mlflow.set_experiment(expt_name)
         mlflow.start_run()
         mlflow.log_param('random_seed', seed)
-#             # TODO: monitor for next release of MLFlow (beyond 0.7.0).
-#             # https://pypi.org/project/mlflow/#history
-#             # mlflow.set_experiment(options['experiment_id'])
-        print('Enabled logging to MLFlow server for experiment_id = {}...'.format(options['experiment_id']))
+        print('Enabled logging to MLFlow server for experiment_name = \"{}\"...'.format(expt_name))
 
     # Always load train dataset to obtain the one hot encoding indices 
     # and  max_sentence_len from it

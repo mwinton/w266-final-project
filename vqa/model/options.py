@@ -75,7 +75,7 @@ class ModelOptions(object):
 
         # Experiment to be performed
         self.options['experiment_id'] = 0                  # default is no experiment
-        self.options['experiment_name'] = 'VQA_default'    # name to display in MLFlow
+        self.options['experiment_name'] = 'Default_Expt'   # name to display in MLFlow
         
         # Image model parameters
         self.options['n_image_embed'] = 512     # VGGNet
