@@ -134,9 +134,11 @@ class StackedAttentionNetwork(object):
         
         # Instantiate a regularizer if weight-decay was specified
         self.regularizer = None
-        if self.options.get('weight_decay',None) != None:
+        if self.options.get('regularizer', False) == True:
             self.regularizer = l2(options['weight_decay'])
-            if verbose: print('Using regularizer...')
+            if verbose: print('Using L2 regularizer with weight_decay={}...'.format(options['weight_decay']))
+        else:
+            print('No regularization applied')
 
         #
         # begin image pipeline

@@ -127,6 +127,7 @@ class ModelOptions(object):
         # self.options['loss_function'] = 'neg_mean_log_prob_y'  # TODO: try cross-entropy -p*log(q)
 
         # Regularization / weight decay parameters (assumed to go with an l2 regularizer)
+        self.options['regularizer'] = True
         self.options['weight_decay'] = 0.0005            # in Keras we have to apply layer-by-layer
 
         # MLFlow logging parameters
