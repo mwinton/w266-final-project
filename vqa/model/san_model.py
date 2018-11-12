@@ -199,6 +199,7 @@ class StackedAttentionNetwork(object):
         # these are both set when the dataset is prepared
         max_t = self.options['max_sentence_len']
         V = self.options['n_vocab']
+        if verbose: print('input vocab size:', V)
 
         # sentence input receives sequences of [batch_size, max_time] integers between 1 and V
         layer_sent_input = Input(batch_shape=(None, max_t),
