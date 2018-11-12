@@ -524,7 +524,6 @@ if __name__ == '__main__':
         '--experiment',
         type=int,
         default=DEFAULT_EXPERIMENT,
-        choices=ExperimentLibrary.get_valid_experiment_ids(),
         help='Specify the experiment configuration ID. Omitting argument or selecting 0 means no experiment.'
     )
 
@@ -532,45 +531,41 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # load model options from config file
-    model_options = ModelOptions().get_options()
+    options = ModelOptions().get_options()
     
     # disable logging to MLFlow server; usually only used for debugging
     if args.no_logging:
-        model_options['logging'] = False
+        options['logging'] = False
 
     # override default for max_epochs if specified
     if args.epochs:
-        model_options['max_epochs'] = args.epochs
+        options['max_epochs'] = args.epochs
         
     # override default for batch_size if specified
     if args.batch_size:
-        model_options['batch_size'] = args.batch_size
+        options['batch_size'] = args.batch_size
 
     # parse args with defaults
-    model_options['model_name'] = args.model 
-    model_options['action_type'] = args.action
+    options['model_name'] = args.model 
+    options['action_type'] = args.action
 
-    model_options['max_train_size'] = args.max_train_size
-    model_options['max_val_size']   = args.max_val_size
+    options['max_train_size'] = args.max_train_size
+    options['max_val_size']   = args.max_val_size
 
     # set the optimizer params (learning rate, etc...)
-    ModelOptions.set_optimizer_params(model_options)
+    ModelOptions.set_optimizer_params(options)
     
     # process experiments last
     # load experiment attributes from json (overrides model defaults and CLI args)
     if args.experiment:
-        model_options = ExperimentLibrary.get_experiment(args.experiment, model_options)
+        options = ExperimentLibrary.get_experiment(args.experiment, options)
     
     # print all options before building graph
     if args.verbose:
-        model_options['verbose'] = args.verbose
-        pprint.pprint(model_options)
+        options['verbose'] = args.verbose
+        pprint.pprint(options)
 
-#     if model_options['logging']:
-#         # create a new experiment in MLFlow if one doesn't exist
-#         mlflow.set_experiment(model_options['experiment_name'])
-
-    main(model_options)
+    main(options)
 
     print('Completed!')
 

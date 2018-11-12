@@ -45,6 +45,7 @@ class ModelOptions(object):
         ## files created during train/val/test phases
         # NOTE: os.path.abspath drops trailing slash, so need to re-add
         self.options['local_data_path']  =  os.path.abspath("../data/preprocessed") + '/'
+        self.options['experiments_path'] =  os.path.abspath("../vqa/experiments") + '/'
         self.options['saved_models_path'] = os.path.abspath('../saved_models/json') + '/'
         self.options['weights_dir_path'] =  os.path.abspath("../saved_models/weights") + '/'
         self.options['results_dir_path'] =  os.path.abspath("../results") + '/'

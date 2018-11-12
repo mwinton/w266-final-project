@@ -1,0 +1,10 @@
+{
+  "experiment_id": 1,
+  "experiment_name": "Text_only_CNN",
+  "model_name": "text_cnn",
+  "optimizer": "sgd",
+  "sgd_learning_rate": 0.1,
+  "sgd_momentum": 0.9,
+  "sgd_decay_rate": 0.0, 
+  "sgd_grad_clip": 0.1        
+}
