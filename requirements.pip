@@ -7,3 +7,4 @@ keras-preprocessing==1.0.5
 mlflow==0.8.0
 tensorboard==1.10.0   
 tensorflow==1.10.1
+tensorflow-gpu==1.10.1

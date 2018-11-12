@@ -138,6 +138,14 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
     if (dataset_type != DatasetType.TRAIN):
         assert(answer_one_hot_mapping != None) 
 
+    # If pickle file is older than dataset.py, delete and recreate
+    print('Checking timestamp on dataset -> {}'.format(dataset_path))
+    dataset_py_path = os.path.abspath('../vqa/dataset/dataset.py')
+    if os.path.isfile(dataset_path) and \
+    os.path.getmtime(dataset_path) < os.path.getmtime(dataset_py_path):
+        os.remove(dataset_path)
+        print('Dataset was outdated.  Removed ->', dataset_path)
+
     try:
         with open(dataset_path, 'rb') as f:
             print('Loading dataset from {}'.format(dataset_path))
