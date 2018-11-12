@@ -43,10 +43,11 @@ class ModelOptions(object):
 #         self.options['glove_path'] = ''
 
         ## files created during train/val/test phases
-        self.options['local_data_path']  =  "../data/preprocessed/"
-        self.options['saved_models_path'] = '../saved_models/json/'
-        self.options['weights_dir_path'] =  "../saved_models/weights/"
-        self.options['results_dir_path'] =  "../results/"
+        # NOTE: os.path.abspath drops trailing slash, so need to re-add
+        self.options['local_data_path']  =  os.path.abspath("../data/preprocessed") + '/'
+        self.options['saved_models_path'] = os.path.abspath('../saved_models/json') + '/'
+        self.options['weights_dir_path'] =  os.path.abspath("../saved_models/weights") + '/'
+        self.options['results_dir_path'] =  os.path.abspath("../results") + '/'
 
         ## create directories if they don't exist
         os.makedirs(self.options['local_data_path'],   exist_ok=True)
