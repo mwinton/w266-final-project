@@ -77,6 +77,7 @@ def main(options):
     answer_one_hot_mapping = train_dataset.answer_one_hot_mapping
 
     # Load model
+    # NOTE: cannot be loaded until after dataset because it needs the vocab size
     vqa_model = ModelLibrary.get_model(options)
     
     # Save time-stamped model json file
@@ -125,7 +126,7 @@ def main(options):
         print('Closed MLFlow logging context...')
 
 
-def load_dataset(dataset_type, options,answer_one_hot_mapping = None):
+def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
     
     """
         Load the dataset from disk if available. If not, build it from the questions/answers json and image embeddings
@@ -142,6 +143,9 @@ def load_dataset(dataset_type, options,answer_one_hot_mapping = None):
             print('Loading dataset from {}'.format(dataset_path))
             dataset = pickle.load(f)
             print('Dataset loaded')
+
+            options['n_vocab'] = dataset.vocab_size
+            
             dataset.samples = sorted(dataset.samples, key=lambda sample: sample.image.features_idx)
             samples = dataset.samples
 
@@ -185,8 +189,16 @@ def load_dataset(dataset_type, options,answer_one_hot_mapping = None):
         # as part of preparation, if one-hot mapping is not provided, generate it
         dataset.prepare(answer_one_hot_mapping)
 
-        print('Dataset has been prepareed.  Size: %d' % dataset.size())
+        # TODO: fix the n_vocab logic when we're ready to do standalone test sets.  Currently,
+        # n_vocab will never get set if a training set isn't processeed first.
 
+        # n_vocab isn't set until it's calculated for training dataset
+        if dataset_type==DatasetType.TRAIN:
+            options['n_vocab'] = dataset.vocab_size
+        else:
+            dataset.vocab_size = options['n_vocab']
+
+        print('Dataset prepared. Samples: {}. Vocab size: {}'.format(dataset.size(), options['n_vocab']))
         print('Saving dataset...')
         with open(dataset_path, 'wb') as f:
             pickle.dump(dataset, f)

@@ -83,12 +83,11 @@ class ModelOptions(object):
         self.options['mscoco_dim'] = 256        # x, y dimension of photos
         self.options['vggnet_input_dim'] = 448  # expected x, y dim of VGGNet
         self.options['image_depth'] = 3         # 3 color channels (RGB)
-#         self.options['image_init_type'] = 'imagenet'  # random initialization (or 'imagenet')
         self.options['start_with_image_embed'] = True
 
         # Text model parameters
-        self.options['n_vocab'] = 13746             # TODO: calculate this ourselves
-        # self.options['max_sentence_len'] = 20      # actual max is 23, so don't override it   
+        # self.options['n_vocab'] = 18364           # Keras tokenizer: 18364 (Q+A) or 13681 (Q-only); Yang: 13746
+        # self.options['max_sentence_len'] = 22     # actual max is 22, so don't override it   
         self.options['n_sent_embed'] = 500          # TODO: change this when we use GloVe
         self.options['sent_init_type'] = 'uniform'  # TODO: experiment with GloVe
         self.options['sent_init_range'] = 0.01

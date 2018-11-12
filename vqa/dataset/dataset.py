@@ -23,7 +23,6 @@ from ..model.options import ModelOptions
 from .process_tokens import process_sentence, process_answer
 
 
-
 class VQADataset:
     """Class that holds a dataset with VQASample instances.
 
@@ -83,10 +82,6 @@ class VQADataset:
             raise ValueError('Answers file needed for training or validation')
         self.answers_path = answers_path
 
-        # Vocabulary size
-        # TODO: calculate this ourselves
-        self.vocab_size = self.options['n_vocab']
-
         # Number of answer classes
         self.n_answer_classes = self.options['n_answer_classes']
 
@@ -109,7 +104,7 @@ class VQADataset:
             # TODO: determine if we need to set the oov_token param for the Tokenizer
             # NOTE: 0 is a reserved index that won't be assigned to any word.
             # NOTE: Tokenizer removes all punctuation, so contraction preprocessing isn't needed
-            self.tokenizer = Tokenizer(num_words=self.vocab_size, lower=True)
+            self.tokenizer = Tokenizer(num_words=None, lower=True)
 
         # Check if max sentence length has been specified
         self.max_sentence_len = self.options.get('max_sentence_len', None)
@@ -490,8 +485,7 @@ class VQADataset:
         questions_json = json.load(open(questions_json_path))
         questions = {question['question_id']: Question(question['question_id'],
                                                        process_sentence(question['question']),
-                                                       question['image_id'],
-                                                       self.vocab_size)
+                                                       question['image_id'])
                      for question in questions_json['questions']}
         return questions
 
@@ -524,7 +518,7 @@ class VQADataset:
             # keep all answers given by the 10 human raters
             answers = {(annotation['question_id'] * 10 + (answer['answer_id'] - 1)):
                        Answer(answer['answer_id'], process_answer(answer['answer']), annotation['question_id'],
-                              annotation['image_id'], self.vocab_size, self.n_answer_classes)
+                              annotation['image_id'], self.n_answer_classes)
                        for annotation in answers_json['annotations'] for answer in annotation['answers']}
         else:
             # keep only the defined label from the annotations.json file
@@ -534,7 +528,6 @@ class VQADataset:
                                                                          annotation['image_id'],
                                                                          annotation['question_type'],
                                                                          annotation['answer_type'],
-                                                                         self.vocab_size,
                                                                          self.n_answer_classes)
                                   for annotation in answers_json['annotations'] }
 
@@ -593,7 +586,11 @@ class VQADataset:
             print("Sample Answers : \n {}".format(answers_list[:10]))
 
             self.tokenizer.fit_on_texts(questions_list + answers_list)
-            print('Words in tokenizer index: ', len(self.tokenizer.word_index))
+
+            # Calculate vocab size. NOTE: this is different than Yang's number
+            self.vocab_size = len(self.tokenizer.word_index)
+            print('Words in tokenizer index: ', self.vocab_size)
+
             # Save tokenizer object
             pickle.dump(self.tokenizer, open(self.tokenizer_path, 'wb'))
         else:

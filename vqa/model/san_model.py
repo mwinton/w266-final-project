@@ -51,7 +51,6 @@ class StackedAttentionNetwork(object):
         # Single dense layer to reduce sentence dimensions for attention
         # in:  [batch_size, n_attention_input]
         # out: [batch_size, n_attention_features]
-        # TODO: confirm how the middle dimension is handled in Yang's code
         n_attention_features = self.options['n_attention_features']
         layer_attn_sent = Dense(units=n_attention_features,
                                 activation='tanh',
@@ -66,8 +65,6 @@ class StackedAttentionNetwork(object):
         # in:   [batch_size, n_attention_features]
         # out:  [batch_size, n_image_regions, n_attention_features]
         n_image_regions = options['n_image_regions']
-#         layer_attn_sent = kbe.expand_dims(layer_attn_sent, 1)
-#         layer_attn_sent = kbe.repeat_elements(layer_attn_sent, n_image_regions, axis=1)
         layer_attn_sent = RepeatVector(n_image_regions,
                                        name='expanded_attn_sent_%d' % (idx))(layer_attn_sent)
         if verbose: print('expanded_attn_sent_%d' % (idx), layer_attn_sent.shape)
@@ -100,14 +97,12 @@ class StackedAttentionNetwork(object):
         # in:   [batch_size, n_image_regions, 1]
         # out:  [batch_size, n_image_regions, 1]
         layer_attn_prob_dist = Activation('softmax', name='layer_prob_attn_%d' % (idx))(layer_pre_softmax)
-#         layer_attn_prob_dist = softmax(layer_pre_softmax, axis=-1)  # no name argument in softmax
         if verbose: print('layer_attn_prob_dist_%d' % (idx), layer_attn_prob_dist.shape)
         
         # Need to expand and repeat the attention vector to be multiplied by each image region
         # in:  [batch_size, n_image_regions, 1]
         # out:  [batch_size, n_image_regions, n_attention_input]
         n_attention_input = options['n_attention_input']
-#         layer_prob_expanded = kbe.repeat_elements(layer_attn_prob_dist, n_attention_input, axis=-1)
         layer_prob_expanded = Lambda(self.repeat_elements, 
                                      name='layer_prob_expanded_%d' % (idx),
                                      arguments={'n':n_attention_input})(layer_attn_prob_dist)
@@ -201,6 +196,7 @@ class StackedAttentionNetwork(object):
         # diagram: https://docs.google.com/drawings/d/1PJKOcQA73sUvH-w3UlLOhFH0iHOaPJ9-IRb7S75yw0M/edit
         #
         
+        # these are both set when the dataset is prepared
         max_t = self.options['max_sentence_len']
         V = self.options['n_vocab']
 
@@ -208,7 +204,6 @@ class StackedAttentionNetwork(object):
         layer_sent_input = Input(batch_shape=(None, max_t),
                                  dtype='int32',
                                  sparse=False,
-#                                  sparse=True,  # if we start as sparse, have to convert to dense later
                                  name='sentence_input'
                                 )
         if verbose: print('layer_sent_input shape:', layer_sent_input._keras_shape)
@@ -226,7 +221,6 @@ class StackedAttentionNetwork(object):
                                 mask_zero=False,  # CNN layers don't seem to be able to deal with True
                                 name='sentence_embedding'
                                )(layer_sent_input)
-#                                )(kbe.to_dense(layer_sent_input))
         # TODO: implement GloVe option
         elif sent_embed_initializer == 'glove':
             pass
