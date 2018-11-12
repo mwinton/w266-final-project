@@ -62,12 +62,12 @@ def main(options):
     
     # open mlflow context for logging
     if (options['logging']):
+        # set experiment before starting run; else MLFlow default expt will be used
+        expt_name = '{}_{}'.format(options['experiment_name'], options['experiment_id'])
+        mlflow.set_experiment(expt_name)
         mlflow.start_run()
         mlflow.log_param('random_seed', seed)
-#             # TODO: monitor for next release of MLFlow (beyond 0.7.0).
-#             # https://pypi.org/project/mlflow/#history
-#             # mlflow.set_experiment(options['experiment_id'])
-        print('Enabled logging to MLFlow server for experiment_id = {}...'.format(options['experiment_id']))
+        print('Enabled logging to MLFlow server for experiment_name = \"{}\"...'.format(expt_name))
 
     # Always load train dataset to obtain the one hot encoding indices 
     # and  max_sentence_len from it
@@ -77,6 +77,7 @@ def main(options):
     answer_one_hot_mapping = train_dataset.answer_one_hot_mapping
 
     # Load model
+    # NOTE: cannot be loaded until after dataset because it needs the vocab size
     vqa_model = ModelLibrary.get_model(options)
     
     # Save time-stamped model json file
@@ -125,7 +126,7 @@ def main(options):
         print('Closed MLFlow logging context...')
 
 
-def load_dataset(dataset_type, options,answer_one_hot_mapping = None):
+def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
     
     """
         Load the dataset from disk if available. If not, build it from the questions/answers json and image embeddings
@@ -139,9 +140,12 @@ def load_dataset(dataset_type, options,answer_one_hot_mapping = None):
 
     try:
         with open(dataset_path, 'rb') as f:
-            print('Loading dataset...')
+            print('Loading dataset from {}'.format(dataset_path))
             dataset = pickle.load(f)
             print('Dataset loaded')
+
+            options['n_vocab'] = dataset.vocab_size
+            
             dataset.samples = sorted(dataset.samples, key=lambda sample: sample.image.features_idx)
             samples = dataset.samples
 
@@ -176,22 +180,29 @@ def load_dataset(dataset_type, options,answer_one_hot_mapping = None):
 
     except IOError:
 
-        # If dataset does not exist create it and save it for future runs.   
+        # If dataset file does not exist create and save it for future runs.   
 
         print('Creating dataset...')
         dataset = VQADataset(dataset_type, options)
         print('Preparing dataset...')
 
-        # if the one-hot mapping is not provided, generate one
+        # as part of preparation, if one-hot mapping is not provided, generate it
         dataset.prepare(answer_one_hot_mapping)
 
-        print('Dataset size: %d' % dataset.size())
-        print('Dataset ready.')
+        # TODO: fix the n_vocab logic when we're ready to do standalone test sets.  Currently,
+        # n_vocab will never get set if a training set isn't processeed first.
 
+        # n_vocab isn't set until it's calculated for training dataset
+        if dataset_type==DatasetType.TRAIN:
+            options['n_vocab'] = dataset.vocab_size
+        else:
+            dataset.vocab_size = options['n_vocab']
+
+        print('Dataset prepared. Samples: {}. Vocab size: {}'.format(dataset.size(), options['n_vocab']))
         print('Saving dataset...')
         with open(dataset_path, 'wb') as f:
             pickle.dump(dataset, f)
-        print('Dataset saved')
+        print('Dataset saved to {}'.format(dataset_path))
 
     return dataset
 
@@ -216,6 +227,16 @@ def plot_train_metrics(train_stats, options, plot_type='epochs'):
     acc_fig_path = options['results_dir_path'] + \
         'acc_curves/accuracies_{}_{}_{}_{}.png'.format(plot_type, options['model_name'], options['experiment_id'], d)
     
+    # make sure directories exist before trying to save to them
+    loss_fig_dir = os.path.dirname(os.path.abspath(loss_fig_path))
+    print("Saving loss plots to directory -> ", loss_fig_dir)
+    if not os.path.isdir(loss_fig_dir):
+        os.mkdir(loss_fig_dir)
+    acc_fig_dir = os.path.dirname(os.path.abspath(acc_fig_path))
+    print("Saving accuracy plots to directory -> ", acc_fig_dir)
+    if not os.path.isdir(acc_fig_dir):
+        os.mkdir(acc_fig_dir)
+    
     if plot_type == 'epochs':
         # generate and save loss plot
         plt.plot(train_losses)
@@ -236,7 +257,7 @@ def plot_train_metrics(train_stats, options, plot_type='epochs'):
         plt.plot(train_acc)
         plt.plot(val_acc)
         plt.xticks(np.arange(0, len(train_acc), step=1))
-        plt.xlabel('Epoch Numbeer')
+        plt.xlabel('Epoch Number')
         plt.ylabel('Accuracy')
         plt.title('Model: {}; Experiment: {}\nRun time: {}'.format(options['model_name'], options['experiment_id'], d))
         plt.legend(('Training', 'Validation'))
@@ -296,14 +317,21 @@ def train(model, dataset, options, val_dataset=None):
         is_text_only = True
     else:
         is_text_only = False
+    # flag to tell batch_generator not to yield sentence data
+    if model_name == 'vggnet_only':
+        is_img_only = True
+    else:
+        is_img_only = False
         
     print('Start training...')
     if not extended:
-        train_stats = model.fit_generator(dataset.batch_generator(is_text_only), steps_per_epoch=samples_per_train_epoch//batch_size,
-                            epochs=max_epochs, callbacks=callbacks,
-                            validation_data=val_dataset.batch_generator(is_text_only), 
-                            validation_steps=samples_per_val_epoch//batch_size,max_queue_size=20)
+        train_stats = model.fit_generator(dataset.batch_generator(is_text_only, is_img_only),
+                                          steps_per_epoch=samples_per_train_epoch//batch_size,
+                                          epochs=max_epochs, callbacks=callbacks,
+                                          validation_data=val_dataset.batch_generator(is_text_only, is_img_only), 
+                                          validation_steps=samples_per_val_epoch//batch_size,max_queue_size=20)
     else:
+        # Note: no support for text-only or image-only (debugging) models with extended dataseet
         train_stats = model.fit_generator(dataset.batch_generator(batch_size, split='train'), 
                             steps_per_epoch=dataset.train_size()/batch_size,
                             epochs=num_epochs, callbacks=callbacks,
@@ -428,17 +456,16 @@ class CustomModelCheckpoint(ModelCheckpoint):
         """
         
         final_epoch = self.last_epoch + 1
-        wt_file = self.weights_path.format(epoch=final_epoch)
-        symlink = self.weights_dir_path + 'model_weights_{}_latest'.format(self.model_name)
+        wt_file = os.path.abspath(self.weights_path.format(epoch=final_epoch))
+        symlink = os.path.abspath(self.weights_dir_path + 'model_weights_{}_latest'.format(self.model_name))
         print('DEBUG: wt_file = ', wt_file)
         print('DEBUG: symlink = ', symlink)
         
-        # TODO: symlinking needs to point to absolute path.  Can't just use '../'
         try:
             os.symlink(wt_file, symlink)
         except FileExistsError:
             # If the symlink already exist, delete and create again
-            os.remove(self.weights_dir_path + 'model_weights_{}_latest'.format(self.model_name))
+            os.remove(symlink)
             os.symlink(wt_file, symlink)
 
 # ------------------------------- ENTRY POINT -------------------------------

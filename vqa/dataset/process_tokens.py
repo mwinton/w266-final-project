@@ -1,3 +1,6 @@
+# File to load the preprocess questions and answers adapted from 
+# https://github.com/zcyang/imageqa-san/blob/master/data_vqa/process_function.py by Zichao Yang
+
 import re
 
 def process_sentence(sentence):
