@@ -561,7 +561,7 @@ class VQADataset:
         """Fits the tokenizer with the questions and answers and saves this tokenizer into a file for later use"""
 
         # contrary to the docs, `word_index` exists before training, so can't use `hasattr` check
-        if len(self.tokenizer.word_index) == 0:
+        if not hasattr(self.tokenizer,'word_index') :
             # only have to train it once.
             print('Tokenizer is not yet trained.  Training now...')
             questions_list = [question.question_str for _, question in questions.items()]
