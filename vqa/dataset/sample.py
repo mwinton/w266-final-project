@@ -1,12 +1,10 @@
 ## Datastructures to store questions/answers and images
 ## Adapted from https://github.com/imatge-upc/vqa-2016-cvprw, Issey Masuda Mora 
 
+import numpy as np
 import os
 
-import numpy as np
-
 from scipy.misc import imread, imresize
-# from keras.preprocessing.text import text_to_word_sequence
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from .types import DatasetType
@@ -101,14 +99,13 @@ class VQASample:
 class Question:
     """Class that holds the information of a single question of a VQA sample"""
 
-    def __init__(self, question_id, question_str, image_id, vocab_size, tokenizer=None):
+    def __init__(self, question_id, question_str, image_id, tokenizer=None):
         """Instantiates a Question object.
 
         Args:
             question_id (int): unique question indentifier
             question_str (str): question as a string
             image_id (int): unique image identifier of the image related to this question
-            vocab_size (int): size of the vocabulary
             tokenizer (Tokenizer): if given, the question will be tokenized with it
         """
         # Validate id
@@ -126,14 +123,6 @@ class Question:
                 raise ValueError('image_id has to be a positive integer')
         except:
             raise ValueError('image_id has to be a positive integer')
-
-        # Validate vocab_size
-        try:
-            self.vocab_size = int(vocab_size)
-            if self.vocab_size < 0:
-                raise ValueError('vocab_size has to be a positive integer')
-        except:
-            raise ValueError('vocab_size has to be a positive integer')
 
         # Store question string
         self.question_str = question_str
@@ -191,7 +180,8 @@ class Question:
 class Answer:
     """Class that holds the information of a single answer of a VQA sample"""
 
-    def __init__(self, answer_id, answer_str, question_id, image_id, vocab_size, n_answer_classes, tokenizer=None):
+    def __init__(self, answer_id, answer_str, question_id, image_id, question_type,
+                 answer_type, n_answer_classes, tokenizer=None):
         """Instantiates an Answer object.
 
         Args:
@@ -199,7 +189,8 @@ class Answer:
             answer (str): answer as a string
             question_id (int): unique question identifier of the question related to this answer
             image_id (int): unique image identifier of the image related to this answer
-            vocab_size (int): size of the vocabulary
+            question_type (str): type of question (e.g. 'what', 'how many')
+            answer_type (str): type of answer (e.g. 'other')
             tokenizer (Tokenizer): if given, the question will be tokenized with it
         """
 
@@ -227,16 +218,12 @@ class Answer:
         except:
             raise ValueError('image_id has to be a positive integer')
 
-        # Validate vocab_size
-        try:
-            self.vocab_size = int(vocab_size)
-            if self.vocab_size < 0:
-                raise ValueError('vocab_size has to be a positive integer')
-        except:
-            raise ValueError('vocab_size has to be a positive integer')
-
         self.n_answer_classes = n_answer_classes
 
+        # keep question and answer types (no validation on strings)
+        self.question_type = question_type
+        self.answer_type = answer_type
+        
         # will be set later when the top answers are known
         self.one_hot_index = -1 
 
