@@ -32,7 +32,7 @@ class ExperimentLibrary:
             expt_json = json.load(open(expt_path))
             if not 'experiment_id' in expt_json:
                 raise KeyError('Unique integer \"experiment_id\" must be specified in the experiment json file.')
-            if not 'model_name' in expt_json:
+            if expt_json.get('model_name', None) not in ModelLibrary.get_valid_model_names():
                 raise KeyError('Valid \"model_name\" must be specified in the experiment json file. Choices: {}'.format
                               (ModelLibrary.get_valid_model_names()))
             for key, val in expt_json.items():
