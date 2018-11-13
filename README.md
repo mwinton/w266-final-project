@@ -17,21 +17,21 @@ In order to run this demo notebook, you must first download and extract the vari
 
 These are some of the most noteworthy paths in the project:
 
-`/bin/visualqa.py`: main entry point to the code
-`/data/preprocessed/`: stored tokenizer and datasets (as pickle files)
-`/results/acc_curves/`: training/validation accuracy plots (as png files)
-`/results/loss_curves/`: training/validation loss plots (as png files)
-`/saved_models/json/`: Keras model descriptions (as json files)
-`/saved_models/weights/`: trained model weights (as hdf5 files)
-`/utils/vqa_demo.ipynb/`: demo notebook for exploring dataset structure
-`/utils/create_embeddings.py`: program used to generate image embeddings (e.g. from VGGNet)
-`/vqa/dataset/dataset.py`: processes the original data (images and json files) into data structures
-`/vqa/dataset/sample.py`: class representation of a single data sample (used by dataset.py)
-`/vqa/experiments/`: location for json files that define experiments (overriding default parameters)
-`/vqa/model/`: location for python files representing various Keras models
-`/vqa/model/model_select.py`: file that loads appropriate Keras model from model library
-`/vqa/model/options.py`: default values for hyperparameters (can be overridden by json experiment files)
-`/vqa/model/*_model.py`: individual model files (e.g. `san_model.py` is the Stacked Attention Network)
+- `/bin/visualqa.py`: main entry point to the code
+- `/data/preprocessed/`: stored tokenizer and datasets (as pickle files)
+- `/results/acc_curves/`: training/validation accuracy plots (as png files)
+- `/results/loss_curves/`: training/validation loss plots (as png files)
+- `/saved_models/json/`: Keras model descriptions (as json files)
+- `/saved_models/weights/`: trained model weights (as hdf5 files)
+- `/utils/vqa_demo.ipynb/`: demo notebook for exploring dataset structure
+- `/utils/create_embeddings.py`: program used to generate image embeddings (e.g. from VGGNet)
+- `/vqa/dataset/dataset.py`: processes the original data (images and json files) into data structures
+- `/vqa/dataset/sample.py`: class representation of a single data sample (used by dataset.py)
+- `/vqa/experiments/`: location for json files that define experiments (overriding default parameters)
+- `/vqa/model/`: location for python files representing various Keras models
+- `/vqa/model/model_select.py`: file that loads appropriate Keras model from model library
+- `/vqa/model/options.py`: default values for hyperparameters (can be overridden by json experiment files)
+- `/vqa/model/*_model.py`: individual model files (e.g. `san_model.py` is the Stacked Attention Network)
 
 
 ### Downloading and extracting data
