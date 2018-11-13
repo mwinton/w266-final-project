@@ -1,10 +1,12 @@
+import json
+
 from vqa import BASE_DIR
+from vqa.model.model_select import ModelLibrary
 
 class ExperimentLibrary:
     # ---------------------------------- CONSTANTS --------------------------------
     # Model identifiers
     EXPERIMENT_0   = 0  # no experiment
-    EXPERIMENT_1   = 1  # concise description of experiment
 
     # Path
     EXPERIMENTS_PATH = BASE_DIR + 'vqa/experiments/'
@@ -14,27 +16,41 @@ class ExperimentLibrary:
     def __init__(self):
         pass
 
-    @classmethod
-    def get_valid_experiment_ids(cls):
-        valid_ids = [cls.__dict__[key] for key in cls.__dict__.keys() if key.startswith('EXPERIMENT_')]
-        valid_ids.sort()
-        print("Valid Experiment IDs:", valid_ids)
-        return valid_ids
-
     @staticmethod
     def get_experiment(id, options):
         '''
-            Load corresponding json file and override options defaults
+            Load corresponding json file and override options defaults.  Any key-value pairs in the json
+            file will be added to the options object, overriding existing values.
         '''
         
         print('Setting up experiment {}'.format(id))
         options['experiment_id'] = id
-        
-        # TODO: replace this statement to load experiment_name from json file
-        options['experiment_name'] = 'experiment_{}'.format(id)
+        expt_path = '{}experiment_{}.json'.format(options['experiments_path'], id)
         
         if id != ExperimentLibrary.EXPERIMENT_0:
-            # TODO: load json; save parameters to options
-            pass
-        
+            print('\nLoading experiment json from ->', expt_path)
+            expt_json = json.load(open(expt_path))
+            
+            # check to make sure required fields are set
+            if not 'experiment_id' in expt_json:
+                raise KeyError('Unique integer \"experiment_id\" must be specified in the experiment json file.')
+            if expt_json.get('model_name', None) not in ModelLibrary.get_valid_model_names():
+                raise KeyError('Valid \"model_name\" must be specified in the experiment json file. Choices: {}'.format
+                              (ModelLibrary.get_valid_model_names()))
+
+            # update existing values, or create new ones (with warning)
+            for key, val in expt_json.items():
+                if key in options:
+                    options[key] = val
+                    print('Updated: options[\'{}\'] = {}'.format(key, val))
+                else:
+                    options[key] = val
+                    print('WARNING: new parameter, options[\'{}\'] = {}. Was this intentional?'.format(key, val))
+            
+        # Make sure every experiment has a name; needed for MLFlow logging
+        if options.get('experiment_name', None) == None:
+            options['experiment_name'] = 'experiment_{}'.format(id)
+        else:
+            options['experiment_name'] = options['experiment_name'].replace(' ', '_')
+
         return options
