@@ -28,15 +28,24 @@ class ExperimentLibrary:
         expt_path = '{}experiment_{}.json'.format(options['experiments_path'], id)
         
         if id != ExperimentLibrary.EXPERIMENT_0:
-            print('Trying to load json from ->', expt_path)
+            print('\nLoading experiment json from ->', expt_path)
             expt_json = json.load(open(expt_path))
+            
+            # check to make sure required fields are set
             if not 'experiment_id' in expt_json:
                 raise KeyError('Unique integer \"experiment_id\" must be specified in the experiment json file.')
             if expt_json.get('model_name', None) not in ModelLibrary.get_valid_model_names():
                 raise KeyError('Valid \"model_name\" must be specified in the experiment json file. Choices: {}'.format
                               (ModelLibrary.get_valid_model_names()))
+
+            # update existing values, or create new ones (with warning)
             for key, val in expt_json.items():
-                options[key] = val
+                if key in options:
+                    options[key] = val
+                    print('Updated: options[\'{}\'] = {}'.format(key, val))
+                else:
+                    options[key] = val
+                    print('WARNING: new parameter, options[\'{}\'] = {}. Was this intentional?'.format(key, val))
             
         # Make sure every experiment has a name; needed for MLFlow logging
         if options.get('experiment_name', None) == None:
