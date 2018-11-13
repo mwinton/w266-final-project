@@ -2,6 +2,7 @@
 import keras.activations
 import keras.layers
 from keras.layers import concatenate, Dense, Dropout, Embedding, Input, LSTM, RepeatVector, Reshape
+from keras.layers import BatchNormalization
 from keras.models import Model
 
 # our own imports
@@ -44,7 +45,8 @@ class BaselineModel(object):
 
         # Concatenate the image and question, with dropout and dense layer
         merged = concatenate([image_repeat, question_embedded])  # Merge for layers merge for tensors
-        lstm = LSTM(sentence_embed_size, return_sequences=False)(merged)
+        normalized = BatchNormalization()(merged)
+        lstm = LSTM(sentence_embed_size, return_sequences=False)(normalized)
         if verbose: print('lstm output shape:', lstm.shape)
             
         lstm = Dropout(0.5)(lstm)
