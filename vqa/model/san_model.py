@@ -6,6 +6,7 @@ from keras.callbacks import EarlyStopping
 import keras.layers
 from keras.layers import Activation, Add, Concatenate, Conv1D, Dense, Dropout, Embedding
 from keras.layers import Input, GlobalMaxPooling1D, Lambda, Multiply, RepeatVector, Reshape
+from keras.layers import BatchNormalization 
 from keras.models import Model
 import mlflow
 import mlflow.keras
@@ -47,6 +48,16 @@ class StackedAttentionNetwork(object):
                                    name='attention_image_%d' % (idx)
                                   )(layer_v_i)
         if verbose: print('attention_image_%d' % (idx), layer_attn_image.shape)
+
+        # Adding a batch norm step before image and sentence vectors are added
+        # This comment refers to subsequent steps for batchNorm in the model as well,
+        # where we do a normalization before adding image and sentence vectors.
+        # This was significant in getting accuracy improvements.
+        # One reason for this might be that standardization of the image and question
+        # vectors keep them in equal footing in terms of their respective magnitudes
+
+        layer_attn_image  = BatchNormalization()(layer_attn_image)
+
         
         # Single dense layer to reduce sentence dimensions for attention
         # in:  [batch_size, n_attention_input]
@@ -60,6 +71,9 @@ class StackedAttentionNetwork(object):
                                 name='attention_sent_%d' % (idx)
                                )(layer_v_q)
         if verbose: print('attention_sent_%d' % (idx), layer_attn_sent.shape)
+
+        # Adding a batch norm before image and sentence vectors are added
+        layer_attn_sent = BatchNormalization()(layer_attn_sent)
         
         # Need to expand and repeat the sentence vector to be added to each image region
         # in:   [batch_size, n_attention_features]
@@ -114,6 +128,10 @@ class StackedAttentionNetwork(object):
         layer_v_tilde = Multiply()([layer_v_i, layer_prob_expanded])
         layer_v_tilde = Lambda(self.sum_axis_1, name='v_tilde_%d' % (idx))(layer_v_tilde)
         if verbose: print('v_tilde_%d' % (idx), layer_v_tilde.shape)
+
+        # Adding a batch norm befsre image and sentence vectors are added
+        layer_v_tilde = BatchNormalization()(layer_v_tilde)
+        layer_v_q     = BatchNormalization()(layer_v_q)
 
         layer_v_q_refined = Add(name='v_q_refined_%d' % (idx))([layer_v_tilde, layer_v_q])
         if verbose: print('v_q_refined_%d' % (idx), layer_v_q_refined.shape)
