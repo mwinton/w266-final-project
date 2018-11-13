@@ -134,8 +134,8 @@ class StackedAttentionNetwork(object):
         if verbose: print('v_tilde_%d' % (idx), layer_v_tilde.shape)
 
         # Adding a batch norm befsre image and sentence vectors are added
-        layer_v_tilde = BatchNormalization(name='batch_norm_image_%d' % (idx)) (layer_v_tilde)
-        layer_v_q     = BatchNormalization(name='batch_norm_sent_%d' % (idx))(layer_v_q)
+        layer_v_tilde = BatchNormalization(name='batch_norm_v_tilde_%d' % (idx)) (layer_v_tilde)
+        layer_v_q     = BatchNormalization(name='batch_norm_v_q_%d' % (idx))(layer_v_q)
 
         layer_v_q_refined = Add(name='v_q_refined_%d' % (idx))([layer_v_tilde, layer_v_q])
         if verbose: print('v_q_refined_%d' % (idx), layer_v_q_refined.shape)
