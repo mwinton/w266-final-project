@@ -4,6 +4,7 @@
 # Added Memory management related code for Image Embeddings
 
 import h5py
+import inspect
 import json
 import math
 import numpy as np
@@ -86,14 +87,21 @@ class VQADataset:
         self.n_answer_classes = self.options['n_answer_classes']
 
         # Tokenizer path (pickle file previously generated in prepare() method)
-        self.tokenizer_path = self.options['tokenizer_path']
+        self.tokenizer_path = os.path.abspath(self.options['tokenizer_path'])
         print("Tokenizer path -> ", self.tokenizer_path)
         # if directory doesn't exist, create it
-        tokenizer_dir = os.path.dirname(os.path.abspath(self.tokenizer_path))
+        tokenizer_dir = os.path.dirname(self.tokenizer_path)
         print("Tokenizer directory -> ", tokenizer_dir)
         if not os.path.isdir(tokenizer_dir):
             os.mkdir(tokenizer_dir)
-
+            
+        # If Tokenizer pickle file is older than dataset.py, delete and recreate
+        dataset_py_path = os.path.abspath(inspect.stack()[0][1])
+        if os.path.isfile(self.tokenizer_path) and \
+        os.path.getmtime(self.tokenizer_path) < os.path.getmtime(dataset_py_path):
+            os.remove(self.tokenizer_path)
+            print('Tokenizer was outdated.  Removed ->', self.tokenizer_path)
+        
         # Load pre-trained Tokenizer if one exists
         if os.path.isfile(self.tokenizer_path):
             self.tokenizer = pickle.load(open(self.tokenizer_path, 'rb'))

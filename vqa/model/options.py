@@ -43,10 +43,12 @@ class ModelOptions(object):
 #         self.options['glove_path'] = ''
 
         ## files created during train/val/test phases
-        self.options['local_data_path']  =  "../data/preprocessed/"
-        self.options['saved_models_path'] = '../saved_models/json/'
-        self.options['weights_dir_path'] =  "../saved_models/weights/"
-        self.options['results_dir_path'] =  "../results/"
+        # NOTE: os.path.abspath drops trailing slash, so need to re-add
+        self.options['local_data_path']  =  os.path.abspath("../data/preprocessed") + '/'
+        self.options['experiments_path'] =  os.path.abspath("../vqa/experiments") + '/'
+        self.options['saved_models_path'] = os.path.abspath('../saved_models/json') + '/'
+        self.options['weights_dir_path'] =  os.path.abspath("../saved_models/weights") + '/'
+        self.options['results_dir_path'] =  os.path.abspath("../results") + '/'
 
         ## create directories if they don't exist
         os.makedirs(self.options['local_data_path'],   exist_ok=True)
@@ -105,7 +107,8 @@ class ModelOptions(object):
         self.options['n_attention_features'] = 512
         self.options['n_attention_layers'] = 2
         self.options['attention_merge_type'] = 'addition'
-        self.options['attention_dropout_ratio'] = 0.5
+#         self.options['attention_dropout_ratio'] = 0.5  # Yang
+        self.options['attention_dropout_ratio'] = 0.1
 
         # Classification layer parameters
         self.options['n_answer_classes'] = 1001  # 1000 real classes + <unk>  
@@ -123,8 +126,9 @@ class ModelOptions(object):
         # TODO: implement custom loss function
         # self.options['loss_function'] = 'neg_mean_log_prob_y'  # TODO: try cross-entropy -p*log(q)
 
-        # Regularization / weight decay parameters
-        self.options['weight_decay'] = 0.0005   # in Keras we have to apply layer-by-layer
+        # Regularization / weight decay parameters (assumed to go with an l2 regularizer)
+        self.options['regularizer'] = True
+        self.options['weight_decay'] = 0.0005            # in Keras we have to apply layer-by-layer
 
         # MLFlow logging parameters
         if 'MLFLOW_TRACKING_URI' in os.environ:

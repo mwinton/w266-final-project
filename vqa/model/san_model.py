@@ -8,6 +8,7 @@ from keras.layers import Activation, Add, Concatenate, Conv1D, Dense, Dropout, E
 from keras.layers import Input, GlobalMaxPooling1D, Lambda, Multiply, RepeatVector, Reshape
 from keras.layers import BatchNormalization 
 from keras.models import Model
+from keras.regularizers import l2
 import mlflow
 import mlflow.keras
 from pprint import pprint
@@ -45,6 +46,7 @@ class StackedAttentionNetwork(object):
                                    use_bias=True,
                                    kernel_initializer='random_uniform',
                                    bias_initializer='zeros',
+                                   kernel_regularizer=self.regularizer,
                                    name='attention_image_%d' % (idx)
                                   )(layer_v_i)
         if verbose: print('attention_image_%d' % (idx), layer_attn_image.shape)
@@ -68,6 +70,7 @@ class StackedAttentionNetwork(object):
                                 use_bias=True,
                                 kernel_initializer='random_uniform',
                                 bias_initializer='zeros',
+                                kernel_regularizer=self.regularizer,
                                 name='attention_sent_%d' % (idx)
                                )(layer_v_q)
         if verbose: print('attention_sent_%d' % (idx), layer_attn_sent.shape)
@@ -103,6 +106,7 @@ class StackedAttentionNetwork(object):
                                   use_bias=True,
                                   kernel_initializer='random_uniform',
                                   bias_initializer='zeros',
+                                  kernel_regularizer=self.regularizer,
                                   name='pre_softmax_%d' % (idx)
                                  )(layer_h_a)
         if verbose: print('layer_pre_softmax_%d' % (idx), layer_pre_softmax.shape)
@@ -146,6 +150,14 @@ class StackedAttentionNetwork(object):
         batch_size = self.options['batch_size']
         n_attention_input = self.options['n_attention_input']
         
+        # Instantiate a regularizer if weight-decay was specified
+        self.regularizer = None
+        if self.options.get('regularizer', False) == True:
+            self.regularizer = l2(options['weight_decay'])
+            if verbose: print('Using L2 regularizer with weight_decay={}...'.format(options['weight_decay']))
+        else:
+            print('No regularization applied')
+
         #
         # begin image pipeline
         # diagram: https://docs.google.com/drawings/d/1ZWRPmy4e2ACvqOsk4ttAEaWZfUX_qiQEb0DE05e8dXs/edit
@@ -204,6 +216,7 @@ class StackedAttentionNetwork(object):
                           use_bias=True,
                           kernel_initializer='random_uniform',
                           bias_initializer='zeros',
+                          kernel_regularizer=self.regularizer,
                           name='v_i'
                          )(layer_reshaped_vgg16)
         if verbose: print('layer_v_i output shape:', layer_v_i.shape)
@@ -257,6 +270,7 @@ class StackedAttentionNetwork(object):
                                     use_bias=True,
                                     kernel_initializer='random_uniform',
                                     bias_initializer='zeros',
+                                    kernel_regularizer=self.regularizer,
                                     name='unigram_conv'
                                    )(layer_x)
         if verbose: print('layer_conv_unigram output shape:', layer_conv_unigram.shape)
@@ -279,6 +293,7 @@ class StackedAttentionNetwork(object):
                                    use_bias=True,
                                    kernel_initializer='random_uniform',
                                    bias_initializer='zeros',
+                                   kernel_regularizer=self.regularizer,
                                    name='bigram_conv'
                                   )(layer_x)
         if verbose: print('layer_conv_bigram output shape:', layer_conv_bigram.shape)
@@ -301,6 +316,7 @@ class StackedAttentionNetwork(object):
                               use_bias=True,
                               kernel_initializer='random_uniform',
                               bias_initializer='zeros',
+                              kernel_regularizer=self.regularizer,
                               name='trigram_conv'
                              )(layer_x)
         if verbose: print('layer_conv_trigram output shape:', layer_conv_trigram.shape)
@@ -345,6 +361,7 @@ class StackedAttentionNetwork(object):
                                   use_bias=True,
                                   kernel_initializer='random_uniform',
                                   bias_initializer='zeros',
+                                  kernel_regularizer=self.regularizer,
                                   name='prob_answer'
                                  )(layer_dropout_v_q)
         if verbose: print('layer_prob_answer output shape:', layer_prob_answer.shape)
