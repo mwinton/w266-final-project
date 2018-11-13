@@ -58,7 +58,7 @@ class StackedAttentionNetwork(object):
         # One reason for this might be that standardization of the image and question
         # vectors keep them in equal footing in terms of their respective magnitudes
 
-        layer_attn_image  = BatchNormalization()(layer_attn_image)
+        layer_attn_image  = BatchNormalization(name='batch_norm_image_%d' % (idx))(layer_attn_image)
 
         
         # Single dense layer to reduce sentence dimensions for attention
@@ -76,7 +76,7 @@ class StackedAttentionNetwork(object):
         if verbose: print('attention_sent_%d' % (idx), layer_attn_sent.shape)
 
         # Adding a batch norm before image and sentence vectors are added
-        layer_attn_sent = BatchNormalization()(layer_attn_sent)
+        layer_attn_sent = BatchNormalization(name='batch_norm_sent_%d' % (idx))(layer_attn_sent)
         
         # Need to expand and repeat the sentence vector to be added to each image region
         # in:   [batch_size, n_attention_features]
@@ -134,8 +134,8 @@ class StackedAttentionNetwork(object):
         if verbose: print('v_tilde_%d' % (idx), layer_v_tilde.shape)
 
         # Adding a batch norm befsre image and sentence vectors are added
-        layer_v_tilde = BatchNormalization()(layer_v_tilde)
-        layer_v_q     = BatchNormalization()(layer_v_q)
+        layer_v_tilde = BatchNormalization(name='batch_norm_image_%d' % (idx)) (layer_v_tilde)
+        layer_v_q     = BatchNormalization(name='batch_norm_sent_%d' % (idx))(layer_v_q)
 
         layer_v_q_refined = Add(name='v_q_refined_%d' % (idx))([layer_v_tilde, layer_v_q])
         if verbose: print('v_q_refined_%d' % (idx), layer_v_q_refined.shape)
