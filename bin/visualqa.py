@@ -468,7 +468,12 @@ class CustomModelCheckpoint(ModelCheckpoint):
         symlink = os.path.abspath(self.weights_dir_path + 'model_weights_{}_latest'.format(self.model_name))
         print('DEBUG: wt_file = ', wt_file)
         print('DEBUG: symlink = ', symlink)
-        
+
+        if options['logging']:
+            print("Transferring model weights to mlflow..")
+            mlflow.log_artifact(wt_file)
+            print("Done..")
+       
         try:
             os.symlink(wt_file, symlink)
         except FileExistsError:
