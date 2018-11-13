@@ -27,25 +27,34 @@ class ExperimentLibrary:
         options['experiment_id'] = id
         expt_path = '{}experiment_{}.json'.format(options['experiments_path'], id)
         
-        if id != ExperimentLibrary.EXPERIMENT_0:
-            print('\nLoading experiment json from ->', expt_path)
-            expt_json = json.load(open(expt_path))
-            
-            # check to make sure required fields are set
-            if not 'experiment_id' in expt_json:
-                raise KeyError('Unique integer \"experiment_id\" must be specified in the experiment json file.')
-            if expt_json.get('model_name', None) not in ModelLibrary.get_valid_model_names():
-                raise KeyError('Valid \"model_name\" must be specified in the experiment json file. Choices: {}'.format
-                              (ModelLibrary.get_valid_model_names()))
+        # experiment 0 means no changes to options.py
+        if id == ExperimentLibrary.EXPERIMENT_0:
+            return options
+        
+        print('\nLoading experiment json from ->', expt_path)
+        expt_json = json.load(open(expt_path))
+        
+        # if there's no json experiment_id attribute, get it from the CLI `id` arg
+        if not 'experiment_id' in expt_json:
+            options['experiment_id'] = id
 
-            # update existing values, or create new ones (with warning)
-            for key, val in expt_json.items():
-                if key in options:
-                    options[key] = val
-                    print('Updated: options[\'{}\'] = {}'.format(key, val))
-                else:
-                    options[key] = val
-                    print('WARNING: new parameter, options[\'{}\'] = {}. Was this intentional?'.format(key, val))
+        # raise an exception if CLI `id` arg (ie. filename) and json attribute don't match
+        if id != expt_json.get('experiment_id', id):
+            raise ValueError('If \"experiment_id\" json attribute is present, it must agree with the ID in the filename.')
+
+        # make sure a valid model was selected
+        if expt_json.get('model_name', None) not in ModelLibrary.get_valid_model_names():
+            raise KeyError('Valid \"model_name\" must be specified in the experiment json file. Choices: {}'.format
+                           (ModelLibrary.get_valid_model_names()))
+
+        # update existing values, or create new ones (with warning)
+        for key, val in expt_json.items():
+            if key in options:
+                options[key] = val
+                print('Updated: options[\'{}\'] = {}'.format(key, val))
+            else:
+                options[key] = val
+                print('WARNING: new parameter, options[\'{}\'] = {}. Was this intentional?'.format(key, val))
             
         # Make sure every experiment has a name; needed for MLFlow logging
         if options.get('experiment_name', None) == None:
