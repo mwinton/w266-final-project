@@ -82,7 +82,7 @@ def main(options):
     
     # Save time-stamped model json file
     d = options['run_time']
-    json_path = options['saved_models_path'] + 'model_{}_{}.json'.format(options['experiment_id'], d)
+    json_path = options['saved_models_path'] + 'model_{}_expt{}_{}.json'.format(options['model_name'], options['experiment_id'], d)
     with open(json_path, 'w') as json_file:
         json_file.write(vqa_model.to_json())
 
@@ -231,9 +231,9 @@ def plot_train_metrics(train_stats, options, plot_type='epochs'):
     # define filenames
     d = options['run_time']
     loss_fig_path = options['results_dir_path'] + \
-        'loss_curves/losses_{}_{}_{}_{}.png'.format(plot_type, options['model_name'], options['experiment_id'], d)
+        'loss_curves/losses_{}_{}_expt{}_{}.png'.format(plot_type, options['model_name'], options['experiment_id'], d)
     acc_fig_path = options['results_dir_path'] + \
-        'acc_curves/accuracies_{}_{}_{}_{}.png'.format(plot_type, options['model_name'], options['experiment_id'], d)
+        'acc_curves/accuracies_{}_{}_expt{}_{}.png'.format(plot_type, options['model_name'], options['experiment_id'], d)
     
     # make sure directories exist before trying to save to them
     loss_fig_dir = os.path.dirname(os.path.abspath(loss_fig_path))
@@ -291,13 +291,15 @@ def train(model, dataset, options, val_dataset=None):
 
     losses_path = options['losses_path']
     model_weights_path = options['weights_path']
+    print('Saving weights from final epoch to ->', model_weights_path)
     model_weights_dir_path = options['weights_dir_path']
     model_name = options['model_name']
+    experiment_id = options['experiment_id']
     early_stop_patience = options['early_stop_patience']
 
     # define callbacks to plug into Keras training
     loss_callback = LossHistoryCallback(losses_path)
-    save_weights_callback = CustomModelCheckpoint(model_weights_path, model_weights_dir_path, model_name)
+    save_weights_callback = CustomModelCheckpoint(model_weights_path, model_weights_dir_path, model_name, experiment_id)
     stop_callback = EarlyStopping(patience=early_stop_patience)
     tb_logs_path = options['tb_logs_root'] + 'final/{}'.format(datetime.datetime.now())
     tensorboard_callback = TensorBoard(log_dir=tb_logs_path,
@@ -407,7 +409,7 @@ def test(model, dataset, options):
     # define filename for y_proba file
     d = options['run_time']
     y_proba_path = options['results_dir_path'] + \
-        'y_pred/y_proba_{}_{}_{}.png'.format(options['model_name'], options['experiment_id'], d)
+        'y_pred/y_proba_{}_expt{}_{}.png'.format(options['model_name'], options['experiment_id'], d)
 
     # make sure directory exists before trying to save to it
     y_proba_dir = os.path.dirname(os.path.abspath(y_proba_path))
@@ -476,7 +478,7 @@ class CustomModelCheckpoint(ModelCheckpoint):
     """
         Save the model weights at the end of each epoch.
     """
-    def __init__(self, weights_path, weights_dir_path, model_name,
+    def __init__(self, weights_path, weights_dir_path, model_name, experiment_id, 
                  monitor='val_loss', verbose=0, save_best_only=False, mode='auto'):
 
         super(CustomModelCheckpoint, self).__init__(filepath=weights_path, monitor=monitor,
@@ -484,9 +486,11 @@ class CustomModelCheckpoint(ModelCheckpoint):
         self.weights_path = weights_path
         self.weights_dir_path = weights_dir_path
         self.model_name = model_name
+        self.experiment_id = experiment_id
         self.last_epoch = 0
 
     def on_epoch_end(self, epoch, logs={}):
+        # save after every epoch to enable restarting at that epoch after a crash
         super(CustomModelCheckpoint, self).on_epoch_end(epoch, logs)
         self.last_epoch = epoch
 
@@ -495,9 +499,15 @@ class CustomModelCheckpoint(ModelCheckpoint):
            symlink to the last epoch weights, for easy reference to the final epoch.
         """
         
-        final_epoch = self.last_epoch + 1
-        wt_file = os.path.abspath(self.weights_path.format(epoch=final_epoch))
-        symlink = os.path.abspath(self.weights_dir_path + 'model_weights_{}_latest'.format(self.model_name))
+        final_epoch = self.last_epoch + 1 # Keras doesn't increment during final epoch
+        for i in range(1, final_epoch + 1):
+            wt_file = os.path.abspath(self.weights_path.format(epoch=i))
+            if i < final_epoch:
+                print('Deleting temporary weight file ->', wt_file)
+                os.remove(wt_file)
+            else:
+                symlink = os.path.abspath(self.weights_dir_path + 'model_weights_{}_expt{}_latest' \
+                                          .format(self.model_name, self.experiment_id))
 
         if options['logging']:
             print("Transferring model weights to mlflow..")

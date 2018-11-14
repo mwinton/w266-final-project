@@ -230,29 +230,28 @@ class ModelOptions(object):
         # timestamp string to use in appropriate filenames
         # not timestamping weight files this point since they need to be re-read
         d = options['run_time']
+        expt = options.get('experiment_id', 0)
         
         if (action == "train"):
             # timestamp the weights; later we create a symlink to the most recent set (for prediction)
-            options["weights_path"] = weights_dir_path + 'model_weights_' + \
-                model_name + suffix + '_' + d + '.{epoch:02d}.hdf5'  # must use named `epoch` placeholder
+            weights_dir_path = weights_dir_path + 'model_weights_{}{}_expt{}_{}'.format(model_name, suffix, expt, d)
+            # Keras requires that we must use named `epoch` placeholder in format string
+            options["weights_path"] = weights_dir_path + '.{epoch:02d}.hdf5'
             
             # timestamp the losses_path for logging purposes
-            options['losses_path'] = results_dir_path+'losses_{}{}_{}.hdf5'.format(model_name, suffix, d)
+            options['losses_path'] = results_dir_path + 'losses_{}{}_expt{}_{}.hdf5'.format(model_name, suffix, expt, d)
             
         elif (action == "val" ):
-            # TODO: update to handle timestamped files if necessary
-            options["weights_path"] = weights_dir_path + 'model_weights_{}'.format(model_name)
+            options["weights_path"] = weights_dir_path + 'model_weights_{}{}_expt{}_{}'.format(model_name, suffix, expt, d)
 
         elif (action == "test"):
-            # TODO: update to handle timestamped files if necessary
-            options['weights_path'] = weights_dir_path + 'model_weights_{}{}'.format(model_name, suffix)
-            options['results_path'] = results_dir_path + 'test2015_results_{}{}.json'.format(model_name, suffix)
+            options['weights_path'] = weights_dir_path + 'model_weights_{}{}_expt{}_{}'.format(model_name, suffix, expt, d)
+            options['results_path'] = results_dir_path + 'test2015_results_{}{}_expt{}_{}.json'.format(model_name, suffix, expt, d)
         
         else:
             # action type is eval
-            # TODO: update to handle timestamped files if necessary
-            options['weights_path'] = weights_dir_path + 'model_weights_{}{}'.format(model_name, suffix)
-            options['results_path'] = results_dir_path + 'val2014_results_{}{}.json'.format(model_name, suffix)
+            options['weights_path'] = weights_dir_path + 'model_weights_{}{}_expt{}_{}'.format(model_name, suffix, expt, d)
+            options['results_path'] = results_dir_path + 'val2014_results_{}{}_expt{}_{}.json'.format(model_name, suffix, expt, d)
 
         return options
  
