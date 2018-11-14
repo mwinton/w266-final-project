@@ -346,7 +346,7 @@ def train(model, dataset, options, val_dataset=None):
                             validation_data=dataset.batch_generator(batch_size, split='val'),
                             validation_steps=dataset.val_size()//batch_size,max_queue_size=20)
 
-    # save loss and accuracy plots
+    # save loss and accuracy plots to local disk
     loss_fig_path, acc_fig_path = plot_train_metrics(train_stats, options)
     
     if options['logging']:
@@ -359,8 +359,20 @@ def train(model, dataset, options, val_dataset=None):
         mlflow.log_metric('val_loss', train_stats.history['val_loss'][-1])
         mlflow.log_artifact(loss_fig_path)
         mlflow.log_artifact(acc_fig_path)
-        
+     
     print('Trained!')
+
+    
+#     THIS CODE IS COMMENTED OUT PENDING MAKING `test(model, dataset, options)` NOT RUN OUT OF MEMORY
+#     # save y_proba for validation set to disk.  To do this it appears we have to run
+#     # model.predict with the validation dataset; it doesn't appear possible to directly export
+#     # the keras layer.output tensor to a numpy array.  keras.backend.eval raises and exception.
+#     if val_dataset != None:
+#         print('Generating and saving predictions for validation dataset...')
+#         images, questions = val_dataset.get_dataset_input()
+#         val_results = model.predict([images, questions], batch_size)
+#         print('DEBUG: validation results.  type={}. shape={}'.format(type(val_results), val_results.shape))
+#         print('Saved validation y_proba results.')
 
 
 def validate(model, dataset, options):
@@ -380,7 +392,6 @@ def validate(model, dataset, options):
 # TODO: Needs to be modified for one hot encoding of answers
 def test(model, dataset, options):
 
-
     weights_path = options['weights_path']
     results_path = options['results_path']
 
@@ -391,6 +402,28 @@ def test(model, dataset, options):
     images, questions = dataset.get_dataset_input()
     results = model.predict([images, questions], options['batch_size'])
     print('Answers predicted')
+    
+    # TODO: VERIFY THAT THIS NEW CODE PATH WORKS
+    
+    # define filename for y_proba file
+    d = datetime.datetime.now().isoformat()
+    y_proba_path = options['results_dir_path'] + \
+        'y_pred/y_proba_{}_{}_{}.png'.format(options['model_name'], options['experiment_id'], d)
+
+    # make sure directory exists before trying to save to it
+    y_proba_dir = os.path.dirname(os.path.abspath(y_proba_path))
+    print('Saving y_proba predictions (shape = {}) to directory -> {}'.format(results.shape, y_proba_dir))
+    if not os.path.isdir(y_proba_dir):
+        os.mkdir(y_proba_dir)
+    
+    # save to disk (and also to MLFlow if logging is enabled)
+    pickle.dump(results, open(y_proba_path, 'wb'))
+    print('y_proba saved ->', y_proba_path)
+    if options['logging']:
+        mlflow.log_artifact(y_proba_path)
+    print('Resulting predicted y_proba saved -> ', y_proba_path)
+
+    # END OF NEW CODE PATH THAT NEEDS TO BE VERIFIED
 
     print('Transforming results...')
     results = np.argmax(results, axis=1)  # Max index evaluated on rows (1 row = 1 sample)
@@ -466,8 +499,6 @@ class CustomModelCheckpoint(ModelCheckpoint):
         final_epoch = self.last_epoch + 1
         wt_file = os.path.abspath(self.weights_path.format(epoch=final_epoch))
         symlink = os.path.abspath(self.weights_dir_path + 'model_weights_{}_latest'.format(self.model_name))
-        print('DEBUG: wt_file = ', wt_file)
-        print('DEBUG: symlink = ', symlink)
 
         if options['logging']:
             print("Transferring model weights to mlflow..")
