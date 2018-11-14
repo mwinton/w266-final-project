@@ -490,6 +490,7 @@ class VQADataset:
             A dictionary of Question instances with their id as a key
         """
 
+        print('Loading VQA question data from ->', questions_json_path)
         questions_json = json.load(open(questions_json_path))
         questions = {question['question_id']: Question(question['question_id'],
                                                        process_sentence(question['question']),
@@ -512,6 +513,7 @@ class VQADataset:
         if self.dataset_type == DatasetType.TEST or self.dataset_type == DatasetType.EVAL:
             return {}
 
+        print('Loading VQA answers data from ->', answers_json_path)
         answers_json = json.load(open(answers_json_path))
 
         # Please note that answer_id's are not unique across all the answers. They are only unique

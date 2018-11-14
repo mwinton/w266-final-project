@@ -82,7 +82,8 @@ def main(options):
     
     # Save time-stamped model json file
     d = options['run_time']
-    json_path = options['saved_models_path'] + 'model_{}_expt{}_{}.json'.format(options['model_name'], options['experiment_id'], d)
+    json_path = options['saved_models_path'] + 'model_{}_expt{}_{}.json' \
+        .format(options['model_name'], options['experiment_id'], d)
     with open(json_path, 'w') as json_file:
         json_file.write(vqa_model.to_json())
 
@@ -544,12 +545,21 @@ if __name__ == '__main__':
                         help="maximum number of validation samples to use")
 
     parser.add_argument(
+        '-d',
+        '--dataset',
+        type=str.lower,
+        choices=['v1', 'v2'],
+        default='v1',
+        help='Specify the VQA dataset to use (v1 or v2).'
+    )
+    parser.add_argument(
         '-m',
         '--model',
         type=str.lower,
         choices=ModelLibrary.get_valid_model_names(),
         default=DEFAULT_MODEL,
-        help='Specify the model architecture to interact with. Each model architecture has a model name associated.'
+        help='Specify the model architecture to interact with. Each model ' + \
+             'architecture has a model name associated.'
     )
     parser.add_argument(
         '-a',
@@ -561,7 +571,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--extended',
         action='store_true',
-        help='Add this flag if you want to use the extended dataset, this is, use part of the validation dataset to'
+        help='Add this flag if you want to use the extended dataset, this is, ' + \
+             'use part of the validation dataset to' + \
              'train your model. Only valid for the --action=train'
     )
     parser.add_argument(
@@ -569,7 +580,8 @@ if __name__ == '__main__':
         '--experiment',
         type=int,
         default=DEFAULT_EXPERIMENT,
-        help='Specify the experiment configuration ID. Omitting argument or selecting 0 means no experiment.'
+        help='Specify the experiment configuration ID. Omitting argument or ' + \
+             'selecting 0 means no experiment.'
     )
 
     # Start script
@@ -590,7 +602,10 @@ if __name__ == '__main__':
     if args.batch_size:
         options['batch_size'] = args.batch_size
 
-    # parse args with defaults
+    # parse args with defaults; this is used in prefixing only for v2
+    if args.dataset != 'v1':
+        options['dataset'] = args.dataset
+        
     options['model_name'] = args.model 
     options['action_type'] = args.action
 

@@ -95,16 +95,34 @@ Assuming you have set up your SSH port mapping, you can view TensorBoard at [htt
 
 ### Training the model:
 
-All runs need to be launched from the ./bin directory
+All runs need to be launched from the ./bin directory.  Here are some examples of how to use the command line arguments:
 
-1. Train the SAN model on all the train/val samples. runtime will be quite high (~3hrs per epoch on Nvidia K80)
-
-```
-python3 ./visualqa.py --verbose --model SAN  
-```
-
-2. (Optional) Train the SAN model with smaller train/val set
+1. The primary way to confirm a run is to load an experiment from a json file in `vqa/experiments/`
 
 ```
-python3 ./visualqa.py --verbose --model SAN  --max_train_size 20000 --max_val_size 10000
+python3 visualqa.py --verbose --experiment 2 --epochs 10
+```
+
+2. (Optional) Train the SAN model with a smaller train/val set
+
+```
+python3 visualqa.py --verbose --model san  --max_train_size 20000 --max_val_size 10000 --epochs 2
+```
+
+3. (Optional) Train a (faster) text-only CNN model for debugging
+
+```
+python3 visualqa.py --verbose --model text_cnn  --max_train_size 2000 --max_val_size 1000 --epochs 2
+```
+
+4. (Optional) Run an experiment with the VQA v2 dataset:
+
+```
+python3 visualqa.py --verbose --experiment 2 --epochs 10 --dataset v2
+```
+
+To see all command line arguments:
+
+```
+python3 visualqa.py --help
 ```

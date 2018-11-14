@@ -14,64 +14,40 @@ class ModelOptions(object):
         
         self.options = OrderedDict()
         
-        # File system paths
+        # Base file system paths
         user_name = getpass.getuser()
-        data_root = "/home/"+user_name+"/vqa_data/"
+        self.options['user_name'] = user_name
+        data_root = "/home/" + user_name + "/vqa_data/"
         self.options['data_root'] = data_root
         self.options['tb_logs_root'] = "/home/" + user_name + "/logs/"
+        self.options['experiments_path'] =  os.path.abspath("../vqa/experiments") + '/'
 
-        self.options['user_name'] = user_name
+        # Image embedding root
+        image_embed_root = data_root+'images/mscoco/embeddings/vgg16/'
+        self.options['images_embed_train_path'] = image_embed_root + 'train.hdf5'
+        self.options['images_embed_val_path']   = image_embed_root + 'val.hdf5'
+        self.options['images_embed_test_path'] = image_embed_root + 'test.hdf5'
+        
+#         # Text embedding root
+#          self.options['glove_path'] = ''
 
+        # Both VQA v1 and v2 use the same images and question types, so OK to set here
         self.options['images_train_root_path'] = data_root+'images/mscoco/train2014/'
         self.options['images_val_root_path']   = data_root+'images/mscoco/val2014/'
         self.options['images_test_root_path']   = data_root+'images/mscoco/test2015/'
-
-        self.options['questions_train_path'] = data_root+'questions/OpenEnded_mscoco_train2014_questions.json'
-        self.options['questions_val_path']   = data_root+'questions/OpenEnded_mscoco_val2014_questions.json'
-        self.options['questions_test_path']  = data_root+'questions/OpenEnded_mscoco_test2015_questions.json'
-
         self.options['question_types_path']  = data_root+'questiontypes/mscoco_question_types.txt'
 
-        self.options['annotations_train_path'] = data_root+'annotations/mscoco_train2014_annotations.json'
-        self.options['annotations_val_path']   = data_root+'annotations/mscoco_val2014_annotations.json'
+#         # to be polulated later once all options are parsed
+#         self.options['weights_path']  = ""
+#         self.options['results_path'] = ""
+#         self.options['losses_path']  = ""
 
-        image_embed_root = data_root+'images/mscoco/embeddings/vgg16/'
-        self.options['images_embed_train_path'] = image_embed_root+'train.hdf5'
-        self.options['images_embed_val_path']   = image_embed_root+'val.hdf5'
-        self.options['images_embed_test_path'] = image_embed_root+'test.hdf5'
-        
-#         self.options['glove_path'] = ''
-
-        ## files created during train/val/test phases
-        # NOTE: os.path.abspath drops trailing slash, so need to re-add
-        self.options['local_data_path']  =  os.path.abspath("../data/preprocessed") + '/'
-        self.options['experiments_path'] =  os.path.abspath("../vqa/experiments") + '/'
-        self.options['saved_models_path'] = os.path.abspath('../saved_models/json') + '/'
-        self.options['weights_dir_path'] =  os.path.abspath("../saved_models/weights") + '/'
-        self.options['results_dir_path'] =  os.path.abspath("../results") + '/'
-
-        ## create directories if they don't exist
-        os.makedirs(self.options['local_data_path'],   exist_ok=True)
-        os.makedirs(self.options['weights_dir_path'],  exist_ok=True)
-        os.makedirs(self.options['results_dir_path'],  exist_ok=True)
-        os.makedirs(self.options['saved_models_path'], exist_ok=True) 
-
-        local_data_path = self.options['local_data_path']
-
-        self.options['tokenizer_path']     = local_data_path+'tokenizer.p'
-        self.options['train_dataset_path'] = local_data_path+'train_dataset.p'
-        self.options['val_dataset_path']   = local_data_path+"validate_dataset.p"
-        self.options['test_dataset_path']  = local_data_path+"test_dataset.p"
-        self.options['eval_dataset_path']  = local_data_path+"eval_dataset.p"
-
-        # to be polulated later once all options are parsed
-        self.options['weights_path']  = ""
-        self.options['results_path'] = ""
-        self.options['losses_path']  = ""
+        # Which dataset to use
+        self.options['dataset'] = ''
 
         # Model selection parameter
         self.options['model_name'] = "baseline"  # default is the first/baseline model
-
+        
         # Type of action to be performed
         self.options['action_type'] = "train"
 
@@ -88,8 +64,10 @@ class ModelOptions(object):
         self.options['start_with_image_embed'] = True
 
         # Text model parameters
-        # self.options['n_vocab'] = 18364           # Keras tokenizer: 18364 (Q+A) or 13681 (Q-only); Yang: 13746
+        # Keras tokenizer: 18364 (Q+A) or 13681 (Q-only); Yang: 13746
+        # self.options['n_vocab'] = 18364           
         # self.options['max_sentence_len'] = 22     # actual max is 22, so don't override it   
+        
         self.options['n_sent_embed'] = 500          # TODO: change this when we use GloVe
         self.options['sent_init_type'] = 'uniform'  # TODO: experiment with GloVe
         self.options['sent_init_range'] = 0.01
@@ -218,40 +196,85 @@ class ModelOptions(object):
         action    = options['action_type']
         model_name = options["model_name"]
         extended  = options['extended']
+        data_root = options['data_root']
+        
+        # VQAv2 json files have a `v2_` filename prefix
+        prefix = ''
+        if options['dataset'] == 'v2': prefix = 'v2_'
+
+        # Also neeed to annotate extended dataset
+        suffix = ''
+        if extended: suffix = "_ext"
+
+        # Need to prefix v2 files with `v2_`
+        options['questions_train_path'] = data_root + \
+            'questions/' + prefix + 'OpenEnded_mscoco_train2014_questions.json'
+        options['questions_val_path']   = data_root + \
+            'questions/' + prefix + 'OpenEnded_mscoco_val2014_questions.json'
+        options['questions_test_path']  = data_root + \
+            'questions/' + prefix + 'OpenEnded_mscoco_test2015_questions.json'
+
+        options['annotations_train_path'] = data_root + \
+            'annotations/' + prefix + 'mscoco_train2014_annotations.json'
+        options['annotations_val_path']   = data_root + \
+            'annotations/' + prefix + 'mscoco_val2014_annotations.json'
+
+        # Files created during train/val/test phases
+        # NOTE: os.path.abspath drops trailing slash, so need to re-add
+        options['local_data_path']  =  os.path.abspath("../data/preprocessed") + '/'
+        options['weights_dir_path'] =  os.path.abspath("../saved_models/weights") + '/'
+        options['results_dir_path'] =  os.path.abspath("../results") + '/' 
+        options['saved_models_path'] = os.path.abspath('../saved_models/json') + '/'
+
+        # create directories if they don't exist
+        os.makedirs(options['local_data_path'],   exist_ok=True)
+        os.makedirs(options['weights_dir_path'],  exist_ok=True)
+        os.makedirs(options['results_dir_path'],  exist_ok=True)
+        os.makedirs(options['saved_models_path'], exist_ok=True) 
+
+        local_data_path = options['local_data_path']
+
+        # We also need to prefix our generated pickle files by dataset
+        options['tokenizer_path']     = local_data_path + prefix + 'tokenizer.p'
+        options['train_dataset_path'] = local_data_path + prefix + 'train_dataset.p'
+        options['val_dataset_path']   = local_data_path + prefix + 'validate_dataset.p'
+        options['test_dataset_path']  = local_data_path + prefix + 'test_dataset.p'
+        options['eval_dataset_path']  = local_data_path + prefix + 'eval_dataset.p'
 
         weights_dir_path = options['weights_dir_path']
         results_dir_path = options['results_dir_path']
-
-        if (extended):
-            suffix = "_ext"
-        else:
-            suffix = ""
-            
-        # timestamp string to use in appropriate filenames
-        # not timestamping weight files this point since they need to be re-read
+        
+        # get run- and experiment-dependent filename annotations
         d = options['run_time']
         expt = options.get('experiment_id', 0)
         
         if (action == "train"):
             # timestamp the weights; later we create a symlink to the most recent set (for prediction)
-            weights_dir_path = weights_dir_path + 'model_weights_{}{}_expt{}_{}'.format(model_name, suffix, expt, d)
+            weights_dir_path = weights_dir_path + prefix + 'model_weights_{}{}_expt{}_{}' \
+                .format(model_name, suffix, expt, d)
             # Keras requires that we must use named `epoch` placeholder in format string
             options["weights_path"] = weights_dir_path + '.{epoch:02d}.hdf5'
             
             # timestamp the losses_path for logging purposes
-            options['losses_path'] = results_dir_path + 'losses_{}{}_expt{}_{}.hdf5'.format(model_name, suffix, expt, d)
+            options['losses_path'] = results_dir_path + prefix + 'losses_{}{}_expt{}_{}.hdf5' \
+                .format(model_name, suffix, expt, d)
             
         elif (action == "val" ):
-            options["weights_path"] = weights_dir_path + 'model_weights_{}{}_expt{}_{}'.format(model_name, suffix, expt, d)
+            options["weights_path"] = weights_dir_path + prefix + 'model_weights_{}{}_expt{}_{}' \
+                .format(model_name, suffix, expt, d)
 
         elif (action == "test"):
-            options['weights_path'] = weights_dir_path + 'model_weights_{}{}_expt{}_{}'.format(model_name, suffix, expt, d)
-            options['results_path'] = results_dir_path + 'test2015_results_{}{}_expt{}_{}.json'.format(model_name, suffix, expt, d)
+            options['weights_path'] = weights_dir_path + prefix + 'model_weights_{}{}_expt{}_{}' \
+                .format(model_name, suffix, expt, d)
+            options['results_path'] = results_dir_path + prefix + 'test2015_results_{}{}_expt{}_{}.json' \
+                .format(model_name, suffix, expt, d)
         
         else:
             # action type is eval
-            options['weights_path'] = weights_dir_path + 'model_weights_{}{}_expt{}_{}'.format(model_name, suffix, expt, d)
-            options['results_path'] = results_dir_path + 'val2014_results_{}{}_expt{}_{}.json'.format(model_name, suffix, expt, d)
+            options['weights_path'] = weights_dir_path + prefix + 'model_weights_{}{}_expt{}_{}' \
+                .format(model_name, suffix, expt, d)
+            options['results_path'] = results_dir_path + prefix + 'val2014_results_{}{}_expt{}_{}.json' \
+                .format(model_name, suffix, expt, d)
 
         return options
  
