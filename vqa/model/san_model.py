@@ -348,6 +348,7 @@ class StackedAttentionNetwork(object):
             layer_v_q = self.build_attention_subgraph(options, idx, layer_v_i, layer_v_q)
        
         # apply dropout after final attention layer
+        # In Keras, dropout is automatically disabled in test mode 
         attention_dropout_ratio = self.options['attention_dropout_ratio']
         layer_dropout_v_q = Dropout(rate=attention_dropout_ratio, name='dropout_v_q')(layer_v_q)
         if verbose: print('layer_dropout_v_q output shape:', layer_dropout_v_q.shape)

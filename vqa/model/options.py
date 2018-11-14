@@ -229,15 +229,15 @@ class ModelOptions(object):
             
         # timestamp string to use in appropriate filenames
         # not timestamping weight files this point since they need to be re-read
-        date_str = datetime.datetime.now().isoformat()
+        d = options['run_time']
         
         if (action == "train"):
             # timestamp the weights; later we create a symlink to the most recent set (for prediction)
             options["weights_path"] = weights_dir_path + 'model_weights_' + \
-                model_name + suffix + '_' + date_str + '.{epoch:02d}.hdf5'  # must use named `epoch` placeholder
+                model_name + suffix + '_' + d + '.{epoch:02d}.hdf5'  # must use named `epoch` placeholder
             
             # timestamp the losses_path for logging purposes
-            options['losses_path'] = results_dir_path+'losses_{}{}_{}.hdf5'.format(model_name, suffix, date_str)
+            options['losses_path'] = results_dir_path+'losses_{}{}_{}.hdf5'.format(model_name, suffix, d)
             
         elif (action == "val" ):
             # TODO: update to handle timestamped files if necessary

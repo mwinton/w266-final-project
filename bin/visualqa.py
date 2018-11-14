@@ -81,7 +81,7 @@ def main(options):
     vqa_model = ModelLibrary.get_model(options)
     
     # Save time-stamped model json file
-    d = datetime.datetime.now().isoformat()
+    d = options['run_time']
     json_path = options['saved_models_path'] + 'model_{}_{}.json'.format(options['experiment_id'], d)
     with open(json_path, 'w') as json_file:
         json_file.write(vqa_model.to_json())
@@ -229,7 +229,7 @@ def plot_train_metrics(train_stats, options, plot_type='epochs'):
     val_acc = train_stats.history['val_acc']
 
     # define filenames
-    d = datetime.datetime.now().isoformat()
+    d = options['run_time']
     loss_fig_path = options['results_dir_path'] + \
         'loss_curves/losses_{}_{}_{}_{}.png'.format(plot_type, options['model_name'], options['experiment_id'], d)
     acc_fig_path = options['results_dir_path'] + \
@@ -361,7 +361,6 @@ def train(model, dataset, options, val_dataset=None):
         mlflow.log_artifact(acc_fig_path)
      
     print('Trained!')
-
     
 #     THIS CODE IS COMMENTED OUT PENDING MAKING `test(model, dataset, options)` NOT RUN OUT OF MEMORY
 #     # save y_proba for validation set to disk.  To do this it appears we have to run
@@ -406,7 +405,7 @@ def test(model, dataset, options):
     # TODO: VERIFY THAT THIS NEW CODE PATH WORKS
     
     # define filename for y_proba file
-    d = datetime.datetime.now().isoformat()
+    d = options['run_time']
     y_proba_path = options['results_dir_path'] + \
         'y_pred/y_proba_{}_{}_{}.png'.format(options['model_name'], options['experiment_id'], d)
 
@@ -595,6 +594,10 @@ if __name__ == '__main__':
     # load experiment attributes from json (overrides model defaults and CLI args)
     if args.experiment:
         options = ExperimentLibrary.get_experiment(args.experiment, options)
+    
+    # define run_time to be used in all saved artifacts
+    run_time = datetime.datetime.now().isoformat()
+    options['run_time'] = run_time
     
     # print all options before building graph
     if args.verbose:
