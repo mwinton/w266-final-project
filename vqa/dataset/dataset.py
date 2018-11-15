@@ -64,8 +64,10 @@ class VQADataset:
         # VQA dataset type (e.g. v2)
         self.dataset = options['dataset']
         
-        # Complementary pairs path (VQA json file)
-        self.pairs_path = options.get('pairs_path', None)
+        # Complementary pairs path (VQA json file); only v2 dataset has pairs data
+        self.pairs_path = ModelOptions.get_pairs_path(options, dataset_type)
+        if self.dataset == 'v2' and not os.path.isfile(self.pairs_path):
+            raise ValueError('Using v2 dataset, but file ' + self.pairs_path + ' does not exist')
         
         # Images path (directory below which all images are stored)
         images_path = ModelOptions.get_images_path(options,dataset_type)

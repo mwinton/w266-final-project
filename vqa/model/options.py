@@ -148,6 +148,22 @@ class ModelOptions(object):
         return selector.get(datasetType)
 
     @staticmethod
+    def get_pairs_path(options, datasetType):
+        """
+           returns the questions path for the given datasetType (if using v2 dataset)
+        """
+        if options['dataset'] == 'v2':
+            selector = {
+                DatasetType.TRAIN      : options["pairs_train_path"],
+                DatasetType.VALIDATION : options["pairs_val_path"],
+                DatasetType.TEST       : None,
+                DatasetType.EVAL       : None
+            }
+            return selector.get(datasetType)
+        else:
+            return None
+        
+    @staticmethod
     def get_annotations_path(options,datasetType):
         """
            returns the dataset path for the given datasetType
@@ -216,8 +232,10 @@ class ModelOptions(object):
 
         # complementary pairs are only relevant for v2 dataset
         if options['dataset'] == 'v2':
-            options['pairs_path'] = data_root + \
+            options['pairs_train_path'] = data_root + \
                 'pairs/' + prefix + 'mscoco_train2014_complementary_pairs.json'
+            options['pairs_val_path'] = data_root + \
+                'pairs/' + prefix + 'mscoco_val2014_complementary_pairs.json'
         
         options['annotations_train_path'] = data_root + \
             'annotations/' + prefix + 'mscoco_train2014_annotations.json'
@@ -250,7 +268,7 @@ class ModelOptions(object):
         results_dir_path = options['results_dir_path']
         
         # get run- and experiment-dependent filename annotations
-        d = options['run_time']
+        d = options['run_timestamp']
         expt = options.get('experiment_id', 0)
         
         if (action == "train"):

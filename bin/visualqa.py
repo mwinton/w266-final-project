@@ -81,7 +81,7 @@ def main(options):
     vqa_model = ModelLibrary.get_model(options)
     
     # Save time-stamped model json file
-    d = options['run_time']
+    d = options['run_timestamp']
     json_path = options['saved_models_path'] + 'model_{}_expt{}_{}.json' \
         .format(options['model_name'], options['experiment_id'], d)
     with open(json_path, 'w') as json_file:
@@ -230,7 +230,7 @@ def plot_train_metrics(train_stats, options, plot_type='epochs'):
     val_acc = train_stats.history['val_acc']
 
     # define filenames
-    d = options['run_time']
+    d = options['run_timestamp']
     loss_fig_path = options['results_dir_path'] + \
         'loss_curves/losses_{}_{}_expt{}_{}.png'.format(plot_type, options['model_name'], options['experiment_id'], d)
     acc_fig_path = options['results_dir_path'] + \
@@ -408,7 +408,7 @@ def test(model, dataset, options):
     # TODO: VERIFY THAT THIS NEW CODE PATH WORKS
     
     # define filename for y_proba file
-    d = options['run_time']
+    d = options['run_timestamp']
     y_proba_path = options['results_dir_path'] + \
         'y_pred/y_proba_{}_expt{}_{}.png'.format(options['model_name'], options['experiment_id'], d)
 
@@ -620,9 +620,9 @@ if __name__ == '__main__':
     if args.experiment:
         options = ExperimentLibrary.get_experiment(args.experiment, options)
     
-    # define run_time to be used in all saved artifacts
-    run_time = datetime.datetime.now().isoformat()
-    options['run_time'] = run_time
+    # define run_timestamp to be used in all saved artifacts
+    run_timestamp = datetime.datetime.now().isoformat()
+    options['run_timestamp'] = run_timestamp
     
     # print all options before building graph
     if args.verbose:
