@@ -42,7 +42,7 @@ class ModelOptions(object):
 #         self.options['results_path'] = ""
 #         self.options['losses_path']  = ""
 
-        # Which dataset to use
+        # Which dataset to use (use empty string for easier string comparisons)
         self.options['dataset'] = ''
 
         # Model selection parameter
@@ -214,6 +214,11 @@ class ModelOptions(object):
         options['questions_test_path']  = data_root + \
             'questions/' + prefix + 'OpenEnded_mscoco_test2015_questions.json'
 
+        # complementary pairs are only relevant for v2 dataset
+        if options['dataset'] == 'v2':
+            options['pairs_path'] = data_root + \
+                'pairs/' + prefix + 'mscoco_train2014_complementary_pairs.json'
+        
         options['annotations_train_path'] = data_root + \
             'annotations/' + prefix + 'mscoco_train2014_annotations.json'
         options['annotations_val_path']   = data_root + \

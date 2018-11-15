@@ -124,6 +124,9 @@ class Question:
         except:
             raise ValueError('image_id has to be a positive integer')
 
+        # Store empty complementary_id to potentially bee populated later
+        self.complementary_id = None
+        
         # Store question string
         self.question_str = question_str
         self._tokens_idx = []

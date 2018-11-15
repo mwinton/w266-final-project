@@ -61,6 +61,12 @@ class VQADataset:
         else:
             raise ValueError('The file ' + questions_path + ' does not exist')
 
+        # VQA dataset type (e.g. v2)
+        self.dataset = options['dataset']
+        
+        # Complementary pairs path (VQA json file)
+        self.pairs_path = options.get('pairs_path', None)
+        
         # Images path (directory below which all images are stored)
         images_path = ModelOptions.get_images_path(options,dataset_type)
         if os.path.isdir(images_path):
@@ -144,7 +150,12 @@ class VQADataset:
 
         # Load Questions and Answers
         questions = self._create_questions_dict(self.questions_path)
-        print('Questions dict created. Num entries: {}'.format(len(questions)))        
+        print('Questions dict created. Num entries: {}'.format(len(questions)))  
+        
+        # Add complementary pairs data (only exists for VQA v2 dataset)
+        if self.dataset == 'v2':
+            questions = self._set_question_complements(questions, self.pairs_path)
+
         answers = self._create_answers_dict(self.answers_path)
         print('Answers dict created. Num entries: {}'.format(len(answers)))
         
@@ -480,6 +491,8 @@ class VQADataset:
 
         return len(self.samples)
 
+        # Add complementary_question_id
+
     def _create_questions_dict(self, questions_json_path):
         """Create a dictionary of Question objects containing the information of the questions from the .json file.
 
@@ -498,6 +511,35 @@ class VQADataset:
                      for question in questions_json['questions']}
         return questions
 
+    def _set_question_complements(self, questions, pairs_json_path):
+        """
+            Add `complementary_questions` attribute to quesetions that have one
+            NOTE: this is only relevant for the VQA v2 dataset
+
+        Args:
+            questions (dict of Question instances)
+            pairs_json_path (str): path to the JSON file defining the pairs
+            
+        Returns:
+            queestions (updated dict of Question instances)
+        """
+
+        print('Loading VQA complementary pair data from ->', pairs_json_path)
+        
+        # load json into a dict
+        pairs = dict(json.load(open(pairs_json_path)))
+        # mapping is symmetrical, but *most* pairs are not listed both ways
+        inverted_pairs = dict([[v,k] for k,v in pairs.items()])
+        pairs.update(inverted_pairs)
+
+        # iterate through questions dict and update complements
+        for question in questions:
+            if question in pairs:
+                questions[question].complement_id = pairs[question]
+        print('Complements added to questions')
+        
+        return questions
+        
     def _create_answers_dict(self, answers_json_path):
         """
         Create a dictionary of Answer objects containing the information of the answers from the .json file.
