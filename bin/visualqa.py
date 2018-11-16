@@ -567,6 +567,14 @@ if __name__ == '__main__':
              'architecture has a model name associated.'
     )
     parser.add_argument(
+        '-o',
+        '--optimizer',
+        type=str.lower,
+        choices=['adam', 'rmsprop', 'sgd'],
+        default='sgd',
+        help='Specify the optimizer to use (adam, rmsprop, sgd).'
+    )
+    parser.add_argument(
         '-a',
         '--action',
         choices=ACTIONS,
@@ -612,6 +620,7 @@ if __name__ == '__main__':
         options['dataset'] = args.dataset
         
     options['model_name'] = args.model 
+    options['optimizer'] = args.optimizer
     options['action_type'] = args.action
 
     options['max_train_size'] = args.max_train_size

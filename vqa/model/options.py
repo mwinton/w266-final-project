@@ -320,7 +320,6 @@ class ModelOptions(object):
         """
             Sets optimizer-specific parameters to the options object
         """
-        print('DEBUG optimize=',options['optimizer'])
         if not optimizer == None:
             options['optimizer'] = optimizer
         
