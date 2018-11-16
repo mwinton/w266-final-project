@@ -51,6 +51,10 @@ class ModelOptions(object):
         # Type of action to be performed
         self.options['action_type'] = "train"
 
+        # Type of validation/test split
+        # if true, a repeatable half of the original validation set is split into the training set
+        self.options['val_test_split'] = True
+
         # Experiment to be performed
         self.options['experiment_id'] = 0                  # default is no experiment
         self.options['experiment_name'] = 'Default_Expt'   # name to display in MLFlow
@@ -145,6 +149,8 @@ class ModelOptions(object):
             DatasetType.TEST       : options["questions_test_path"],
             DatasetType.EVAL       : options["questions_val_path"]
         }
+        if (options['val_test_split']):
+            selector[DatasetType.TEST] = options['questions_val_path']
         return selector.get(datasetType)
 
     @staticmethod
@@ -159,6 +165,9 @@ class ModelOptions(object):
                 DatasetType.TEST       : None,
                 DatasetType.EVAL       : None
             }
+            if (options['val_test_split']):
+                selector[DatasetType.TEST] = options['pairs_val_path']
+
             return selector.get(datasetType)
         else:
             return None
@@ -174,6 +183,9 @@ class ModelOptions(object):
             DatasetType.TEST       : None,
             DatasetType.EVAL       : None
         }
+        if (options['val_test_split']):
+            selector[DatasetType.TEST] = options['annotations_val_path']
+
         return selector.get(datasetType)
 
 
@@ -188,6 +200,9 @@ class ModelOptions(object):
             DatasetType.TEST       : options["images_embed_test_path"],
             DatasetType.EVAL       : options["images_embed_val_path"]
         }
+        if (options['val_test_split']):
+            selector[DatasetType.TEST] = options['images_embed_val_path']
+
         return selector.get(datasetType)
 
     @staticmethod
@@ -201,6 +216,9 @@ class ModelOptions(object):
             DatasetType.TEST       : options["images_test_root_path"],
             DatasetType.EVAL       : options["images_val_root_path"]
         }
+        if (options['val_test_split']):
+            selector[DatasetType.TEST] = options['images_val_root_path']
+            
         return selector.get(datasetType)
 
     @staticmethod
@@ -287,8 +305,8 @@ class ModelOptions(object):
                 .format(model_name, suffix, expt, d)
 
         elif (action == "test"):
-            options['weights_path'] = weights_dir_path + prefix + 'model_weights_{}{}_expt{}_{}' \
-                .format(model_name, suffix, expt, d)
+            options['weights_path'] = weights_dir_path + prefix + 'model_weights_{}{}_expt{}_latest' \
+                .format(model_name, suffix, expt )
             options['results_path'] = results_dir_path + prefix + 'test2015_results_{}{}_expt{}_{}.json' \
                 .format(model_name, suffix, expt, d)
         
