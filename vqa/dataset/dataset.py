@@ -568,23 +568,32 @@ class VQADataset:
         # we've composed the answer id the same way. The substraction of 1 is due to the fact that the
         # answer['answer_id'] ranges from 1 to 10 instead of 0 to 9
 
-        if (self.options["keep_single_answer"] == False): 
-            # keep all answers given by the 10 human raters
-            answers = {(annotation['question_id'] * 10 + (answer['answer_id'] - 1)):
+#         if (self.options["keep_single_answer"] == False): 
+        # keep all answers given by the 10 human raters
+        annotations = {annotation['question_id'] * 10 + (answer['answer_id'] - 1):
                        Answer(answer['answer_id'], process_answer(answer['answer']), annotation['question_id'],
                               annotation['image_id'], self.n_answer_classes)
                        for annotation in answers_json['annotations'] for answer in annotation['answers']}
-        else:
-            # keep only the defined label from the annotations.json file
-            answers  = answers = {annotation['question_id'] * 10: Answer(annotation['question_id'] * 10,
-                                                                         process_answer(annotation['multiple_choice_answer']),
-                                                                         annotation['question_id'],
-                                                                         annotation['image_id'],
-                                                                         annotation['question_type'],
-                                                                         annotation['answer_type'],
-                                                                         self.n_answer_classes)
-                                  for annotation in answers_json['annotations'] }
+#         else:
+        # keep the defined label from the annotations.json file
+        answers = {annotation['question_id'] * 10: Answer(annotation['question_id'] * 10,
+                                                          process_answer(annotation['multiple_choice_answer']),
+                                                          annotation['question_id'],
+                                                          annotation['image_id'],
+                                                          annotation['question_type'],
+                                                          annotation['answer_type'],
+                                                          self.n_answer_classes)
+                   for annotation in answers_json['annotations'] }
 
+        for annotation in answers_json['annotations']:
+            for 
+            next_answer = Answer(annotation['question_id'] * 10,
+                                 process_answer(annotation['multiple_choice_answer']),
+                                                          annotation['question_id'],
+                                                          annotation['image_id'],
+                                                          annotation['question_type'],
+                                                          annotation['answer_type'],
+                                                          self.n_answer_classes)
         return answers
 
     def _create_images_dict(self, image_ids):
