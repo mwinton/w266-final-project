@@ -372,18 +372,22 @@ class StackedAttentionNetwork(object):
         # assemble all these layers into model
         self.model = Model(inputs=[layer_image_input, layer_sent_input], outputs=layer_prob_answer)
 
-        if self.options['optimizer'] == 'sgd':
-            optimizer = keras.optimizers.SGD(lr=options['sgd_learning_rate'],
-                                             momentum=options['sgd_momentum'],
-                                             decay=options['sgd_decay_rate'],
-                                             clipnorm=options['sgd_grad_clip']
-                                            )
-        elif self.options['optimizer'] == 'adam':
-            # TODO: if we want to keep Adam, move params into options.py
-            optimizer = keras.optimizers.Adam(lr=0.001)
-        else:
-            raise TypeError('Invalid optimizer specified.')
-        
+#         if self.options['optimizer'] == 'sgd':
+#             optimizer = keras.optimizers.SGD(lr=options['sgd_learning_rate'],
+#                                              momentum=options['sgd_momentum'],
+#                                              decay=options['sgd_decay_rate'],
+#                                              clipnorm=options['sgd_grad_clip']
+#                                             )
+#         elif self.options['optimizer'] == 'adam':
+#             optimizer = keras.optimizers.Adam(lr=options['adam_learning_rate'],
+#                                               beta_1=options['adam_beta_1'],
+#                                               beta_2=options['adam_beta_2'])
+#         elif self.options['optimizer'] == 'rmsprop':
+#             optimizer = keras.optimizers.RMSprop(lr=options['rmsprop_learning_rate'])
+#         else:
+#             raise TypeError('Invalid optimizer specified.')
+
+        optimizer = ModelOptions.get_optimizer(options)
         print('Compiling model with {} optimizer...'.format(self.options['optimizer']))
         
         # compile model so that it's ready to train

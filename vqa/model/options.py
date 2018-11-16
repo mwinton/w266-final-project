@@ -3,7 +3,7 @@ import datetime
 import os
 
 from collections import OrderedDict
-from keras.optimizers import SGD
+from keras.optimizers import Adam, RMSprop, SGD
 
 from .. dataset.types import DatasetType
 
@@ -100,11 +100,9 @@ class ModelOptions(object):
         self.options['max_train_size'] = None # interpreted as full size of training set unless overridden
         self.options['max_val_size'] = None # interpreted as full validation set size unless overridden
         self.options['extended']  = False # use train+val set for training
+
         # When changing the optimize, also update set_optimizer_params()
         self.options['optimizer'] = 'sgd'       
-
-        # TODO: implement custom loss function
-        # self.options['loss_function'] = 'neg_mean_log_prob_y'  # TODO: try cross-entropy -p*log(q)
 
         # Regularization / weight decay parameters (assumed to go with an l2 regularizer)
         self.options['regularizer'] = True
@@ -322,6 +320,7 @@ class ModelOptions(object):
         """
             Sets optimizer-specific parameters to the options object
         """
+        print('DEBUG optimize=',options['optimizer'])
         if not optimizer == None:
             options['optimizer'] = optimizer
         
@@ -344,7 +343,36 @@ class ModelOptions(object):
             # options['sgd_smooth'] = 1e-8         # never used in Yang's code
             # options['sgd_step'] = 10             # TBD whether we need this
             # options['sgd_step_start'] = 100      # TBD whether we need this
+        elif options['optimizer'] == 'adam':
+            options['adam_learning_rate'] = 0.1
+            options['adam_beta_1'] = 0.9                # matches Keras default
+            options['adam_beta_2'] = 0.999              # matches Keras default
+        elif options['optimizer'] == 'rmsprop':
+            options['rmsprop_learning_rate'] = 0.1      # Keras recommends not changing other params
         else:
             raise TypeError('Invalid optimizer specified.  Only \'sgd\' is currently supported.')
             
         return options
+
+    @staticmethod
+    def get_optimizer(options):
+        """
+            Returns a Keras optimizer instance of the configured type
+        """
+        if options['optimizer'] == 'sgd':
+            optimizer = SGD(lr=options['sgd_learning_rate'],
+                                             momentum=options['sgd_momentum'],
+                                             decay=options['sgd_decay_rate'],
+                                             clipnorm=options['sgd_grad_clip']
+                                            )
+        elif options['optimizer'] == 'adam':
+            optimizer = Adam(lr=options['adam_learning_rate'],
+                                              beta_1=options['adam_beta_1'],
+                                              beta_2=options['adam_beta_2'])
+        elif options['optimizer'] == 'rmsprop':
+            optimizer = RMSprop(lr=options['rmsprop_learning_rate'])
+        else:
+            raise TypeError('Invalid optimizer specified.')
+            
+        return optimizer
+

@@ -2,6 +2,7 @@ import json
 
 from vqa import BASE_DIR
 from vqa.model.model_select import ModelLibrary
+from vqa.model.options import ModelOptions 
 
 class ExperimentLibrary:
     # ---------------------------------- CONSTANTS --------------------------------
@@ -26,7 +27,7 @@ class ExperimentLibrary:
         print('Setting up experiment {}'.format(id))
         options['experiment_id'] = id
         expt_path = '{}experiment_{}.json'.format(options['experiments_path'], id)
-        
+
         # experiment 0 means no changes to options.py
         if id == ExperimentLibrary.EXPERIMENT_0:
             return options
@@ -47,6 +48,13 @@ class ExperimentLibrary:
             raise KeyError('Valid \"model_name\" must be specified in the experiment json file. Choices: {}'.format
                            (ModelLibrary.get_valid_model_names()))
 
+        if 'optimizer' in expt_json:
+            # set default optimizer params (learning rate, etc...) for the selected optimizer
+            # It's possible they will still get overwritten, but this allows experiment to select
+            # a different optimizer without having to specify all of its parameters
+            options['optimizer'] = expt_json['optimizer']
+            ModelOptions.set_optimizer_params(options)
+        
         # update existing values, or create new ones (with warning)
         for key, val in expt_json.items():
             if key in options:
