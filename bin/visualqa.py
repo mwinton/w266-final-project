@@ -446,9 +446,6 @@ def test(model, dataset, options):
 
     print('Saving results...')
 
-    #import code
-    #code.interact(local=locals())
-
     results_dict = [{'answer': answer_dict[results[idx]], 'question_id': sample.question.id, 'question': sample.question.question_str}
                     for idx, sample in enumerate(dataset.samples)]
     with open(results_path, 'w') as f:
