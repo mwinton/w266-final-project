@@ -42,7 +42,7 @@ class StackedAttentionNetwork(object):
         # out: [batch_size, n_image_regions, n_attention_features]
         n_attention_features = options['n_attention_features']
         layer_attn_image = Dense(units=n_attention_features,
-                                   activation='tanh',
+                                   activation='relu',
                                    use_bias=True,
                                    kernel_initializer='random_uniform',
                                    bias_initializer='zeros',
@@ -66,7 +66,7 @@ class StackedAttentionNetwork(object):
         # out: [batch_size, n_attention_features]
         n_attention_features = self.options['n_attention_features']
         layer_attn_sent = Dense(units=n_attention_features,
-                                activation='tanh',
+                                activation='relu',
                                 use_bias=True,
                                 kernel_initializer='random_uniform',
                                 bias_initializer='zeros',
@@ -102,7 +102,7 @@ class StackedAttentionNetwork(object):
         # in:   [batch_size, n_image_regions, n_attention_features]
         # out:  [batch_size, n_image_regions, 1]
         layer_pre_softmax = Dense(units=1,
-                                  activation='tanh',
+                                  activation='relu',
                                   use_bias=True,
                                   kernel_initializer='random_uniform',
                                   bias_initializer='zeros',
@@ -212,7 +212,7 @@ class StackedAttentionNetwork(object):
         # in:  [batch_size, n_image_regions, image_output_depth]
         # out: [batch_size, n_image_regions, n_attention_input]
         layer_v_i = Dense(units=n_attention_input,
-                          activation='tanh',
+                          activation='relu',
                           use_bias=True,
                           kernel_initializer='random_uniform',
                           bias_initializer='zeros',
@@ -266,7 +266,7 @@ class StackedAttentionNetwork(object):
                                     kernel_size=1,
                                     strides=1,
                                     padding='valid',  # this results in output length != input length
-                                    activation='tanh',
+                                    activation='relu',
                                     use_bias=True,
                                     kernel_initializer='random_uniform',
                                     bias_initializer='zeros',
@@ -289,7 +289,7 @@ class StackedAttentionNetwork(object):
                                    kernel_size=2,
                                    strides=1,
                                    padding='valid',  # this results in output length != input length
-                                   activation='tanh',
+                                   activation='relu',
                                    use_bias=True,
                                    kernel_initializer='random_uniform',
                                    bias_initializer='zeros',
@@ -312,7 +312,7 @@ class StackedAttentionNetwork(object):
                               kernel_size=3,
                               strides=1,
                               padding='valid',  # this results in output length != input length
-                              activation='tanh',
+                              activation='relu',
                               use_bias=True,
                               kernel_initializer='random_uniform',
                               bias_initializer='zeros',
@@ -380,8 +380,7 @@ class StackedAttentionNetwork(object):
                                             )
         elif self.options['optimizer'] == 'adam':
             # TODO: if we want to keep Adam, move params into options.py
-            # optimizer = keras.optimizers.Adam(lr=0.001)
-            pass
+            optimizer = keras.optimizers.Adam(lr=0.001)
         else:
             raise TypeError('Invalid optimizer specified.')
         

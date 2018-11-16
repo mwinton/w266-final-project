@@ -162,11 +162,13 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
                 max_size = options['max_train_size'] 
             elif dataset_type == DatasetType.VALIDATION:
                 max_size = options["max_val_size"]   
+            else:
+                max_size = None
 
             if(max_size == None):
                 dataset.max_sample_size = len(samples)
             else:
-                dataset.max_sample_size = max_size
+                dataset.max_sample_size = min(max_size,len(samples))
 
             if dataset_type==DatasetType.TRAIN :
                 answer_one_hot_mapping = dataset.answer_one_hot_mapping
@@ -396,13 +398,19 @@ def test(model, dataset, options):
 
     weights_path = options['weights_path']
     results_path = options['results_path']
+    batch_size   = options['batch_size']
 
     print('Loading weights...')
     model.load_weights(weights_path)
     print('Weights loaded')
     print('Predicting...')
-    images, questions = dataset.get_dataset_input()
-    results = model.predict([images, questions], options['batch_size'])
+    orig_dataset_size = len(dataset.samples)
+    results = model.predict_generator(dataset.batch_generator(), steps=orig_dataset_size//batch_size + 1, verbose=1)
+
+    #resize results as it might have been padded for being an exact multiple of batch size
+    results = results[:orig_dataset_size]
+    dataset.samples = dataset.samples[:orig_dataset_size]
+
     print('Answers predicted')
     
     # TODO: VERIFY THAT THIS NEW CODE PATH WORKS
@@ -437,7 +445,11 @@ def test(model, dataset, options):
     print('Reverse dictionary built')
 
     print('Saving results...')
-    results_dict = [{'answer': answer_dict[results[idx]], 'question_id': sample.question.id}
+
+    #import code
+    #code.interact(local=locals())
+
+    results_dict = [{'answer': answer_dict[results[idx]], 'question_id': sample.question.id, 'question': sample.question.question_str}
                     for idx, sample in enumerate(dataset.samples)]
     with open(results_path, 'w') as f:
         json.dump(results_dict, f)

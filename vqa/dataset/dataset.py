@@ -63,6 +63,7 @@ class VQADataset:
 
         # VQA dataset type (e.g. v2)
         self.dataset = options['dataset']
+        self.val_test_split = options['val_test_split']
         
         # Complementary pairs path (VQA json file); only v2 dataset has pairs data
         self.pairs_path = ModelOptions.get_pairs_path(options, dataset_type)
@@ -131,19 +132,23 @@ class VQADataset:
             self.max_sample_size = self.options['max_train_size']
         elif (dataset_type == DatasetType.VALIDATION):
             self.max_sample_size = self.options['max_val_size']
+        else:
+            self.max_sample_size = None
 
         # List with samples
         self.samples = []
 
-    def prepare(self,answer_one_hot_mapping):
+    def prepare(self, answer_one_hot_mapping):
         """Prepares the dataset to be used.
 
-        It will load all the questions and answers in memory and references to the images. It will also train a
-        Tokenizer holding the word dictionary and both answers and questions will be tokenized and encoded using that
+        It will load all the questions and answers in memory and references to
+        the images. It will also train a Tokenizer holding the word dictionary
+        and both answers and questions will be tokenized and encoded using that
         Tokenizer.
 
-        As a side result, this function also creates a one hot encoding index for all the top (n_answer_classes) answer choices
-        Any answer outside the scope of this is tagged with a special out of vocab index - index 0
+        As a side result, this function also creates a one hot encoding index 
+        for all the top (n_answer_classes) answer choices Any answer outside
+        the scope of this is tagged with a special out of vocab index - index 0
         """
 
         # if this isn't a training dataset, the answer one hot indices are expected to be available
@@ -262,7 +267,10 @@ class VQADataset:
         # add extra samples
         for idx in indices:
             sample = self.samples[idx]
-            self.samples.append(VQASample(sample.question, sample.image, sample.answer, sample.sample_type))
+            if (sample.sample_type == DatasetType.TEST):
+                self.samples.append(VQASample(sample.question, sample.image, dataset_type=sample.sample_type))
+            else:
+                self.samples.append(VQASample(sample.question, sample.image, sample.answer, sample.sample_type))
      
         num_samples = len(self.samples)
         assert(len(self.samples) % batch_size == 0)
@@ -376,9 +384,10 @@ class VQADataset:
 
         # samples inside the chunks can be shuffled as long as the 1st and last elements are preserved for index comparison
         #randomize indices exclusing the first and last
-        shuffle_list = self.samples[start_sample_idx + 1: end_sample_idx]
-        np.random.shuffle(shuffle_list)
-        self.samples[start_sample_idx + 1 : end_sample_idx] =  shuffle_list
+        if self.dataset_type != DatasetType.TEST: 
+           shuffle_list = self.samples[start_sample_idx + 1: end_sample_idx]
+           np.random.shuffle(shuffle_list)
+           self.samples[start_sample_idx + 1 : end_sample_idx] =  shuffle_list
             
         return next_chunk_idx
 
@@ -432,27 +441,37 @@ class VQADataset:
             # Initialize matrix
             I = np.zeros((batch_size,n_image_regions,n_image_embed), dtype=np.float32)
             Q = np.zeros((batch_size, self.max_sentence_len), dtype=np.int32)
-            A = np.zeros((batch_size, self.n_answer_classes), dtype=np.bool_)
 
-            # randomize order of samples within a batch
-            batch_indices = [i for i in range(batch_start,batch_end)]
-            randomized_indices = np.random.choice(batch_indices,len(batch_indices),replace=False)
-            for idx,sample_idx in enumerate(randomized_indices):
-                #if (np.shape(self.samples[sample_idx].image.features)[0] == 0):
-                    #print("Error for batch ({}-{}), sample-idx {}, image {} is missing".format(
-                    #       batch_start,batch_end,sample_idx,self.samples[sample_idx].image.features_idx))
 
-                I[idx], Q[idx] = self.samples[sample_idx].get_input(self.max_sentence_len)
-                A[idx] = self.samples[sample_idx].get_output()
+            if self.dataset_type != DatasetType.TEST:
+                A = np.zeros((batch_size, self.n_answer_classes), dtype=np.bool_)
 
-            # yield (output) appropriate batches of data
-            if text_only:
-                yield([Q], A)
-            elif img_only:
-                yield([I], A)
+                # randomize order of samples within a batch
+                batch_indices = [i for i in range(batch_start,batch_end)]
+                randomized_indices = np.random.choice(batch_indices,len(batch_indices),replace=False)
+                for idx,sample_idx in enumerate(randomized_indices):
+                    I[idx], Q[idx] = self.samples[sample_idx].get_input(self.max_sentence_len)
+                    A[idx] = self.samples[sample_idx].get_output()
+
+                # yield (output) appropriate batches of data
+                if text_only:
+                    yield([Q], A)
+                elif img_only:
+                    yield([I], A)
+                else:
+                    yield([I, Q], A)
             else:
-                yield([I, Q], A)
-                
+                # in test mode, we should not randomize within the batch
+                for idx in range(batch_size):
+                    I[idx], Q[idx] = self.samples[batch_start + idx].get_input(self.max_sentence_len)
+
+                if text_only:
+                    yield (Q) 
+                elif img_only:
+                    yield (I)
+                else:
+                    yield ([I, Q])
+                    
             # Update interval
             batch_start += batch_size
             # An epoch has finished
@@ -555,7 +574,8 @@ class VQADataset:
 
         # There are no answers in the test dataset
         if self.dataset_type == DatasetType.TEST or self.dataset_type == DatasetType.EVAL:
-            return {}
+            if not self.val_test_split:
+                return {}
 
         print('Loading VQA answers data from ->', answers_json_path)
         answers_json = json.load(open(answers_json_path))
@@ -605,13 +625,20 @@ class VQADataset:
         """
 
         # Check for DatasetType
-        if self.dataset_type != DatasetType.TEST and self.dataset_type != DatasetType.EVAL:
+        answers_built = True
+        if self.dataset_type == DatasetType.TEST or self.dataset_type == DatasetType.EVAL:
+            if not self.val_test_split:
+                answers_built = False
+
+        if answers_built:
+            print("Creating Samples with Image,Questions and Answers")
             for answer_id, answer in answers.items():
                 question = questions[answer.question_id]
                 image_id = question.image_id
                 image = images[image_id]
                 self.samples.append(VQASample(question, image, answer, self.dataset_type))
         else:
+            print("Creating Samples with Image and Questions ")
             for question_id, question in questions.items():
                 image_id = question.image_id
                 image = images[image_id]
@@ -621,9 +648,20 @@ class VQADataset:
         print("Sorting samples by Image indices...")
         self.samples = sorted(self.samples, key=lambda sample: sample.image.features_idx) 
 
+        # If we are in val_test split mode, the samples need to be divided among the
+        # validation and test sets
+
+        print("Size of dataSet {} before split: {}".format(self.dataset_type, len(self.samples)))
+
+        if(self.val_test_split):
+            if (self.dataset_type == DatasetType.VALIDATION):
+                self.samples = self.samples[:len(self.samples)//2]
+            elif (self.dataset_type == DatasetType.TEST):
+                self.samples = self.samples[len(self.samples)//2:]
+
         if (self.max_sample_size == None):
             self.max_sample_size = len(self.samples)
-            print('Saved max_sample_size = {}'.format(self.max_sample_size))
+            print('Saved max_sample_size for dataset {} = {}'.format(self.dataset_type, self.max_sample_size))
             
     def _init_tokenizer(self, questions, answers):
         """Fits the tokenizer with the questions and answers and saves this tokenizer into a file for later use"""
