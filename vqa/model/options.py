@@ -75,8 +75,6 @@ class ModelOptions(object):
         self.options['n_sent_embed'] = 500          # TODO: change this when we use GloVe
         self.options['sent_init_type'] = 'uniform'  # TODO: experiment with GloVe
         self.options['sent_init_range'] = 0.01
-        self.options['keep_single_answer'] = True
-
 
         self.options['n_filters_unigram'] = 256
         self.options['n_filters_bigram'] = 512
