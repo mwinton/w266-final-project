@@ -260,6 +260,9 @@ class VQADataset:
 
         num_extra = (num_samples // batch_size +1) * batch_size - num_samples
         print("Padding samples with {} elements so that it is an exact multiple of batch size {}".format(num_extra,batch_size))
+        print('DEBUG: num_samples=', num_samples)
+        print('DEBUG: batch_size=', batch_size)
+        print('DEBUG: num_extra=', num_extra)
 
         # the first argument is treated as a range. so picks num_extra integers from range [0..num_samples-1]
         indices = np.random.choice(num_samples,num_extra,replace=False)
@@ -407,6 +410,8 @@ class VQADataset:
             raise ValueError('A batch cannot be both text-only and image-only')
             
         batch_size = self.options['batch_size']
+        print('DEBUG: max_sample_size', self.max_sample_size)
+        print('DEBUG: len(samples)', len(self.samples))
         assert(self.max_sample_size != None and self.max_sample_size <= len(self.samples))
 
         num_samples = self.max_sample_size
@@ -587,6 +592,7 @@ class VQADataset:
         # a self-reported "confidence" (yes/maybe/no) for each one; we are not currently using that information.
 
         # keep the official label (`multiple_choice_answer`) and also all 10 human ratings
+        answers = {}
         example = 0
         for annotation in answers_json['annotations']:
             rater_annotations = []
@@ -603,7 +609,7 @@ class VQADataset:
                                  answer_type=annotation['answer_type'],
                                  annotations=rater_annotations,
                                  n_answer_classes=self.n_answer_classes)
-            answers = {annotation['question_id'] * 10: next_answer}
+            answers[annotation['question_id'] * 10] = next_answer
 
         return answers
 
