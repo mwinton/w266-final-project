@@ -52,7 +52,7 @@ class ModelOptions(object):
         self.options['action_type'] = "train"
 
         # Type of validation/test split
-        # if true, half of the original validation set is split into the training set
+        # if true, a repeatable half of the original validation set is split into the training set
         self.options['val_test_split'] = True
 
         # Experiment to be performed

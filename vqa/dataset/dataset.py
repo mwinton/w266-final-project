@@ -383,8 +383,9 @@ class VQADataset:
                 self.samples[sample_idx].image.load(image_cache,offset = start_image_idx)
 
         # samples inside the chunks can be shuffled as long as the 1st and last elements are preserved for index comparison
-        #randomize indices exclusing the first and last
+        #randomize indices excluding the first and last
         if self.dataset_type != DatasetType.TEST: 
+           # Above code prevents shuffle for the test mode as they get mis-aligned with the true labels
            shuffle_list = self.samples[start_sample_idx + 1: end_sample_idx]
            np.random.shuffle(shuffle_list)
            self.samples[start_sample_idx + 1 : end_sample_idx] =  shuffle_list

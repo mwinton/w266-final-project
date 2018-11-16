@@ -400,7 +400,7 @@ def test(model, dataset, options):
     results_path = options['results_path']
     batch_size   = options['batch_size']
 
-    print('Loading weights...')
+    print('Loading weights from {}...'.format(weights_path))
     model.load_weights(weights_path)
     print('Weights loaded')
     print('Predicting...')
@@ -413,12 +413,10 @@ def test(model, dataset, options):
 
     print('Answers predicted')
     
-    # TODO: VERIFY THAT THIS NEW CODE PATH WORKS
-    
     # define filename for y_proba file
     d = options['run_timestamp']
     y_proba_path = options['results_dir_path'] + \
-        'y_pred/y_proba_{}_expt{}_{}.png'.format(options['model_name'], options['experiment_id'], d)
+        'y_pred/y_proba_{}_expt{}_{}.p'.format(options['model_name'], options['experiment_id'], d)
 
     # make sure directory exists before trying to save to it
     y_proba_dir = os.path.dirname(os.path.abspath(y_proba_path))
@@ -432,8 +430,6 @@ def test(model, dataset, options):
     if options['logging']:
         mlflow.log_artifact(y_proba_path)
     print('Resulting predicted y_proba saved -> ', y_proba_path)
-
-    # END OF NEW CODE PATH THAT NEEDS TO BE VERIFIED
 
     print('Transforming results...')
     results = np.argmax(results, axis=1)  # Max index evaluated on rows (1 row = 1 sample)
