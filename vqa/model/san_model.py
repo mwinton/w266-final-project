@@ -140,7 +140,7 @@ class StackedAttentionNetwork(object):
         layer_v_q_refined = Add(name='v_q_refined_%d' % (idx))([layer_v_tilde, layer_v_q])
         if verbose: print('v_q_refined_%d' % (idx), layer_v_q_refined.shape)
         
-        return layer_v_q_refined
+        return layer_v_q_refined, layer_attn_prob_dist
 
     def build_graph (self, options):
         ''' Build Keras graph '''
@@ -345,8 +345,8 @@ class StackedAttentionNetwork(object):
         # out:          [batch_size, n_attention_input]
         n_attention_layers = options.get('n_attention_layers', 1)
         for idx in range(n_attention_layers):
-            layer_v_q = self.build_attention_subgraph(options, idx, layer_v_i, layer_v_q)
-       
+            layer_v_q, layer_attn_prob = self.build_attention_subgraph(options, idx, layer_v_i, layer_v_q)
+                   
         # apply dropout after final attention layer
         attention_dropout_ratio = self.options['attention_dropout_ratio']
         layer_dropout_v_q = Dropout(rate=attention_dropout_ratio, name='dropout_v_q')(layer_v_q)
@@ -392,6 +392,8 @@ class StackedAttentionNetwork(object):
                             # TODO: to match Yang's paper we may need to write our own loss function
                             # see https://github.com/keras-team/keras/blob/master/keras/losses.py
                             metrics=['accuracy'])
+        
+        self.attention_layer_model = Model(inputs=self.model.input, outputs=self.model.get_layer('layer_attn_prob').output)
 
     def summary(self):
         ''' wrapper around keras.Model.summary()'''

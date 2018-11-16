@@ -78,7 +78,10 @@ def main(options):
 
     # Load model
     # NOTE: cannot be loaded until after dataset because it needs the vocab size
-    vqa_model = ModelLibrary.get_model(options)
+    if options['model_name'] == 'san':
+        vqa_model, vqa_attention_model = ModelLibrary.get_model(options)
+    else:
+        vqa_model = ModelLibrary.get_model(options)
     
     # Save time-stamped model json file
     d = datetime.datetime.now().isoformat()
@@ -112,7 +115,7 @@ def main(options):
 
     elif action == 'test':
         dataset = load_dataset(DatasetType.TEST,options,answer_one_hot_mapping)
-        test(vqa_model, dataset, options)
+        test(vqa_model, vqa_attention_model, dataset, options)
 
     elif action == 'eval':
         dataset = load_dataset(DatasetType.EVAL,options,answer_one_hot_mapping)
@@ -345,7 +348,8 @@ def train(model, dataset, options, val_dataset=None):
                             epochs=num_epochs, callbacks=callbacks,
                             validation_data=dataset.batch_generator(batch_size, split='val'),
                             validation_steps=dataset.val_size()//batch_size,max_queue_size=20)
-
+    
+        
     # save loss and accuracy plots
     loss_fig_path, acc_fig_path = plot_train_metrics(train_stats, options)
     
@@ -378,7 +382,7 @@ def validate(model, dataset, options):
 
 
 # TODO: Needs to be modified for one hot encoding of answers
-def test(model, dataset, options):
+def test(model, attention_model, dataset, options):
 
 
     weights_path = options['weights_path']
@@ -396,7 +400,7 @@ def test(model, dataset, options):
     results = np.argmax(results, axis=1)  # Max index evaluated on rows (1 row = 1 sample)
     results = list(results)
     print('Results transformed')
-
+  
     print('Building reverse word dictionary...')
     answer_dict = {idx: word for word, idx in dataset.answer_one_hot_mapping.items()}
     print('Reverse dictionary built')
@@ -407,6 +411,13 @@ def test(model, dataset, options):
     with open(results_path, 'w') as f:
         json.dump(results_dict, f)
     print('Results saved')
+    
+    attention_probabilities = attention_model.predict([images, questions], options['batch_size'])
+    print('Probabilities predicted')
+    
+    with h5py.File(self.results_path, 'a') as f:
+        f.create_dataset('attention_probabilites', data=np.array(attention_probabilities))
+
 
 
 # ------------------------------- CALLBACKS -------------------------------
