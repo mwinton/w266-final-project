@@ -591,7 +591,7 @@ class VQADataset:
         for annotation in answers_json['annotations']:
             rater_annotations = []
             for rater_responses in annotation['answers']:
-                rater_annotations.append(rater_responses.get('answer', None))
+                rater_annotations.append(process_answer(rater_responses.get('answer', None)))
             if example < 5:
                 print('Sample rater annotations:', rater_annotations)
                 example += 1 
