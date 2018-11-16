@@ -380,8 +380,7 @@ class StackedAttentionNetwork(object):
                                             )
         elif self.options['optimizer'] == 'adam':
             # TODO: if we want to keep Adam, move params into options.py
-            # optimizer = keras.optimizers.Adam(lr=0.001)
-            pass
+            optimizer = keras.optimizers.Adam(lr=0.001)
         else:
             raise TypeError('Invalid optimizer specified.')
         
