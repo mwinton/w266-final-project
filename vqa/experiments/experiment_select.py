@@ -26,7 +26,7 @@ class ExperimentLibrary:
         
         print('Setting up experiment {}'.format(id))
         options['experiment_id'] = id
-        expt_path = '{}experiment_{}.json'.format(options['experiments_path'], id)
+        expt_path = '{}{}_experiment_{}.json'.format(options['experiments_path'], options['user_name'], id)
 
         # experiment 0 means no changes to options.py
         if id == ExperimentLibrary.EXPERIMENT_0:

@@ -123,8 +123,12 @@ def main(options):
         raise ValueError('The action type is unrecognized')
 
     if options['logging']:
+        mlflow_uri = os.environ['MLFLOW_TRACKING_URI']
+        mlflow_expt_id = mlflow.active_run().info.experiment_id
+        mlflow_run_uuid = mlflow.active_run().info.run_uuid
+        mlflow_url = '{}/#/experiments/{}/runs/{}'.format(mlflow_uri, mlflow_expt_id, mlflow_run_uuid)
         mlflow.end_run()
-        print('Closed MLFlow logging context...')
+        print('MLFlow logs for this run are available at ->', mlflow_url)
 
 
 def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
@@ -594,7 +598,8 @@ if __name__ == '__main__':
         type=int,
         default=DEFAULT_EXPERIMENT,
         help='Specify the experiment configuration ID. Omitting argument or ' + \
-             'selecting 0 means no experiment.'
+             'selecting 0 means no experiment. Program will look for a corresponding file ' + \
+             'at \"\experiments\<username>_experiment_<id>.json\".'
     )
 
     # Start script
@@ -635,7 +640,7 @@ if __name__ == '__main__':
         options = ExperimentLibrary.get_experiment(args.experiment, options)
     
     # define run_timestamp to be used in all saved artifacts
-    run_timestamp = datetime.datetime.now().isoformat()
+    run_timestamp = datetime.datetime.now().isoformat('-', timespec='seconds')
     options['run_timestamp'] = run_timestamp
     
     # print all options before building graph
