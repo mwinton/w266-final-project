@@ -121,6 +121,12 @@ python3 visualqa.py --verbose --model text_cnn  --max_train_size 2000 --max_val_
 python3 visualqa.py --verbose --experiment 2 --epochs 10 --dataset v2
 ```
 
+5. (Optional) Run default SAN model with `adam` optimizer instead of default `sgd`:
+
+```
+python3 visualqa.py --verbose --model san --optimizer adam --max_train_size 20000 --max_val_size 10000 -e 3```
+```
+
 To see all command line arguments:
 
 ```

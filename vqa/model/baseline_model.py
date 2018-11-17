@@ -55,7 +55,11 @@ class BaselineModel(object):
 
         # Build and compile
         self.model = Model(inputs=[image_input, question_input], outputs=output)
-        self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+        optimizer = ModelOptions.get_optimizer(options)
+        print('Compiling model with {} optimizer...'.format(self.options['optimizer']))
+
+        self.model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
 
     def summary(self):
         ''' wrapper around keras.Model.summary()'''
