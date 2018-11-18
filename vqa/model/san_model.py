@@ -24,15 +24,15 @@ class StackedAttentionNetwork(object):
             print('Initializing SAN...')
         self.options = options
     
-    def sum_axis_1(self, x):
+    def _sum_axis_1(self, x):
         ''' need to wrap backend ops in function and call from Lambda layer'''
         return kbe.sum(x, axis=1)
         
-    def repeat_elements(self, x, n, axis=-1):
+    def _repeat_elements(self, x, n, axis=-1):
         ''' need to wrap backend ops in function and call from Lambda layer'''
         return kbe.repeat_elements(x, n, axis=axis)
         
-    def build_attention_subgraph (self, options, idx, layer_v_i, layer_v_q):
+    def _build_attention_subgraph (self, options, idx, layer_v_i, layer_v_q):
 
         verbose = options['verbose']
         print('Building attention subgraph...')
@@ -114,7 +114,6 @@ class StackedAttentionNetwork(object):
         # Calculate softmax
         # in:   [batch_size, n_image_regions, 1]
         # out:  [batch_size, n_image_regions, 1]
-#         layer_attn_prob_dist = Activation('softmax', name='layer_prob_attn_%d' % (idx))(layer_pre_softmax)
         layer_attn_prob_dist = Softmax(axis=1, name='layer_prob_attn_%d' % (idx))(layer_pre_softmax)
         if verbose: print('layer_attn_prob_dist_%d' % (idx), layer_attn_prob_dist.shape)
         
@@ -122,7 +121,7 @@ class StackedAttentionNetwork(object):
         # in:  [batch_size, n_image_regions, 1]
         # out:  [batch_size, n_image_regions, n_attention_input]
         n_attention_input = options['n_attention_input']
-        layer_prob_expanded = Lambda(self.repeat_elements, 
+        layer_prob_expanded = Lambda(self._repeat_elements, 
                                      name='layer_prob_expanded_%d' % (idx),
                                      arguments={'n':n_attention_input})(layer_attn_prob_dist)
         if verbose: print('layer_prob_expanded_%d' % (idx), layer_prob_expanded.shape)
@@ -131,7 +130,7 @@ class StackedAttentionNetwork(object):
         # in:   [batch_size, n_image_regions, n_attention_input]
         # out:  [batch_size, n_attention_input]
         layer_v_tilde = Multiply()([layer_v_i, layer_prob_expanded])
-        layer_v_tilde = Lambda(self.sum_axis_1, name='v_tilde_%d' % (idx))(layer_v_tilde)
+        layer_v_tilde = Lambda(self._sum_axis_1, name='v_tilde_%d' % (idx))(layer_v_tilde)
         if verbose: print('v_tilde_%d' % (idx), layer_v_tilde.shape)
 
         # Adding a batch norm befsre image and sentence vectors are added
@@ -163,8 +162,6 @@ class StackedAttentionNetwork(object):
         # begin image pipeline
         # diagram: https://docs.google.com/drawings/d/1ZWRPmy4e2ACvqOsk4ttAEaWZfUX_qiQEb0DE05e8dXs/edit
         #
-        
-        # TODO: make sure images are rescaled from 256x256 -> 448x448 during preprocessing
         
         image_input_dim = self.options['vggnet_input_dim']
         image_input_depth = self.options['image_depth']
@@ -346,7 +343,7 @@ class StackedAttentionNetwork(object):
         # out:          [batch_size, n_attention_input]
         n_attention_layers = options.get('n_attention_layers', 1)
         for idx in range(n_attention_layers):
-            layer_v_q = self.build_attention_subgraph(options, idx, layer_v_i, layer_v_q)
+            layer_v_q = self._build_attention_subgraph(options, idx, layer_v_i, layer_v_q)
        
         # apply dropout after final attention layer
         # In Keras, dropout is automatically disabled in test mode 
