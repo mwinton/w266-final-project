@@ -46,7 +46,7 @@ class ModelOptions(object):
         self.options['dataset'] = ''
 
         # Model selection parameter
-        self.options['model_name'] = "baseline"  # default is the first/baseline model
+        self.options['model_name'] = 'san'    # default is Yang's SAN model
         
         # Type of action to be performed
         self.options['action_type'] = "train"
@@ -81,14 +81,16 @@ class ModelOptions(object):
         self.options['n_filters_trigram'] = 512
 
         # Attention layer parameters
-        self.options['n_attention_input'] = self.options['n_filters_unigram'] \
-                                          + self.options['n_filters_bigram'] \
-                                          + self.options['n_filters_trigram']
-        self.options['n_attention_features'] = 512
-        self.options['n_attention_layers'] = 2
-        self.options['attention_merge_type'] = 'addition'
-#         self.options['attention_dropout_ratio'] = 0.5  # Yang
-        self.options['attention_dropout_ratio'] = 0.1
+        # Some of the simpler models don't use these, so don't set by default.  That allows code to 
+        # check whether attention layers are part of the model by looking at options['n_attention_layers']
+        if self.options['model_name'] == 'san':
+            self.options['n_attention_layers'] = 2
+            self.options['n_attention_input'] = self.options['n_filters_unigram'] \
+                                              + self.options['n_filters_bigram'] \
+                                              + self.options['n_filters_trigram']
+            self.options['n_attention_features'] = 512
+            self.options['attention_merge_type'] = 'addition'
+            self.options['attention_dropout_ratio'] = 0.5  # Yang
 
         # Classification layer parameters
         self.options['n_answer_classes'] = 1001  # 1000 real classes + <unk>  
