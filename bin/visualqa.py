@@ -78,7 +78,10 @@ def main(options):
 
     # Load model
     # NOTE: cannot be loaded until after dataset because it needs the vocab size
-    vqa_model = ModelLibrary.get_model(options)
+    if options['model_name'] == 'san':
+        vqa_model, vqa_attention_model = ModelLibrary.get_model(options)
+    else:
+        vqa_model = ModelLibrary.get_model(options)
     
     # Save time-stamped model json file
     d = options['run_timestamp']
@@ -113,7 +116,7 @@ def main(options):
 
     elif action == 'test':
         dataset = load_dataset(DatasetType.TEST,options,answer_one_hot_mapping)
-        test(vqa_model, dataset, options)
+        test(vqa_model, vqa_attention_model, dataset, options)
 
     elif action == 'eval':
         dataset = load_dataset(DatasetType.EVAL,options,answer_one_hot_mapping)
@@ -398,10 +401,11 @@ def validate(model, dataset, options):
 
 
 # TODO: Needs to be modified for one hot encoding of answers
-def test(model, dataset, options):
+def test(model, attention_model, dataset, options):
 
     weights_path = options['weights_path']
     results_path = options['results_path']
+    probabilities_path = options['probabilities_path']
     batch_size   = options['batch_size']
 
     print('Loading weights from {}...'.format(weights_path))
@@ -452,7 +456,14 @@ def test(model, dataset, options):
         json.dump(results_dict, f)
     print('Results saved')
 
-
+    # save attention probabilities to disk
+    attention_probabilities = attention_model.predict_generator(dataset.batch_generator(), steps=orig_dataset_size//batch_size + 1, verbose=1)
+    print('Probabilities predicted')
+    
+    with h5py.File(probabilities_path, 'a') as f:
+        f.create_dataset('attention_probabilites', data=attention_probabilities)
+    print('Probabilities saved')
+    
 # ------------------------------- CALLBACKS -------------------------------
 
 class LossHistoryCallback(Callback):
