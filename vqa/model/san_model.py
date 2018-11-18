@@ -341,7 +341,13 @@ class StackedAttentionNetwork(object):
         # image in:     [batch_size, n_image_regions, n_attention_input]
         # sentence in:  [batch_size, n_attention_input]
         # out:          [batch_size, n_attention_input]
-        n_attention_layers = options.get('n_attention_layers', 1)
+        
+        # if number of attention layers wasn't specified, set default to match Yang's model
+        # and store in options for later use
+        if not 'n_attention_layers' in options:
+            options['n_attention_layers'] = 2 
+        n_attention_layers = options['n_attention_layers']  
+        
         for idx in range(n_attention_layers):
             layer_v_q = self._build_attention_subgraph(options, idx, layer_v_i, layer_v_q)
        

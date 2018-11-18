@@ -80,12 +80,12 @@ class ModelOptions(object):
         self.options['n_filters_bigram'] = 512
         self.options['n_filters_trigram'] = 512
 
-        # Attention layer parameters
+        # Attention layer parameters.  Any code that wants to check whether attention layers are
+        # in a model or not should check for options['n_attention_layers'].
         self.options['n_attention_input'] = self.options['n_filters_unigram'] \
                                           + self.options['n_filters_bigram'] \
                                           + self.options['n_filters_trigram']
         self.options['n_attention_features'] = 512
-        self.options['n_attention_layers'] = 2
         self.options['attention_merge_type'] = 'addition'
 #         self.options['attention_dropout_ratio'] = 0.5  # Yang
         self.options['attention_dropout_ratio'] = 0.1
