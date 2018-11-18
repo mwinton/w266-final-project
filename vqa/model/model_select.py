@@ -73,7 +73,9 @@ class ModelLibrary:
         print('Model created and compiled')
         vqa_model.summary()
 
-        return vqa_model
+        vqa_attention_model = san.attention_layer_model
+        
+        return vqa_model, vqa_attention_model
 
     @staticmethod
     def get_text_cnn_model(options):

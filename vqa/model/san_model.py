@@ -4,7 +4,7 @@ import keras.activations
 import keras.backend as kbe
 from keras.callbacks import EarlyStopping
 import keras.layers
-from keras.layers import Activation, Add, Concatenate, Conv1D, Dense, Dropout, Embedding
+from keras.layers import Activation, Add, Concatenate, Conv1D, Dense, Dropout, Embedding, Softmax
 from keras.layers import Input, GlobalMaxPooling1D, Lambda, Multiply, RepeatVector, Reshape
 from keras.layers import BatchNormalization 
 from keras.models import Model
@@ -114,7 +114,8 @@ class StackedAttentionNetwork(object):
         # Calculate softmax
         # in:   [batch_size, n_image_regions, 1]
         # out:  [batch_size, n_image_regions, 1]
-        layer_attn_prob_dist = Activation('softmax', name='layer_prob_attn_%d' % (idx))(layer_pre_softmax)
+#         layer_attn_prob_dist = Activation('softmax', name='layer_prob_attn_%d' % (idx))(layer_pre_softmax)
+        layer_attn_prob_dist = Softmax(axis=1, name='layer_prob_attn_%d' % (idx))(layer_pre_softmax)
         if verbose: print('layer_attn_prob_dist_%d' % (idx), layer_attn_prob_dist.shape)
         
         # Need to expand and repeat the attention vector to be multiplied by each image region
@@ -381,6 +382,9 @@ class StackedAttentionNetwork(object):
                             # TODO: to match Yang's paper we may need to write our own loss function
                             # see https://github.com/keras-team/keras/blob/master/keras/losses.py
                             metrics=['accuracy'])
+        
+        # build attention layer model and connect to the main model in order to extract attention probabilities output
+        self.attention_layer_model = Model(inputs=self.model.input, outputs=self.model.get_layer('layer_prob_attn_%d' % (idx)).output)
 
     def summary(self):
         ''' wrapper around keras.Model.summary()'''
