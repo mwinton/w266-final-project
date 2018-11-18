@@ -374,16 +374,32 @@ def train(model, dataset, options, val_dataset=None):
      
     print('Trained!')
     
-#     THIS CODE IS COMMENTED OUT PENDING MAKING `test(model, dataset, options)` NOT RUN OUT OF MEMORY
-#     # save y_proba for validation set to disk.  To do this it appears we have to run
-#     # model.predict with the validation dataset; it doesn't appear possible to directly export
-#     # the keras layer.output tensor to a numpy array.  keras.backend.eval raises and exception.
-#     if val_dataset != None:
-#         print('Generating and saving predictions for validation dataset...')
-#         images, questions = val_dataset.get_dataset_input()
-#         val_results = model.predict([images, questions], batch_size)
-#         print('DEBUG: validation results.  type={}. shape={}'.format(type(val_results), val_results.shape))
-#         print('Saved validation y_proba results.')
+    # Save y_proba for validation set to disk.  To do this it we have to run test() 
+    # with the validation dataset; it doesn't appear possible to directly export
+    # the keras layer.output tensor to a numpy array.  keras.backend.eval raises and exception.
+    if options.get('predict_on_validation_set', False) and val_dataset != None:
+        print('Generating and saving predictions for validation dataset...')
+        
+        # build new path options expected by test function
+        weights_dir_path = options['weights_dir_path']
+        results_dir_path = options['results_dir_path']
+        model_name = options['model_name']
+        expt = options.get('experiment_id', 0)
+        d = options['run_timestamp']
+        if options['dataset'] == 'v2': 
+            prefix = 'v2_'
+        else:
+            prefix = ''
+        if extended:
+            suffix = '_ext'
+        else:
+            suffix = ''
+
+        options['weights_path'] = weights_dir_path + prefix + 'model_weights_{}{}_expt{}_latest' \
+            .format(model_name, suffix, expt )
+        options['results_path'] = results_dir_path + prefix + 'test2015_results_{}{}_expt{}_{}.json' \
+            .format(model_name, suffix, expt, d)
+        test(model, val_dataset, options)
 
 
 def validate(model, dataset, options):
@@ -558,6 +574,8 @@ if __name__ == '__main__':
                         help = 'turn on verbose output')
     parser.add_argument('--no_logging', action='store_true',
                         help = 'turn off logging to MLFlow server')
+    parser.add_argument('--predict_on_validation_set', action='store_true',
+                        help = 'after training, run `model.predict()` on validation dataset')
 
     parser.add_argument('-b', '--batch_size', type=int,
                         help = 'set batch size (int)')
@@ -642,6 +660,9 @@ if __name__ == '__main__':
     options['model_name'] = args.model 
     options['optimizer'] = args.optimizer
     options['action_type'] = args.action
+    
+    if args.action == 'train' and args.predict_on_validation_set:
+        options['predict_on_validation_set'] = True
 
     options['max_train_size'] = args.max_train_size
     options['max_val_size']   = args.max_val_size
