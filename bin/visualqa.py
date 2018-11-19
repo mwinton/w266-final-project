@@ -48,11 +48,15 @@ def main(options):
     print('Model name: {}'.format(options['model_name']))
     print('Extended: {}'.format(options['extended']))
 
-    if (options['max_train_size'] != None):
-        print('Training Set Size: {}'.format(options['max_train_size']))
-    if (options['max_val_size'] != None):
-       print('Validation set size: {}'.format(options['max_val_size']))
-
+    if options['action_type'] == 'train':
+        if (options['max_train_size'] != None):
+            print('Training Set Size: {}'.format(options['max_train_size']))
+        if (options['max_val_size'] != None):
+           print('Validation set size: {}'.format(options['max_val_size']))
+    elif options['action_type'] == 'test':
+        if (options['max_test_size'] != None):
+           print('Test set size: {}'.format(options['max_test_size']))
+        
     # set paths for weights and results.
     options = ModelOptions.set_local_paths(options)
 
@@ -170,6 +174,8 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
                 max_size = options['max_train_size'] 
             elif dataset_type == DatasetType.VALIDATION:
                 max_size = options["max_val_size"]   
+            elif dataset_type == DatasetType.TEST:
+                max_size = options["max_test_size"]   
             else:
                 max_size = None
 
@@ -417,26 +423,33 @@ def validate(model, dataset, options):
     return result
 
 
-# TODO: Needs to be modified for one hot encoding of answers
 def test(model, dataset, options, attention_model=None):
 
     weights_path = options['weights_path']
     results_path = options['results_path']
     probabilities_path = options['probabilities_path']
-    batch_size   = options['batch_size']
+    batch_size    = options['batch_size']
+    max_test_size = options['max_test_size']
 
     print('Loading weights from {}...'.format(weights_path))
     model.load_weights(weights_path)
     print('Weights loaded')
     print('Predicting...')
-    orig_dataset_size = len(dataset.samples)
-    results = model.predict_generator(dataset.batch_generator(), steps=orig_dataset_size//batch_size + 1, verbose=1)
+
+    if(max_test_size != None):
+        test_dataset_size = min(max_test_size, len(dataset.samples)) 
+    else:
+        test_dataset_size = len(dataset.samples)
+
+    results = model.predict_generator(dataset.batch_generator(),
+                                      steps=test_dataset_size//batch_size + 1,
+                                      verbose=1)
 
     #resize results as it might have been padded for being an exact multiple of batch size
-    results = results[:orig_dataset_size]
-    dataset.samples = dataset.samples[:orig_dataset_size]
+    results = results[:test_dataset_size]
+    dataset.samples = dataset.samples[:test_dataset_size]
 
-    print('Answers predicted')
+    print('Answers predicted for {} samples'.format(test_dataset_size))
     
     # define filename for y_proba file
     d = options['run_timestamp']
@@ -591,6 +604,8 @@ if __name__ == '__main__':
                         help="maximum number of training samples to use")
     parser.add_argument("--max_val_size", type=int,
                         help="maximum number of validation samples to use")
+    parser.add_argument("--max_test_size", type=int,
+                        help="maximum number of test samples to use")
 
     parser.add_argument(
         '-d',
@@ -672,6 +687,7 @@ if __name__ == '__main__':
 
     options['max_train_size'] = args.max_train_size
     options['max_val_size']   = args.max_val_size
+    options['max_test_size']   = args.max_test_size
 
     # set the optimizer params (learning rate, etc...)
     ModelOptions.set_optimizer_params(options)

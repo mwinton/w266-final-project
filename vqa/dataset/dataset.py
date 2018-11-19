@@ -132,6 +132,8 @@ class VQADataset:
             self.max_sample_size = self.options['max_train_size']
         elif (dataset_type == DatasetType.VALIDATION):
             self.max_sample_size = self.options['max_val_size']
+        elif (dataset_type == DatasetType.TEST):
+            self.max_sample_size = self.options['max_test_size']
         else:
             self.max_sample_size = None
 

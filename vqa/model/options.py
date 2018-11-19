@@ -101,6 +101,7 @@ class ModelOptions(object):
         self.options['early_stop_patience'] = 5
         self.options['max_train_size'] = None # interpreted as full size of training set unless overridden
         self.options['max_val_size'] = None # interpreted as full validation set size unless overridden
+        self.options['max_test_size'] = None # interpreted as full test set size unless overridden
         self.options['extended']  = False # use train+val set for training
 
         # When changing the optimize, also update set_optimizer_params()
