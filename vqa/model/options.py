@@ -307,6 +307,8 @@ class ModelOptions(object):
                 .format(model_name, suffix, expt )
             options['results_path'] = results_dir_path + prefix + 'test2015_results_{}{}_expt{}_{}.json' \
                 .format(model_name, suffix, expt, d)
+            options['probabilities_path'] = results_dir_path + prefix + 'attention_prob_{}{}_expt{}_{}.hdf5' \
+                .format(model_name, suffix, expt, d)
         
         else:
             # action type is eval
