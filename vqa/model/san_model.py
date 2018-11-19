@@ -381,9 +381,10 @@ class StackedAttentionNetwork(object):
                             metrics=['accuracy'])
         
         # build attention layer models and connect to the main model in order to extract attention probabilities output
-        self.attention_layer_model_1 = Model(inputs=self.model.input, outputs=self.model.get_layer('layer_prob_attn_0').output)
-        self.attention_layer_model_2 = Model(inputs=self.model.input, outputs=self.model.get_layer('layer_prob_attn_1').output)
-
+        self.attention_layer_models = []
+        for idx in range(n_attention_layers):
+            self.attention_layer_models.append(Model(inputs=self.model.input, outputs=self.model.get_layer('layer_prob_attn_%d' % (idx)).output))
+    
     def summary(self):
         ''' wrapper around keras.Model.summary()'''
         self.model.summary()
