@@ -79,9 +79,10 @@ def main(options):
     # Load model
     # NOTE: cannot be loaded until after dataset because it needs the vocab size
     if options['model_name'] == 'san':
-        vqa_model, attention_models = ModelLibrary.get_model(options)
+        vqa_model, attention_model = ModelLibrary.get_model(options)
     else:
         vqa_model = ModelLibrary.get_model(options)
+        attention_model = None
     
     # Save time-stamped model json file
     d = options['run_timestamp']
@@ -116,7 +117,7 @@ def main(options):
 
     elif action == 'test':
         dataset = load_dataset(DatasetType.TEST,options,answer_one_hot_mapping)
-        test(vqa_model, attention_models, dataset, options)
+        test(vqa_model, dataset, options, attention_model)
 
     elif action == 'eval':
         dataset = load_dataset(DatasetType.EVAL,options,answer_one_hot_mapping)
@@ -401,7 +402,7 @@ def validate(model, dataset, options):
 
 
 # TODO: Needs to be modified for one hot encoding of answers
-def test(model, attention_models, dataset, options):
+def test(model, dataset, options, attention_model=None):
 
     weights_path = options['weights_path']
     results_path = options['results_path']
@@ -457,17 +458,20 @@ def test(model, attention_models, dataset, options):
     print('Results saved')
 
     # save attention probabilities to disk
-    attention_probabilities = []
-    n_attention_layers = options['n_attention_layers'] 
-    for idx in range(n_attention_layers):
-        attention_probabilities.append(attention_models[idx].predict_generator(dataset.batch_generator(), steps=orig_dataset_size//batch_size + 1, verbose=1))
-    print('Attention probabilities extracted')
-    with h5py.File(probabilities_path, 'a') as f:
-        f.create_dataset('attention_probabilites', data=attention_probabilities)
-    print('Probabilities saved')
-    print('attention_probabilities saved ->', probabilities_path)
-    if options['logging']:
-        mlflow.log_artifact(probabilities_path)
+    if not attention_model == None:
+        # list will have one numpy array for each attention_layer output by the model
+        attention_probabilities = attention_model \
+            .predict_generator(dataset.batch_generator(), steps=orig_dataset_size//batch_size + 1, verbose=1)
+
+        print('Attention probabilities extracted from {} attention layers'.format(len(attention_probabilities)))
+        with h5py.File(probabilities_path, 'a') as f:
+            # len(attention_probability) should = n_attention_layers
+            for i in range(len(attention_probabilities)):
+                dataset_name = 'attention_probabilites{}'.format(i)
+            f.create_dataset(dataset_name, data=attention_probabilities[i])
+        print('Attention_probabilities saved ->', probabilities_path)
+        if options['logging']:
+            mlflow.log_artifact(probabilities_path)
 
     
 # ------------------------------- CALLBACKS -------------------------------

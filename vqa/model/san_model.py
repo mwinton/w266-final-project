@@ -380,10 +380,12 @@ class StackedAttentionNetwork(object):
                             # see https://github.com/keras-team/keras/blob/master/keras/losses.py
                             metrics=['accuracy'])
         
-        # build attention layer models and connect to the main model in order to extract attention probabilities output
-        self.attention_layer_models = []
+        # build attention layer model with one output for each attention layer, and connect to
+        # the main model in order to extract attention probabilities output
+        attention_layers = []
         for idx in range(n_attention_layers):
-            self.attention_layer_models.append(Model(inputs=self.model.input, outputs=self.model.get_layer('layer_prob_attn_%d' % (idx)).output))
+            attention_layers.append(self.model.get_layer('layer_prob_attn_%d' % (idx)).output)
+        self.attention_layer_model = Model(inputs=self.model.input, outputs=attention_layers)
     
     def summary(self):
         ''' wrapper around keras.Model.summary()'''
