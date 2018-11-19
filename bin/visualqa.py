@@ -468,7 +468,7 @@ def test(model, dataset, options, attention_model=None):
             # len(attention_probability) should = n_attention_layers
             for i in range(len(attention_probabilities)):
                 dataset_name = 'attention_probabilites{}'.format(i)
-            f.create_dataset(dataset_name, data=attention_probabilities[i])
+                f.create_dataset(dataset_name, data=attention_probabilities[i])
         print('Attention_probabilities saved ->', probabilities_path)
         if options['logging']:
             mlflow.log_artifact(probabilities_path)
