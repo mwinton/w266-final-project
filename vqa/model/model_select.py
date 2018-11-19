@@ -73,11 +73,13 @@ class ModelLibrary:
         print('Model created and compiled')
         vqa_model.summary()
  
-        # secondary model for extracting attention layer probability visualizations
-        attention_model = san.attention_layer_model
-        print('Secondary attention created and compiled')
-        
-        return vqa_model, attention_model
+        # secondary model for extracting attention layer probabilities
+        if hasattr(san, 'attention_layer_model'):
+            attention_model = san.attention_layer_model
+            print('Secondary attention created and compiled')
+            return vqa_model, attention_model
+        else:
+            return vqa_model
 
     @staticmethod
     def get_text_cnn_model(options):
