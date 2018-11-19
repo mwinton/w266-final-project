@@ -344,7 +344,7 @@ class StackedAttentionNetwork(object):
         n_attention_layers = options['n_attention_layers']          
         for idx in range(n_attention_layers):
             layer_v_q = self._build_attention_subgraph(options, idx, layer_v_i, layer_v_q)
-       
+               
         # apply dropout after final attention layer
         # In Keras, dropout is automatically disabled in test mode 
         attention_dropout_ratio = self.options['attention_dropout_ratio']
@@ -386,7 +386,7 @@ class StackedAttentionNetwork(object):
         for idx in range(n_attention_layers):
             attention_layers.append(self.model.get_layer('layer_prob_attn_%d' % (idx)).output)
         self.attention_layer_model = Model(inputs=self.model.input, outputs=attention_layers)
-    
+
     def summary(self):
         ''' wrapper around keras.Model.summary()'''
         self.model.summary()
