@@ -106,7 +106,7 @@ python3 visualqa.py --verbose --experiment 2 --epochs 10
 2. Run the test set on the latest weights from a trained model:
 
 ```
-python3 visualqa.py --verbose --model san  --action test --max_test_size=10000
+python3 visualqa.py --verbose --model san  --action test
 ```
 
 3. (Optional) Train the SAN model with a smaller train/val set:
@@ -136,7 +136,7 @@ python3 visualqa.py --verbose --model san --optimizer adam --max_train_size 2000
 7. (Optional) Run prediction on validation set used during training, after training finishes:
 
 ```
-python3 visualqa.py --verbose --model san --max_train_size 20000 --max_val_size 10000 -e 2 --predict_on_validation_set --max_val_size=1000
+python3 visualqa.py --verbose --model san --max_train_size 20000 --max_val_size 10000 -e 2 --predict_on_validation_set --max_test_size=1000
 ```
 
 To see all command line arguments:
