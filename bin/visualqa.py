@@ -379,31 +379,17 @@ def train(model, dataset, options, val_dataset=None):
     
     # Save y_proba for validation set to disk.  To do this it we have to run test() 
     # with the validation dataset; it doesn't appear possible to directly export
-    # the keras layer.output tensor to a numpy array.  keras.backend.eval raises and exception.
+    # the keras layer.output tensor to a numpy array.  keras.backend.eval raises an exception.
     if options.get('predict_on_validation_set', False) and val_dataset != None:
         print('Generating and saving predictions for validation dataset...')
-        
-        # build new path options expected by test function
-        weights_dir_path = options['weights_dir_path']
-        results_dir_path = options['results_dir_path']
-        model_name = options['model_name']
-        expt = options.get('experiment_id', 0)
-        d = options['run_timestamp']
-        if options['dataset'] == 'v2': 
-            prefix = 'v2_'
-        else:
-            prefix = ''
-        if extended:
-            suffix = '_ext'
-        else:
-            suffix = ''
-
-        options['weights_path'] = weights_dir_path + prefix + 'model_weights_{}{}_expt{}_latest' \
-            .format(model_name, suffix, expt )
-        options['results_path'] = results_dir_path + prefix + 'test2015_results_{}{}_expt{}_{}.json' \
-            .format(model_name, suffix, expt, d)
+        # change action type and set paths for weights and results
+        options['action_type'] = 'test'
+        options = ModelOptions.set_local_paths(options)
+        # change dataset_type to prevent shuffling during batch generation; otherwise 
+        # it won't be possible to compare to true lablels
+        val_dataset.dataset_type = DatasetType.TEST
         test(model, val_dataset, options)
-
+        val_dataset.dataset_type = DatasetType.VALIDATION
 
 def validate(model, dataset, options):
 
