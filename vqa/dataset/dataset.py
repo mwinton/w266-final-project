@@ -785,6 +785,7 @@ class VQADataset:
         glove_matrix_path = self.options['glove_matrix_path']  # output
         
         print('Loading glove embeddings from ->', glove_path)
+        print('Saving glove matrix to ->', glove_matrix_path)
         glove_index = pickle.load(open(glove_path, 'rb')) # dictionary, keyed by word (string)
         # Confirm embedding dimension by looking up "the"; if "the" isn't present the embeddings aren't valid
         embed_dim = self.options['n_sent_embed'] = len(glove_index['the'])
@@ -805,7 +806,7 @@ class VQADataset:
                 # words not found in embedding index will be all-zeros.
                 glove_matrix[i] = glove_vector
         # Save glove_matrix pickle file (which will be loaded by the model)
-            pickle.dump(glove_matrix, open(glove_matrix_path, 'wb'))  
+        pickle.dump(glove_matrix, open(glove_matrix_path, 'wb'))  
 
         print('Generated and saved GloVe embedding lookup matrix.  Shape: {}'.format(glove_matrix.shape))
             
