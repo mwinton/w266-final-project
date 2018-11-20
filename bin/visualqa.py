@@ -30,7 +30,7 @@ from vqa.model.options import ModelOptions
 
 # ------------------------------ GLOBALS ------------------------------
 # Constants
-ACTIONS = ['train', 'val', 'test', 'eval']
+ACTIONS = ['train', 'test']
 
 
 # Defaults
@@ -46,7 +46,6 @@ def main(options):
 
     print('Action: ' + options['action_type'])
     print('Model name: {}'.format(options['model_name']))
-    print('Extended: {}'.format(options['extended']))
 
     if options['action_type'] == 'train':
         if (options['max_train_size'] != None):
@@ -109,23 +108,11 @@ def main(options):
                     
         dataset = train_dataset
         val_dataset = load_dataset(DatasetType.VALIDATION,options,answer_one_hot_mapping)
-        if options['extended']:
-            extended_dataset = MergeDataset(train_dataset, val_dataset)
-            train(vqa_model, extended_dataset, options)
-        else:
-            train(vqa_model, dataset, options, val_dataset=val_dataset)
+        train(vqa_model, dataset, options, val_dataset=val_dataset)
         
-    elif action == 'val':
-        dataset = load_dataset(DatasetType.VALIDATION,options,answer_one_hot_mapping)
-        validate(vqa_model, dataset, options)
-
     elif action == 'test':
         dataset = load_dataset(DatasetType.TEST,options,answer_one_hot_mapping)
         test(vqa_model, dataset, options, attention_model)
-
-    elif action == 'eval':
-        dataset = load_dataset(DatasetType.EVAL,options,answer_one_hot_mapping)
-        test(vqa_model, dataset, options)
 
     else:
         raise ValueError('The action type is unrecognized')
@@ -301,9 +288,8 @@ def plot_train_metrics(train_stats, options, plot_type='epochs'):
 
 def train(model, dataset, options, val_dataset=None):
 
-    extended = options['extended']
-    if (not extended) and (not val_dataset):
-        raise ValueError('If not using the extended dataset, a validation dataset must be provided')
+    if not val_dataset:
+        raise ValueError('A validation dataset must be provided')
 
     batch_size = options['batch_size']
     max_epochs = options['max_epochs']
@@ -355,19 +341,11 @@ def train(model, dataset, options, val_dataset=None):
         is_img_only = False
         
     print('Start training...')
-    if not extended:
-        train_stats = model.fit_generator(dataset.batch_generator(is_text_only, is_img_only),
-                                          steps_per_epoch=samples_per_train_epoch//batch_size,
-                                          epochs=max_epochs, callbacks=callbacks,
-                                          validation_data=val_dataset.batch_generator(is_text_only, is_img_only), 
-                                          validation_steps=samples_per_val_epoch//batch_size,max_queue_size=20)
-    else:
-        # Note: no support for text-only or image-only (debugging) models with extended dataseet
-        train_stats = model.fit_generator(dataset.batch_generator(batch_size, split='train'), 
-                            steps_per_epoch=dataset.train_size()/batch_size,
-                            epochs=num_epochs, callbacks=callbacks,
-                            validation_data=dataset.batch_generator(batch_size, split='val'),
-                            validation_steps=dataset.val_size()//batch_size,max_queue_size=20)
+    train_stats = model.fit_generator(dataset.batch_generator(is_text_only, is_img_only),
+                                      steps_per_epoch=samples_per_train_epoch//batch_size,
+                                      epochs=max_epochs, callbacks=callbacks,
+                                      validation_data=val_dataset.batch_generator(is_text_only, is_img_only), 
+                                      validation_steps=samples_per_val_epoch//batch_size,max_queue_size=20)
 
     # save loss and accuracy plots to local disk
     loss_fig_path, acc_fig_path = plot_train_metrics(train_stats, options)
@@ -398,20 +376,6 @@ def train(model, dataset, options, val_dataset=None):
         val_dataset.dataset_type = DatasetType.TEST
         test(model, val_dataset, options)
         val_dataset.dataset_type = DatasetType.VALIDATION
-
-def validate(model, dataset, options):
-
-    weights_path = options['weights_path']
-    batch_size   = options['batch_size']
-    print('Loading weights...')
-    model.load_weights(weights_path)
-    print('Weights loaded')
-    print('Start validation...')
-    result = model.evaluate_generator(dataset.batch_generator(batch_size), val_samples=dataset.size())
-    print('Validated. Loss: {}'.format(result))
-
-    return result
-
 
 def test(model, dataset, options, attention_model=None):
 
@@ -628,13 +592,6 @@ if __name__ == '__main__':
         choices=ACTIONS,
         default=DEFAULT_ACTION,
         help='Which action should be perform on the model. By default, training will be done'
-    )
-    parser.add_argument(
-        '--extended',
-        action='store_true',
-        help='Add this flag if you want to use the extended dataset, this is, ' + \
-             'use part of the validation dataset to' + \
-             'train your model. Only valid for the --action=train'
     )
     parser.add_argument(
         '-x',
