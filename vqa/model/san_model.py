@@ -11,6 +11,7 @@ from keras.models import Model
 from keras.regularizers import l2
 import mlflow
 import mlflow.keras
+import pickle
 from pprint import pprint
 
 # our own imports
