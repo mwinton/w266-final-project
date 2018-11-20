@@ -25,6 +25,7 @@ These are some of the most noteworthy paths in the project:
 - `/saved_models/weights/`: trained model weights (as hdf5 files)
 - `/utils/vqa_demo.ipynb/`: demo notebook for exploring dataset structure
 - `/utils/create_embeddings.py`: program used to generate image embeddings (e.g. from VGGNet)
+- `/utils/create_glove_embeddings.py`: program used to generate GloVe embeddings "pickle" file from the original text
 - `/vqa/dataset/dataset.py`: processes the original data (images and json files) into data structures
 - `/vqa/dataset/sample.py`: class representation of a single data sample (used by dataset.py)
 - `/vqa/experiments/`: location for json files that define experiments (overriding default parameters)
@@ -34,7 +35,7 @@ These are some of the most noteworthy paths in the project:
 - `/vqa/model/*_model.py`: individual model files (e.g. `san_model.py` is the Stacked Attention Network)
 
 
-### Downloading and extracting data
+### Downloading and extracting VQA dataset
 
 First, download the appropriate datasets, and extract components into the path structure described below.
 
@@ -77,6 +78,10 @@ In the /home/&lt;username&gt;/vqa_data the following directory structure is expe
     └── mscoco_question_types.txt
 ```
 
+### Downloading and extracting GloVe embeddings
+
+Copy the "pickled" GloVe embeddings to /home/&lt;username&gt;/glove/glove.p
+
 ### Enabling logging of hyperparameters and plots:
 
 To enable [MLFlow](https://www.mlflow.org) logging, set the `MLFLOW_TRACKING_URI` environment variable in your `~/.bashrc` file:
@@ -93,7 +98,7 @@ TensorBoard looks for its logs in the /home/&lt;username&gt;/logs directory.
 
 Assuming you have set up your SSH port mapping, you can view TensorBoard at [http://localhost:6006](http://localhost:6006).
 
-### Training the model:
+### Training and testing the model:
 
 All runs need to be launched from the ./bin directory.  Here are some examples of how to use the command line arguments:
 

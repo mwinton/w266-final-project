@@ -156,8 +156,12 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
     dataset_py_path = os.path.abspath('../vqa/dataset/dataset.py')
     if os.path.isfile(dataset_path) and \
     os.path.getmtime(dataset_path) < os.path.getmtime(dataset_py_path):
-        os.remove(dataset_path)
-        print('Dataset was outdated.  Removed ->', dataset_path)
+        to_delete = input('WARNING: Dataset is outdated.  Remove it (y/n)?')
+        if len(to_delete) > 0 and to_delete[:1] == 'y':
+            os.remove(dataset_path)
+            print('GloVe embedding matrix was outdated. Removed -> ', dataset_path)
+        else:
+            print('Continuing with pre-existing dataset.')
 
     try:
         with open(dataset_path, 'rb') as f:

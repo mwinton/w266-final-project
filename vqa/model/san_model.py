@@ -241,9 +241,10 @@ class StackedAttentionNetwork(object):
         # This embedding layer will encode the input sequence
         # in:  [batch_size, max_t]
         # out: [batch_size, max_t, n_text_embed]
-        sent_embed_initializer = self.options.get('sent_init_type', 'uniform')
+        # default to randomly initialized embeddings (rather than GloVe)
+        sent_embed_initializer = self.options.get('sent_init_type', 'random') 
         sent_embed_dim = self.options['n_sent_embed']
-        if sent_embed_initializer == 'uniform':
+        if sent_embed_initializer == 'random':
             layer_x = Embedding(input_dim=V, 
                                 output_dim=sent_embed_dim,
                                 input_length=max_t,
@@ -251,9 +252,18 @@ class StackedAttentionNetwork(object):
                                 mask_zero=False,  # CNN layers don't seem to be able to deal with True
                                 name='sentence_embedding'
                                )(layer_sent_input)
-        # TODO: implement GloVe option
         elif sent_embed_initializer == 'glove':
-            pass
+            trainable = options['sent_embed_trainable']
+            glove_matrix = pickle.load(open(options['glove_matrix_path'], 'rb'))
+            print('Loaded GloVe embedding matrix')
+            layer_x = Embedding(input_dim=V, 
+                                output_dim=sent_embed_dim, 
+                                input_length=max_t,
+                                weights=[glove_matrix],
+                                trainable=trainable,
+                                name='sentence_embedding'
+                               )(layer_sent_input)
+        
         if verbose: print('layer_x output shape:', layer_x.shape)
     
         # Unigram CNN layer
