@@ -793,7 +793,11 @@ class VQADataset:
         print('Buiding GloVe embedding matrix')
         glove_matrix = np.zeros((len(self.word_index) + 1, embed_dim))
         # i starts at 1; index 0 is reserved for <unk>; it will have an all-zero embedding
+        counter = 0
         for word, i in self.word_index.items():
+            if counter % 1000 == 0:
+                print ('- processed {} embeddings'.format(counter))
+            counter += 1
             glove_vector = glove_index.get(word)
             if glove_vector is not None:
                 # words not found in embedding index will be all-zeros.
