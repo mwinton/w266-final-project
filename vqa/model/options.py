@@ -28,8 +28,9 @@ class ModelOptions(object):
         self.options['images_embed_val_path']   = image_embed_root + 'val.hdf5'
         self.options['images_embed_test_path'] = image_embed_root + 'test.hdf5'
         
-#         # Text embedding root
-#          self.options['glove_path'] = ''
+        # Path to full set of GloVe embeddings (input)
+        self.options['glove_root'] = '/home/' + user_name + '/glove/' 
+        self.options['glove_path'] =  self.options['glove_root'] + 'glove.p'  # input isn't versioned
 
         # Both VQA v1 and v2 use the same images and question types, so OK to set here
         self.options['images_train_root_path'] = data_root+'images/mscoco/train2014/'
@@ -72,8 +73,9 @@ class ModelOptions(object):
         # self.options['n_vocab'] = 18364           
         # self.options['max_sentence_len'] = 22     # actual max is 22, so don't override it   
         
-        self.options['n_sent_embed'] = 500          # TODO: change this when we use GloVe
-        self.options['sent_init_type'] = 'random'   # Alternative is `glove`
+        self.options['n_sent_embed'] = 500             # Yang's default; will be changed when using GloVe
+        self.options['sent_init_type'] = 'random'      # Alternative is 'glove'
+        self.options['sent_embed_trainable'] = True    # Default to trainable embeddings
         self.options['sent_init_range'] = 0.01
 
         self.options['n_filters_unigram'] = 256
@@ -276,6 +278,7 @@ class ModelOptions(object):
 
         # We also need to prefix our generated pickle files by dataset
         options['tokenizer_path']     = local_data_path + prefix + 'tokenizer.p'
+        options['glove_matrix_path'   = glove_root + prefix + 'glove_matrix.p'  # built from tokenizer
         options['train_dataset_path'] = local_data_path + prefix + 'train_dataset.p'
         options['val_dataset_path']   = local_data_path + prefix + 'validate_dataset.p'
         options['test_dataset_path']  = local_data_path + prefix + 'test_dataset.p'
