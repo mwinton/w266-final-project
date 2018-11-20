@@ -8,5 +8,6 @@
   "sgd_decay_rate": 0.0, 
   "sgd_grad_clip": 0.1,    
   "sent_init_type": "glove",
-  "sent_embed_trainable": "false"
+  "sent_embed_trainable": false,
+  "n_sent_embed": 300
 }
