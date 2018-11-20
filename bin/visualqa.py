@@ -163,10 +163,19 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
 
             if dataset_type == DatasetType.TRAIN:
                 max_size = options['max_train_size'] 
+                if options['logging']:
+                    mlflow.log_param('train_dataset_size', len(samples))
+                    mlflow.log_param('max_train_size', max_size)
             elif dataset_type == DatasetType.VALIDATION:
                 max_size = options["max_val_size"]   
+                if options['logging']:
+                    mlflow.log_param('val_dataset_size', len(samples))
+                    mlflow.log_param('max_val_size', max_size)
             elif dataset_type == DatasetType.TEST:
                 max_size = options["max_test_size"]   
+                if options['logging']:
+                    mlflow.log_param('test_dataset_size', len(samples))
+                    mlflow.log_param('max_test_size', max_size)
             else:
                 max_size = None
 
@@ -186,10 +195,6 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
             else:
                  assert(0)
 
-            # log dataset size to MLFlow
-            if options['logging']:
-                mlflow.log_param('dataset_size', len(samples))
-                mlflow.log_param('training_set_size', max_size)
 
             print("{} loaded from disk. Dataset size {}, Processing {} samples "
                                    .format(dataset_type, len(samples), max_size))
