@@ -89,8 +89,8 @@ class VQADataset:
         answers_path = ModelOptions.get_annotations_path(options,dataset_type)
         if answers_path and (not os.path.isfile(answers_path)):
             raise ValueError('The file ' + answers_path + ' does not exist')
-        elif (not answers_path) and (dataset_type != DatasetType.TEST and dataset_type != DatasetType.EVAL):
-            raise ValueError('Answers file needed for training or validation')
+        elif (not answers_path) and (dataset_type != DatasetType.TEST):
+            raise ValueError('Answers file needed for training')
         self.answers_path = answers_path
 
         # Number of answer classes
@@ -601,7 +601,7 @@ class VQADataset:
         """
 
         # There are no answers in the test dataset
-        if self.dataset_type == DatasetType.TEST or self.dataset_type == DatasetType.EVAL:
+        if self.dataset_type == DatasetType.TEST:
             if not self.val_test_split:
                 return {}
 
@@ -654,7 +654,7 @@ class VQADataset:
 
         # Check for DatasetType
         answers_built = True
-        if self.dataset_type == DatasetType.TEST or self.dataset_type == DatasetType.EVAL:
+        if self.dataset_type == DatasetType.TEST:
             if not self.val_test_split:
                 answers_built = False
 
