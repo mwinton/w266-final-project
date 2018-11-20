@@ -1,0 +1,12 @@
+{
+  "experiment_id": 2,
+  "experiment_name": "SAN_w_GloVe",
+  "model_name": "san",
+  "optimizer": "sgd",
+  "sgd_learning_rate": 0.1,
+  "sgd_momentum": 0.9,
+  "sgd_decay_rate": 0.0, 
+  "sgd_grad_clip": 0.1,    
+  "sent_init_type": "glove",
+  "sent_embed_trainable": "false"
+}
