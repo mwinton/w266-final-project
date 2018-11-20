@@ -95,6 +95,9 @@ class VQADataset:
         # Number of answer classes
         self.n_answer_classes = self.options['n_answer_classes']
 
+        # Whether to randomnly initialize word embeddings or use GloVe
+        self.sent_init_type = options['sent_init_type']
+        
         # Tokenizer path (pickle file previously generated in prepare() method)
         self.tokenizer_path = os.path.abspath(self.options['tokenizer_path'])
         print("Tokenizer path -> ", self.tokenizer_path)
@@ -733,11 +736,17 @@ class VQADataset:
             self.tokenizer.fit_on_texts(questions_list + answers_list)
 
             # Calculate vocab size. NOTE: this is different than Yang's number
+            self.word_index = self.tokenizer.word_index
             self.vocab_size = len(self.tokenizer.word_index)
             print('Words in tokenizer index: ', self.vocab_size)
 
             # Save tokenizer object
             pickle.dump(self.tokenizer, open(self.tokenizer_path, 'wb'))
+            
+            # If we're using GloVe, build the embedding matrix too
+            if self.sent_init_type == 'glove':
+                pass
+            
         else:
             print('Trained Tokenizer is already available...')
             

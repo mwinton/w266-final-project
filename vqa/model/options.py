@@ -73,7 +73,7 @@ class ModelOptions(object):
         # self.options['max_sentence_len'] = 22     # actual max is 22, so don't override it   
         
         self.options['n_sent_embed'] = 500          # TODO: change this when we use GloVe
-        self.options['sent_init_type'] = 'uniform'  # TODO: experiment with GloVe
+        self.options['sent_init_type'] = 'random'   # Alternative is `glove`
         self.options['sent_init_range'] = 0.01
 
         self.options['n_filters_unigram'] = 256
