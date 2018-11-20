@@ -278,7 +278,7 @@ class ModelOptions(object):
 
         # We also need to prefix our generated pickle files by dataset
         options['tokenizer_path']     = local_data_path + prefix + 'tokenizer.p'
-        options['glove_matrix_path'   = glove_root + prefix + 'glove_matrix.p'  # built from tokenizer
+        options['glove_matrix_path']  = options['glove_root'] + prefix + 'glove_matrix.p'  # built from tokenizer
         options['train_dataset_path'] = local_data_path + prefix + 'train_dataset.p'
         options['val_dataset_path']   = local_data_path + prefix + 'validate_dataset.p'
         options['test_dataset_path']  = local_data_path + prefix + 'test_dataset.p'

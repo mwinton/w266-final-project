@@ -3,6 +3,7 @@
 # 
 # Added Memory management related code for Image Embeddings
 
+import datetime
 import h5py
 import inspect
 import json
@@ -124,7 +125,7 @@ class VQADataset:
         # If GloVe matrix pickle file is older than dataset.py, delete GloVe matrix
         if os.path.isfile(self.glove_matrix_path) and \
         os.path.getmtime(self.glove_matrix_path) < os.path.getmtime(dataset_py_path):
-            to_delete = input('WARNING: GloVe embedding matrix is outdated, but takes ~30 min to rebuild. Remove it (y/n)?')
+            to_delete = input('WARNING: GloVe embedding matrix is outdated, but takes 12 hours to rebuild! Remove it (y/n)?')
             if len(to_delete) > 0 and to_delete[:1] == 'y':
                 os.remove(self.glove_matrix_path)
                 print('GloVe embedding matrix was outdated. Removed -> ', self.glove_matrix_path)
@@ -757,16 +758,16 @@ class VQADataset:
 
             self.tokenizer.fit_on_texts(questions_list + answers_list)
 
-            # Calculate vocab size. NOTE: this is different than Yang's number
-            self.word_index = self.tokenizer.word_index
-            self.vocab_size = len(self.tokenizer.word_index)
-            print('Words in tokenizer index: ', self.vocab_size)
-
             # Save tokenizer object
             pickle.dump(self.tokenizer, open(self.tokenizer_path, 'wb'))  
             
         else:
             print('Trained Tokenizer is already available in dataset...')
+
+        # Calculate vocab size. NOTE: this is different than Yang's number
+        self.word_index = self.tokenizer.word_index
+        self.vocab_size = len(self.tokenizer.word_index)
+        print('Words in tokenizer index: ', self.vocab_size)
 
         # it's possible that Tokenizer was originally created without GloVe embeddings,
         # so check if the file needs to be created
@@ -795,8 +796,9 @@ class VQADataset:
         # i starts at 1; index 0 is reserved for <unk>; it will have an all-zero embedding
         counter = 0
         for word, i in self.word_index.items():
-            if counter % 1000 == 0:
-                print ('- processed {} embeddings'.format(counter))
+            if counter % 100 == 0:
+                print ('- processed {} embeddings ({})' \
+                       .format(counter, datetime.datetime.now().isoformat('-', timespec='seconds')))
             counter += 1
             glove_vector = glove_index.get(word)
             if glove_vector is not None:
