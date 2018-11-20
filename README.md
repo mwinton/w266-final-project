@@ -103,28 +103,40 @@ All runs need to be launched from the ./bin directory.  Here are some examples o
 python3 visualqa.py --verbose --experiment 2 --epochs 10
 ```
 
-2. (Optional) Train the SAN model with a smaller train/val set
+2. Run the test set on the latest weights from a trained model:
+
+```
+python3 visualqa.py --verbose --model san  --action test
+```
+
+3. (Optional) Train the SAN model with a smaller train/val set:
 
 ```
 python3 visualqa.py --verbose --model san  --max_train_size 20000 --max_val_size 10000 --epochs 2
 ```
 
-3. (Optional) Train a (faster) text-only CNN model for debugging
+4. (Optional) Train a (faster) text-only CNN model for debugging:
 
 ```
 python3 visualqa.py --verbose --model text_cnn  --max_train_size 2000 --max_val_size 1000 --epochs 2
 ```
 
-4. (Optional) Run an experiment with the VQA v2 dataset:
+5. (Optional) Run an experiment with the VQA v2 dataset:
 
 ```
 python3 visualqa.py --verbose --experiment 2 --epochs 10 --dataset v2
 ```
 
-5. (Optional) Run default SAN model with `adam` optimizer instead of default `sgd`:
+6. (Optional) Run default SAN model with `adam` optimizer instead of default `sgd`:
 
 ```
-python3 visualqa.py --verbose --model san --optimizer adam --max_train_size 20000 --max_val_size 10000 -e 3```
+python3 visualqa.py --verbose --model san --optimizer adam --max_train_size 20000 --max_val_size 10000 -e 3
+```
+
+7. (Optional) Run prediction on validation set used during training, after training finishes:
+
+```
+python3 visualqa.py --verbose --model san --max_train_size 20000 --max_val_size 10000 -e 2 --predict_on_validation_set --max_test_size=1000
 ```
 
 To see all command line arguments:

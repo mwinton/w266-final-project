@@ -48,11 +48,15 @@ def main(options):
     print('Model name: {}'.format(options['model_name']))
     print('Extended: {}'.format(options['extended']))
 
-    if (options['max_train_size'] != None):
-        print('Training Set Size: {}'.format(options['max_train_size']))
-    if (options['max_val_size'] != None):
-       print('Validation set size: {}'.format(options['max_val_size']))
-
+    if options['action_type'] == 'train':
+        if (options['max_train_size'] != None):
+            print('Training Set Size: {}'.format(options['max_train_size']))
+        if (options['max_val_size'] != None):
+           print('Validation set size: {}'.format(options['max_val_size']))
+    elif options['action_type'] == 'test':
+        if (options['max_test_size'] != None):
+           print('Test set size: {}'.format(options['max_test_size']))
+        
     # set paths for weights and results.
     options = ModelOptions.set_local_paths(options)
 
@@ -170,6 +174,8 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
                 max_size = options['max_train_size'] 
             elif dataset_type == DatasetType.VALIDATION:
                 max_size = options["max_val_size"]   
+            elif dataset_type == DatasetType.TEST:
+                max_size = options["max_test_size"]   
             else:
                 max_size = None
 
@@ -375,17 +381,19 @@ def train(model, dataset, options, val_dataset=None):
      
     print('Trained!')
     
-#     THIS CODE IS COMMENTED OUT PENDING MAKING `test(model, dataset, options)` NOT RUN OUT OF MEMORY
-#     # save y_proba for validation set to disk.  To do this it appears we have to run
-#     # model.predict with the validation dataset; it doesn't appear possible to directly export
-#     # the keras layer.output tensor to a numpy array.  keras.backend.eval raises and exception.
-#     if val_dataset != None:
-#         print('Generating and saving predictions for validation dataset...')
-#         images, questions = val_dataset.get_dataset_input()
-#         val_results = model.predict([images, questions], batch_size)
-#         print('DEBUG: validation results.  type={}. shape={}'.format(type(val_results), val_results.shape))
-#         print('Saved validation y_proba results.')
-
+    # Save y_proba for validation set to disk.  To do this it we have to run test() 
+    # with the validation dataset; it doesn't appear possible to directly export
+    # the keras layer.output tensor to a numpy array.  keras.backend.eval raises an exception.
+    if options.get('predict_on_validation_set', False) and val_dataset != None:
+        print('Generating and saving predictions for validation dataset...')
+        # change action type and set paths for weights and results
+        options['action_type'] = 'test'
+        options = ModelOptions.set_local_paths(options)
+        # change dataset_type to prevent shuffling during batch generation; otherwise 
+        # it won't be possible to compare to true lablels
+        val_dataset.dataset_type = DatasetType.TEST
+        test(model, val_dataset, options)
+        val_dataset.dataset_type = DatasetType.VALIDATION
 
 def validate(model, dataset, options):
 
@@ -404,23 +412,31 @@ def validate(model, dataset, options):
 # TODO: Needs to be modified for one hot encoding of answers
 def test(model, dataset, options, attention_model=None):
 
-    weights_path = options['weights_path']
-    results_path = options['results_path']
+    weights_path  = options['weights_path']
+    results_path  = options['results_path']
     probabilities_path = options['probabilities_path']
-    batch_size   = options['batch_size']
+    batch_size    = options['batch_size']
+    max_test_size = options['max_test_size']
 
     print('Loading weights from {}...'.format(weights_path))
     model.load_weights(weights_path)
     print('Weights loaded')
     print('Predicting...')
-    orig_dataset_size = len(dataset.samples)
-    results = model.predict_generator(dataset.batch_generator(), steps=orig_dataset_size//batch_size + 1, verbose=1)
+
+    if(max_test_size != None):
+        test_dataset_size = min(max_test_size, len(dataset.samples)) 
+    else:
+        test_dataset_size = len(dataset.samples)
+
+    results = model.predict_generator(dataset.batch_generator(),
+                                      steps=test_dataset_size//batch_size + 1,
+                                      verbose=1)
 
     #resize results as it might have been padded for being an exact multiple of batch size
-    results = results[:orig_dataset_size]
-    dataset.samples = dataset.samples[:orig_dataset_size]
+    results = results[:test_dataset_size]
+    dataset.samples = dataset.samples[:test_dataset_size]
 
-    print('Answers predicted')
+    print('Answers predicted for {} samples'.format(test_dataset_size))
     
     # define filename for y_proba file
     d = options['run_timestamp']
@@ -564,6 +580,8 @@ if __name__ == '__main__':
                         help = 'turn on verbose output')
     parser.add_argument('--no_logging', action='store_true',
                         help = 'turn off logging to MLFlow server')
+    parser.add_argument('--predict_on_validation_set', action='store_true',
+                        help = 'after training, run `model.predict()` on validation dataset')
 
     parser.add_argument('-b', '--batch_size', type=int,
                         help = 'set batch size (int)')
@@ -573,6 +591,8 @@ if __name__ == '__main__':
                         help="maximum number of training samples to use")
     parser.add_argument("--max_val_size", type=int,
                         help="maximum number of validation samples to use")
+    parser.add_argument("--max_test_size", type=int,
+                        help="maximum number of test samples to use")
 
     parser.add_argument(
         '-d',
@@ -648,9 +668,13 @@ if __name__ == '__main__':
     options['model_name'] = args.model 
     options['optimizer'] = args.optimizer
     options['action_type'] = args.action
+    
+    if args.action == 'train' and args.predict_on_validation_set:
+        options['predict_on_validation_set'] = True
 
     options['max_train_size'] = args.max_train_size
     options['max_val_size']   = args.max_val_size
+    options['max_test_size']   = args.max_test_size
 
     # set the optimizer params (learning rate, etc...)
     ModelOptions.set_optimizer_params(options)

@@ -14,7 +14,7 @@ import random
 import scipy.io
 import time
 
-from collections import Counter
+from collections import Counter, defaultdict
 
 from keras.preprocessing.text import Tokenizer
 
@@ -132,6 +132,8 @@ class VQADataset:
             self.max_sample_size = self.options['max_train_size']
         elif (dataset_type == DatasetType.VALIDATION):
             self.max_sample_size = self.options['max_val_size']
+        elif (dataset_type == DatasetType.TEST):
+            self.max_sample_size = self.options['max_test_size']
         else:
             self.max_sample_size = None
 
@@ -663,7 +665,57 @@ class VQADataset:
         if (self.max_sample_size == None):
             self.max_sample_size = len(self.samples)
             print('Saved max_sample_size for dataset {} = {}'.format(self.dataset_type, self.max_sample_size))
-            
+      
+    def get_qa_lists(self):
+        """
+            Convenience method to return question and answer data as lists.  This is useful
+            during post-processing when true answers (labels) need to be compared to predictions
+        """
+
+        # build the dictionary of these lists the first time it's requested
+        if not hasattr(self, 'qa_lists'):
+            self.qa_lists = defaultdict(list)
+            for s in self.samples:
+                # populate attributes of Question objects
+                self.qa_lists['question_ids'].append(s.question.id)
+                self.qa_lists['question_strings'].append(s.question.question_str)
+                self.qa_lists['image_ids'].append(s.question.image_id)
+                if self.dataset_type != DatasetType.TEST:
+                    # populate attributes of Answer objects
+                    self.qa_lists['answer_ids'].append(s.answer.id)
+                    self.qa_lists['answer_strings'].append(s.answer.answer_str)
+                    self.qa_lists['answer_types'].append(s.answer.answer_type)
+                    self.qa_lists['question_types'].append(s.answer.question_type)
+                    self.qa_lists['answer_types'].append(s.answer.answer_type)
+                    self.qa_lists['answer_annotations'].append(s.answer.annotations) 
+        
+        ques_ids = self.qa_lists['question_ids']
+        ques_strings = self.qa_lists['question_strings']
+        ques_types = self.qa_lists['question_types']
+        image_ids = self.qa_lists['image_ids']
+        ans_ids = self.qa_lists['answer_ids']
+        ans_strings = self.qa_lists['answer_strings']
+        ans_types = self.qa_lists['answer_types']
+        ans_annotations = self.qa_lists['answer_annotations']
+
+        return ques_ids, ques_strings, ques_types, image_ids, ans_ids, ans_strings, ans_types, ans_annotations
+      
+    def get_question_lists(self):
+        """
+            Return the subset of data lists corresponding to Question attributes
+        """
+        
+        ques_ids, ques_strings, ques_types, image_ids, _, _, _, _ = self.get_qa_lists()
+        return ques_ids, ques_strings, ques_types, image_ids
+    
+    def get_answer_lists(self, with_annotations=False):
+        """
+            Return the subset of data lists corresponding to Answer attributes
+        """
+        
+        _, _, _, _, ans_ids, ans_strings, ans_types, ans_annotations = self.get_qa_lists()
+        return ans_ids, ans_strings, ans_types, ans_annotations
+        
     def _init_tokenizer(self, questions, answers):
         """Fits the tokenizer with the questions and answers and saves this tokenizer into a file for later use"""
 
