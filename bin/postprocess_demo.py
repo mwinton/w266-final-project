@@ -8,7 +8,7 @@ sys.path.append('..')
 from vqa.dataset.dataset import VQADataset
 
 # load results from model.predict()
-dataset_path = '/home/mwinton/w266-final-project/results/y_pred/y_proba_san_expt0_2018-11-18-23:50:13.p'
+dataset_path = '/home/mwinton/w266-final-project/results/y_pred/y_proba_san_expt0_2018-11-19-23:23:01.p'
 with open(dataset_path, 'rb') as f:
     y_pred = pickle.load(f)
 print('\nShape of retrieved y_pred:', y_pred.shape)

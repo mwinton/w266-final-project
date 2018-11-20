@@ -4,8 +4,8 @@ import keras.activations
 import keras.backend as kbe
 from keras.callbacks import EarlyStopping
 import keras.layers
-from keras.layers import Activation, Add, Concatenate, Conv1D, Dense, Dropout, Embedding
-from keras.layers import Input, GlobalMaxPooling1D, Lambda, Multiply, RepeatVector, Reshape, Softmax
+from keras.layers import Activation, Add, Concatenate, Conv1D, Dense, Dropout, Embedding, Softmax
+from keras.layers import Input, GlobalMaxPooling1D, Lambda, Multiply, RepeatVector, Reshape
 from keras.layers import BatchNormalization 
 from keras.models import Model
 from keras.regularizers import l2
@@ -383,6 +383,13 @@ class StackedAttentionNetwork(object):
             attention_layers.append(self.model.get_layer('layer_prob_attn_%d' % (idx)).output)
         self.attention_layer_model = Model(inputs=self.model.input, outputs=attention_layers)
 
+        # build attention layer model with one output for each attention layer, and connect to
+        # the main model in order to extract attention probabilities output
+        attention_layers = []
+        for idx in range(n_attention_layers):
+            attention_layers.append(self.model.get_layer('layer_prob_attn_%d' % (idx)).output)
+        self.attention_layer_model = Model(inputs=self.model.input, outputs=attention_layers)
+    
     def summary(self):
         ''' wrapper around keras.Model.summary()'''
         self.model.summary()
