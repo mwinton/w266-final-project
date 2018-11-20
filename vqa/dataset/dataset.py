@@ -125,7 +125,7 @@ class VQADataset:
         # If GloVe matrix pickle file is older than dataset.py, delete GloVe matrix
         if os.path.isfile(self.glove_matrix_path) and \
         os.path.getmtime(self.glove_matrix_path) < os.path.getmtime(dataset_py_path):
-            to_delete = input('WARNING: GloVe embedding matrix is outdated, but takes 12 hours to rebuild! Remove it (y/n)?')
+            to_delete = input('WARNING: GloVe embedding matrix is outdated. Remove it (y/n)?')
             if len(to_delete) > 0 and to_delete[:1] == 'y':
                 os.remove(self.glove_matrix_path)
                 print('GloVe embedding matrix was outdated. Removed -> ', self.glove_matrix_path)
@@ -766,7 +766,7 @@ class VQADataset:
 
         # Calculate vocab size. NOTE: this is different than Yang's number
         self.word_index = self.tokenizer.word_index
-        self.vocab_size = len(self.tokenizer.word_index)
+        self.vocab_size = len(self.tokenizer.word_index) + 1  # +1 to account for <unk>
         print('Words in tokenizer index: ', self.vocab_size)
 
         # it's possible that Tokenizer was originally created without GloVe embeddings,
@@ -793,14 +793,8 @@ class VQADataset:
                 
         # build glove_matrix containing embeddings, keyed by word id (from self.word_index)
         print('Buiding GloVe embedding matrix')
-        glove_matrix = np.zeros((len(self.word_index) + 1, embed_dim))
-        # i starts at 1; index 0 is reserved for <unk>; it will have an all-zero embedding
-        counter = 0
+        glove_matrix = np.zeros((len(self.word_index) + 1, embed_dim)) 
         for word, i in self.word_index.items():
-            if counter % 100 == 0:
-                print ('- processed {} embeddings ({})' \
-                       .format(counter, datetime.datetime.now().isoformat('-', timespec='seconds')))
-            counter += 1
             glove_vector = glove_index.get(word)
             if glove_vector is not None:
                 # words not found in embedding index will be all-zeros.
