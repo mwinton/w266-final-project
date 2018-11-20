@@ -255,6 +255,9 @@ class StackedAttentionNetwork(object):
         elif sent_embed_initializer == 'glove':
             trainable = options['sent_embed_trainable']
             glove_matrix = pickle.load(open(options['glove_matrix_path'], 'rb'))
+            if sent_embed_dim != glove_matrix.shape[1]:
+                # if options don't match the matrix shape, override with actual (but logs may be wrong)
+                sent_embed_dim = self.options['n_sent_embed'] = glove_matrix.shape[1]
             print('Loaded GloVe embedding matrix')
             layer_x = Embedding(input_dim=V, 
                                 output_dim=sent_embed_dim, 
