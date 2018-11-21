@@ -22,7 +22,7 @@ from keras.callbacks import EarlyStopping, Callback, ModelCheckpoint, TensorBoar
 sys.path.append('..')
 
 from vqa.dataset.types import DatasetType
-from vqa.dataset.dataset import VQADataset, MergeDataset
+from vqa.dataset.dataset import VQADataset
 
 from vqa.experiments.experiment_select import ExperimentLibrary
 from vqa.model.model_select import ModelLibrary
@@ -385,7 +385,7 @@ def train(model, dataset, options, val_dataset=None):
 def test(model, dataset, options, attention_model=None):
 
     weights_path  = options['weights_path']
-    results_path  = options['results_path']
+    results_json_path  = options['results_json_path']
     probabilities_path = options['probabilities_path']
     batch_size    = options['batch_size']
     max_test_size = options['max_test_size']
@@ -413,40 +413,43 @@ def test(model, dataset, options, attention_model=None):
     # define filename for y_proba file
     d = options['run_timestamp']
     y_proba_path = options['results_dir_path'] + \
-        'y_pred/y_proba_{}_expt{}_{}.p'.format(options['model_name'], options['experiment_id'], d)
+        'pred_probs/y_proba_{}_expt{}_{}.p'.format(options['model_name'], options['experiment_id'], d)
 
     # make sure directory exists before trying to save to it
     y_proba_dir = os.path.dirname(os.path.abspath(y_proba_path))
-    print('Saving y_proba predictions (shape = {}) to directory -> {}'.format(results.shape, y_proba_dir))
+    print('Saving predicted probabilities (shape = {}) to directory -> {}'.format(results.shape, y_proba_dir))
     if not os.path.isdir(y_proba_dir):
         os.mkdir(y_proba_dir)
     
     # save to disk (and also to MLFlow if logging is enabled)
     pickle.dump(results, open(y_proba_path, 'wb'))
-    print('y_proba saved ->', y_proba_path)
     if options['logging']:
         mlflow.log_artifact(y_proba_path)
-    print('Resulting predicted y_proba saved -> ', y_proba_path)
+    print('Resulting predicted probabilities saved -> ', y_proba_path)
 
-    print('Transforming results...')
-    results = np.argmax(results, axis=1)  # Max index evaluated on rows (1 row = 1 sample)
-    results = list(results)
-    print('Results transformed')
+    print('Transforming probabilities to predicted labels (argmax)...')
+    y_pred_ohe = list(np.argmax(results, axis=1))  # Max index evaluated on rows (1 row = 1 sample)
 
-    #
-    # TODO: verify that this section is working right, and switch to use `get_qa_lists()` to save more complete json
-    #
-    print('Building reverse word dictionary...')
-    answer_dict = {idx: word for word, idx in dataset.answer_one_hot_mapping.items()}
-    print('Reverse dictionary built')
+    print('Building reverse word dictionary from one-hot answer mappings...')
+    ohe_to_answer_str = {idx: word for word, idx in dataset.answer_one_hot_mapping.items()}
 
-    print('Saving results...')
-
-    results_dict = [{'answer': answer_dict[results[idx]], 'question_id': sample.question.id, 'question': sample.question.question_str}
+    print('Saving results (questions, true answers, and predictions)...')
+    results_dict = [{'predicted_answer': ohe_to_answer_str[y_pred_ohe[idx]], 
+                     'question_id': sample.question.id,
+                     'question_str': sample.question.question_str,
+                     'question_type': sample.answer.question_type,
+                     'image_id': sample.question.image_id,
+                     'answer_id': sample.answer.id,
+                     'answer_str': sample.answer_str,
+                     'answer_type': sample.answer_type,
+                     'annotations': sample.answer.annotations
+                    }
                     for idx, sample in enumerate(dataset.samples)]
-    with open(results_path, 'w') as f:
+    with open(results_json_path, 'w') as f:
         json.dump(results_dict, f)
-    print('Results saved')
+    if options['logging']:
+        mlflow.log_artifact(results_json_path)
+    print('Results saved to -> ', results_json_path)
 
     # save attention probabilities to disk
     if not attention_model == None:
