@@ -200,22 +200,22 @@ class VQADataset:
 
         # Initialize Tokenizer and GloVe matrix
         if self.sent_init_type == 'glove':
-            self._init_tokenizer(questions, answers, build_glove_matrix=True)
+            self._init_tokenizer(build_glove_matrix=True)
             print('Tokenizer trained and GloVe matrix built...')
         else:
-            self._init_tokenizer(questions, answers)
+            self._init_tokenizer()
             print('Tokenizer trained...')
         
         max_len = 0  # To compute the maximum question length
         # Tokenize and encode questions and answers
-        debug = 0
+        example = 0
         for _, question in questions.items():
-            if debug < 5:
+            if example < 5:
                 print('Sample question string to tokenize: ', question.question_str)
                 print('- corresponding token sequence: ', question.tokenize(self.tokenizer))
             else:
                 question.tokenize(self.tokenizer)
-            debug += 1
+            example += 1
             # Get the maximum question length
             if question.get_tokens_length() > max_len:
                 max_len = question.get_tokens_length()
@@ -278,7 +278,7 @@ class VQADataset:
 
         return answers    
 
-    def pad_samples(self,num_samples,batch_size):
+    def _pad_samples(self,num_samples,batch_size):
         """
         If the number of samples are not an exact multiple of batch_size, then replicate
         some randomly picked elements so as to make it an exact multiple.
@@ -308,7 +308,7 @@ class VQADataset:
         
         return num_samples 
         
-    def create_sample_chunks(self,num_samples,batch_size):
+    def _create_sample_chunks(self,num_samples,batch_size):
 
         """
            We assume num_samples is an exact multiple of batch_size as they should have been padded earlier
@@ -341,7 +341,7 @@ class VQADataset:
                           self.samples[start_sample_idx].image.features_idx, self.samples[end_sample_idx-1].image.features_idx))
 
 
-    def load_batch_images(self,current_chunk_idx):
+    def _load_batch_images(self,current_chunk_idx):
 
         """
            Make sure that images are loaded in chunk sizes
@@ -444,9 +444,9 @@ class VQADataset:
                 # increase num_samples to be an exact multiple
                 num_samples = (num_samples // batch_size + 1) * batch_size
             else:
-                num_samples = self.pad_samples(num_samples,batch_size)
+                num_samples = self._pad_samples(num_samples,batch_size)
 
-        self.create_sample_chunks(num_samples,batch_size)
+        self._create_sample_chunks(num_samples,batch_size)
 
         batch_start = 0
         batch_end = batch_size
@@ -464,7 +464,7 @@ class VQADataset:
             # while freeing memory of prev to previous chunk
             if (batch_start ==  self.chunk_dict[current_chunk_idx][0]):
                 #print("Batch Start, {}, Current chunk {}, chunk_start {}".format(batch_start,current_chunk_idx, self.chunk_dict[current_chunk_idx]))
-                current_chunk_idx = self.load_batch_images(current_chunk_idx)
+                current_chunk_idx = self._load_batch_images(current_chunk_idx)
             
             # Initialize matrix
             I = np.zeros((batch_size,n_image_regions,n_image_embed), dtype=np.float32)
@@ -479,7 +479,7 @@ class VQADataset:
                 randomized_indices = np.random.choice(batch_indices,len(batch_indices),replace=False)
                 for idx,sample_idx in enumerate(randomized_indices):
                     I[idx], Q[idx] = self.samples[sample_idx].get_input(self.max_sentence_len)
-                    A[idx] = self.samples[sample_idx].get_output()
+                    A[idx] = self.samples[sample_idx].get_output()  # the answer's one_hot_index
 
                 # yield (output) appropriate batches of data
                 if text_only:
@@ -509,31 +509,6 @@ class VQADataset:
             batch_end = batch_start + batch_size
             if batch_end > num_samples:
                 batch_end = num_samples
-
-    def get_dataset_input(self):
-        # this is called in test model
-        # Load all the images in memory in this mode. TODO, need to chunk this
-
-        with h5py.File(self.image_features_path,"r") as f:
-            features = f['embeddings'][:]
-
-        for sample in self.samples:
-            sample.image.load(features, True)
-        images_list = []
-        questions_list = []
-
-        for sample in self.samples:
-            images_list.append(sample.get_input(self.max_sentence_len)[0])
-            questions_list.append(sample.get_input(self.max_sentence_len)[1])
-
-        return np.array(images_list), np.array(questions_list)
-
-    def get_dataset_output(self):
-        output_array = [sample.get_output() for sample in self.samples]
-
-        print('output_array list created')
-
-        return np.array(output_array).astype(np.bool_)
 
     def size(self):
         """Returns the size (number of examples) of the dataset"""
@@ -691,12 +666,6 @@ class VQADataset:
             self.max_sample_size = len(self.samples)
             print('Saved max_sample_size for dataset {} = {}'.format(self.dataset_type, self.max_sample_size))
       
-    def get_qa_lists(self):
-        """
-            Convenience method to return question and answer data as lists.  This is useful
-            during post-processing when true answers (labels) need to be compared to predictions
-        """
-
         # build the dictionary of these lists the first time it's requested
         if not hasattr(self, 'qa_lists'):
             self.qa_lists = defaultdict(list)
@@ -713,7 +682,14 @@ class VQADataset:
                     self.qa_lists['question_types'].append(s.answer.question_type)
                     self.qa_lists['answer_types'].append(s.answer.answer_type)
                     self.qa_lists['answer_annotations'].append(s.answer.annotations) 
+                    self.qa_lists['one_hot_index'].append(s.answer.one_hot_index)
         
+    def get_qa_lists(self):
+        """
+            Convenience method to return question and answer data as lists.  This is useful
+            during post-processing when true answers (labels) need to be compared to predictions
+        """
+
         ques_ids = self.qa_lists['question_ids']
         ques_strings = self.qa_lists['question_strings']
         ques_types = self.qa_lists['question_types']
@@ -722,15 +698,16 @@ class VQADataset:
         ans_strings = self.qa_lists['answer_strings']
         ans_types = self.qa_lists['answer_types']
         ans_annotations = self.qa_lists['answer_annotations']
+        ans_ohe = self.qa_lists['one_hot_index']
 
-        return ques_ids, ques_strings, ques_types, image_ids, ans_ids, ans_strings, ans_types, ans_annotations
+        return ques_ids, ques_strings, ques_types, image_ids, ans_ids, ans_strings, ans_types, ans_annotations, ans_ohe
       
     def get_question_lists(self):
         """
             Return the subset of data lists corresponding to Question attributes
         """
         
-        ques_ids, ques_strings, ques_types, image_ids, _, _, _, _ = self.get_qa_lists()
+        ques_ids, ques_strings, ques_types, image_ids, _, _, _, _, _ = self.get_qa_lists()
         return ques_ids, ques_strings, ques_types, image_ids
     
     def get_answer_lists(self, with_annotations=False):
@@ -738,23 +715,28 @@ class VQADataset:
             Return the subset of data lists corresponding to Answer attributes
         """
         
-        _, _, _, _, ans_ids, ans_strings, ans_types, ans_annotations = self.get_qa_lists()
+        _, _, _, _, ans_ids, ans_strings, ans_types, ans_annotations, ans_ohe = self.get_qa_lists()
         return ans_ids, ans_strings, ans_types, ans_annotations
         
-    def _init_tokenizer(self, questions, answers, build_glove_matrix=False):
+    def _init_tokenizer(self, build_glove_matrix=False):
         """Fits the tokenizer with the questions and answers and saves this tokenizer into a file for later use"""
 
         # contrary to the docs, `word_index` exists before training, so can't use `hasattr` check
         if len(self.tokenizer.word_index) == 0:
             # only have to train it once.
             print('Tokenizer is not yet trained.  Training now...')
-            need_to_build_glove = True
-            questions_list = [question.question_str for _, question in questions.items()]
-            answers_list = [answer.answer_str for _, answer in answers.items()]
+            _, questions_list, _, _, _, answers_list, _, _, _ = self.get_qa_lists()
+#             TODO: delete the following code after confirming get_qa_lists works
+#             questions_list = [question.question_str for _, question in questions.items()]
+#             answers_list = [answer.answer_str for _, answer in answers.items()]
 
-            print("Sample Questions : \n {}".format(questions_list[:10]))
-            print ("\n*************\n")
-            print("Sample Answers : \n {}".format(answers_list[:10]))
+            print('Sample Questions | Answers')
+            for q, a in zip(questions_list[:10], answers_list[:10]):
+                print('{} | {}'.format(q, a))
+#             TODO: delete the following code after confirming zip code works
+#             print("Sample Questions : \n {}".format(questions_list[:10]))
+#             print ("\n*************\n")
+#             print("Sample Answers : \n {}".format(answers_list[:10]))
 
             self.tokenizer.fit_on_texts(questions_list + answers_list)
 
@@ -765,9 +747,9 @@ class VQADataset:
             print('Trained Tokenizer is already available in dataset...')
 
         # Calculate vocab size. NOTE: this is different than Yang's number
-        self.word_index = self.tokenizer.word_index
+        self.word_index = self.tokenizer.word_index           # Keras word_index starts indexing at 1
         self.vocab_size = len(self.tokenizer.word_index) + 1  # +1 to account for <unk>
-        print('Words in tokenizer index: ', self.vocab_size)
+        print('Words in tokenizer index (+1 for <unk>):', self.vocab_size)
 
         # it's possible that Tokenizer was originally created without GloVe embeddings,
         # so check if the file needs to be created
@@ -793,11 +775,11 @@ class VQADataset:
                 
         # build glove_matrix containing embeddings, keyed by word id (from self.word_index)
         print('Buiding GloVe embedding matrix')
-        glove_matrix = np.zeros((len(self.word_index) + 1, embed_dim)) 
-        for word, i in self.word_index.items():
+        glove_matrix = np.zeros((self.vocab_size, embed_dim)) # accounts for <unk>
+        for word, i in self.word_index.items():               # loops (vocab_size - 1) times because <unk> isn't in index
             glove_vector = glove_index.get(word)
             if glove_vector is not None:
-                # words not found in embedding index will be all-zeros.
+                # words not found in embedding index (incl. <unk>) will be all-zeros.
                 glove_matrix[i] = glove_vector
         # Save glove_matrix pickle file (which will be loaded by the model)
         pickle.dump(glove_matrix, open(glove_matrix_path, 'wb'))  
@@ -820,78 +802,3 @@ class VQADataset:
             image_ids_dict[image_id] = idx
 
         return image_ids_dict
-
-
-class MergeDataset:
-    def __init__(self, train_dataset, val_dataset, percentage=0.7):
-        if not isinstance(train_dataset, VQADataset):
-            raise TypeError('train_dataset has to be an instance of VQADataset')
-
-        if not isinstance(val_dataset, VQADataset):
-            raise TypeError('val_dataset has to be an instance of VQADataset')
-
-        self.percentage = percentage
-
-        # Get parameters
-        self.image_features_path = train_dataset.image_features_path
-        self.max_sentence_len = train_dataset.max_sentence_len
-        self.vocab_size = train_dataset.vocab_size
-
-        # Split validation dataset to use some of it for training
-        self.train_samples = train_dataset.samples
-        self.val_samples = val_dataset.samples
-        random.shuffle(self.val_samples)
-        threshold = int(self.percentage * len(self.val_samples))
-        self.train_samples = self.train_samples + self.val_samples[:threshold]
-        self.val_samples = self.val_samples[threshold:]
-        print('Training samples: {}'.format(len(self.train_samples)))
-        print('Validation samples: {}'.format(len(self.val_samples)))
-
-    def batch_generator(self, batch_size, split='train'):
-        """Yields a batch of data of size batch_size"""
-
-        # Load all the images in memory
-        print('Loading visual features...')
-        features = scipy.io.loadmat(self.image_features_path)['features']
-
-        if split == 'train':
-            samples = self.train_samples
-        else:
-            samples = self.val_samples
-
-        for sample in samples:
-            sample.image.load(features, 0)
-        print('Visual features loaded')
-
-        num_samples = len(samples)
-        batch_start = 0
-        batch_end = batch_size
-
-        while True:
-            # Initialize matrix
-            I = np.zeros((batch_size, 1024), dtype=np.float16)
-            Q = np.zeros((batch_size, self.max_sentence_len), dtype=np.int32)
-            A = np.zeros((batch_size, self.vocab_size), dtype=np.bool_)
-            # Assign each sample in the batch
-            for idx, sample in enumerate(samples[batch_start:batch_end]):
-                I[idx], Q[idx] = sample.get_input(self.max_sentence_len)
-                A[idx] = sample.get_output()
-
-            yield ([I, Q], A)
-
-            # Update interval
-            batch_start += batch_size
-            # An epoch has finished
-            if batch_start >= num_samples:
-                batch_start = 0
-                # Change the order so the model won't see the samples in the same order in the next epoch
-                random.shuffle(samples)
-            batch_end = batch_start + batch_size
-            if batch_end > num_samples:
-                batch_end = num_samples
-
-    def train_size(self):
-        return len(self.train_samples)
-
-    def val_size(self):
-        return len(self.val_samples)
