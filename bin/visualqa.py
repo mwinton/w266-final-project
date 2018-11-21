@@ -22,7 +22,7 @@ from keras.callbacks import EarlyStopping, Callback, ModelCheckpoint, TensorBoar
 sys.path.append('..')
 
 from vqa.dataset.types import DatasetType
-from vqa.dataset.dataset import VQADataset, MergeDataset
+from vqa.dataset.dataset import VQADataset
 
 from vqa.experiments.experiment_select import ExperimentLibrary
 from vqa.model.model_select import ModelLibrary
@@ -30,7 +30,7 @@ from vqa.model.options import ModelOptions
 
 # ------------------------------ GLOBALS ------------------------------
 # Constants
-ACTIONS = ['train', 'val', 'test', 'eval']
+ACTIONS = ['train', 'test']
 
 
 # Defaults
@@ -46,7 +46,6 @@ def main(options):
 
     print('Action: ' + options['action_type'])
     print('Model name: {}'.format(options['model_name']))
-    print('Extended: {}'.format(options['extended']))
 
     if options['action_type'] == 'train':
         if (options['max_train_size'] != None):
@@ -75,9 +74,9 @@ def main(options):
 
     # Always load train dataset to obtain the one hot encoding indices 
     # and  max_sentence_len from it
+    print('Training dataset must be loaded, even for testing (it contains OHE indices).')
     train_dataset = load_dataset(DatasetType.TRAIN,options)
     options['max_sentence_len'] = train_dataset.max_sentence_len
-
     answer_one_hot_mapping = train_dataset.answer_one_hot_mapping
 
     # Load model
@@ -95,37 +94,27 @@ def main(options):
     with open(json_path, 'w') as json_file:
         json_file.write(vqa_model.to_json())
 
+    # log non-empty model parameters (else mlflow crashes)
+    for key, val in options.items():
+        if val != '' and val != None:
+            mlflow.log_param(key, val)
+    print('Logged experiment params to MLFlow...')
+
     # Load dataset depending on the action to perform
     action = options['action_type']
     if action == 'train':
         if options['logging']:
             # log Keras model configuration
             mlflow.log_artifact(json_path)
-            # log non-empty model parameters (else mlflow crashes)
-            for key, val in options.items():
-                if val != '' and val != None:
-                    mlflow.log_param(key, val)
-            print('Logged experiment params to MLFlow...')
                     
         dataset = train_dataset
         val_dataset = load_dataset(DatasetType.VALIDATION,options,answer_one_hot_mapping)
-        if options['extended']:
-            extended_dataset = MergeDataset(train_dataset, val_dataset)
-            train(vqa_model, extended_dataset, options)
-        else:
-            train(vqa_model, dataset, options, val_dataset=val_dataset)
+        train(vqa_model, dataset, options, val_dataset=val_dataset)
         
-    elif action == 'val':
-        dataset = load_dataset(DatasetType.VALIDATION,options,answer_one_hot_mapping)
-        validate(vqa_model, dataset, options)
-
     elif action == 'test':
-        dataset = load_dataset(DatasetType.TEST,options,answer_one_hot_mapping)
+        # test set needs to be tokenized with the same tokenizer that was used in the training set
+        dataset = load_dataset(DatasetType.TEST,options,answer_one_hot_mapping, tokenizer=train_dataset.tokenizer)
         test(vqa_model, dataset, options, attention_model)
-
-    elif action == 'eval':
-        dataset = load_dataset(DatasetType.EVAL,options,answer_one_hot_mapping)
-        test(vqa_model, dataset, options)
 
     else:
         raise ValueError('The action type is unrecognized')
@@ -139,7 +128,7 @@ def main(options):
         print('MLFlow logs for this run are available at ->', mlflow_url)
 
 
-def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
+def load_dataset(dataset_type, options, answer_one_hot_mapping=None, tokenizer=None):
     
     """
         Load the dataset from disk if available. If not, build it from the questions/answers json and image embeddings
@@ -147,19 +136,21 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
     """ 
 
     dataset_path = ModelOptions.get_dataset_path(options,dataset_type)
-    # if this isn't a training dataset, the answer one hot indices are expected to be available
+    # if this isn't a training dataset, the answer one hot indices and tokenizer are expected to be available
     if (dataset_type != DatasetType.TRAIN):
         assert(answer_one_hot_mapping != None) 
+    if (dataset_type == DatasetType.TEST):
+        assert(tokenizer != None)
 
     # If pickle file is older than dataset.py, delete and recreate
     print('Checking timestamp on dataset -> {}'.format(dataset_path))
     dataset_py_path = os.path.abspath('../vqa/dataset/dataset.py')
     if os.path.isfile(dataset_path) and \
     os.path.getmtime(dataset_path) < os.path.getmtime(dataset_py_path):
-        to_delete = input('WARNING: Dataset (which also contains the Tokenizer) is outdated.  Remove it (y/n)?')
+        to_delete = input('\nWARNING: Dataset (which also contains the Tokenizer) is outdated.  Remove it (y/n)? ')
         if len(to_delete) > 0 and to_delete[:1] == 'y':
             os.remove(dataset_path)
-            print('GloVe embedding matrix was outdated. Removed -> ', dataset_path)
+            print('Dataset was outdated. Removed -> ', dataset_path)
         else:
             print('Continuing with pre-existing dataset.')
 
@@ -169,54 +160,55 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
             dataset = pickle.load(f)
             print('Dataset loaded')
 
-            options['n_vocab'] = dataset.vocab_size
+        options['n_vocab'] = dataset.vocab_size
             
-            dataset.samples = sorted(dataset.samples, key=lambda sample: sample.image.features_idx)
-            samples = dataset.samples
+        dataset.samples = sorted(dataset.samples, key=lambda sample: sample.image.features_idx)
+        samples = dataset.samples
 
-            if dataset_type == DatasetType.TRAIN:
-                max_size = options['max_train_size'] 
-            elif dataset_type == DatasetType.VALIDATION:
-                max_size = options["max_val_size"]   
-            elif dataset_type == DatasetType.TEST:
-                max_size = options["max_test_size"]   
-            else:
-                max_size = None
-
-            if(max_size == None):
-                dataset.max_sample_size = len(samples)
-            else:
-                dataset.max_sample_size = min(max_size,len(samples))
-
-            if dataset_type==DatasetType.TRAIN :
-                answer_one_hot_mapping = dataset.answer_one_hot_mapping
-
-            # check to make sure the samples list is sorted by image indices
-            if( all(samples[i].image.features_idx <= samples[i+1].image.features_idx
-                    for i in range(len(samples)-1))) :
-
-                 print("Passed sorted sample array check")
-            else:
-                 assert(0)
-
-            # log dataset size to MLFlow
+        if dataset_type == DatasetType.TRAIN:
+            max_size = options['max_train_size'] 
             if options['logging']:
-                mlflow.log_param('dataset_size', len(samples))
-                mlflow.log_param('training_set_size', max_size)
+                mlflow.log_param('train_dataset_size', len(samples))
+                mlflow.log_param('max_train_size', max_size)
+        elif dataset_type == DatasetType.VALIDATION:
+            max_size = options["max_val_size"]   
+            if options['logging']:
+                mlflow.log_param('val_dataset_size', len(samples))
+                mlflow.log_param('max_val_size', max_size)
+        elif dataset_type == DatasetType.TEST:
+            max_size = options["max_test_size"]   
+#             if options['logging']:
+#                 # TODO: log this at better point for val_test_split
+#                 mlflow.log_param('test_dataset_size', len(samples))
+#                 mlflow.log_param('max_test_size', max_size)
+        else:
+            max_size = None
 
-            print("{} loaded from disk. Dataset size {}, Processing {} samples "
-                                   .format(dataset_type, len(samples), max_size))
+        if(max_size == None):
+            dataset.max_sample_size = len(samples)
+        else:
+            dataset.max_sample_size = min(max_size,len(samples))
+
+        # check to make sure the samples list is sorted by image indices
+        if(all(samples[i].image.features_idx <= samples[i+1].image.features_idx \
+               for i in range(len(samples)-1))):
+            print("Passed sorted sample array check")
+        else:
+            assert(0)
+
+        print("{} loaded from disk. Dataset size {}, processing limited to max_size = {}." \
+              .format(dataset_type, len(samples), max_size))
 
     except IOError:
 
         # If dataset file does not exist create and save it for future runs.   
-
         print('Creating dataset...')
         dataset = VQADataset(dataset_type, options)
-        print('Preparing dataset...')
 
-        # as part of preparation, if one-hot mapping is not provided, generate it
-        dataset.prepare(answer_one_hot_mapping)
+        # as part of preparation, if one-hot mapping is not provided, generate it.
+        # both are expected to be provided if this is a test set
+        print('Preparing dataset...')
+        dataset.prepare(answer_one_hot_mapping, tokenizer)
 
         # TODO: fix the n_vocab logic when we're ready to do standalone test sets.  Currently,
         # n_vocab will never get set if a training set isn't processeed first.
@@ -301,9 +293,8 @@ def plot_train_metrics(train_stats, options, plot_type='epochs'):
 
 def train(model, dataset, options, val_dataset=None):
 
-    extended = options['extended']
-    if (not extended) and (not val_dataset):
-        raise ValueError('If not using the extended dataset, a validation dataset must be provided')
+    if not val_dataset:
+        raise ValueError('A validation dataset must be provided')
 
     batch_size = options['batch_size']
     max_epochs = options['max_epochs']
@@ -355,19 +346,11 @@ def train(model, dataset, options, val_dataset=None):
         is_img_only = False
         
     print('Start training...')
-    if not extended:
-        train_stats = model.fit_generator(dataset.batch_generator(is_text_only, is_img_only),
-                                          steps_per_epoch=samples_per_train_epoch//batch_size,
-                                          epochs=max_epochs, callbacks=callbacks,
-                                          validation_data=val_dataset.batch_generator(is_text_only, is_img_only), 
-                                          validation_steps=samples_per_val_epoch//batch_size,max_queue_size=20)
-    else:
-        # Note: no support for text-only or image-only (debugging) models with extended dataseet
-        train_stats = model.fit_generator(dataset.batch_generator(batch_size, split='train'), 
-                            steps_per_epoch=dataset.train_size()/batch_size,
-                            epochs=num_epochs, callbacks=callbacks,
-                            validation_data=dataset.batch_generator(batch_size, split='val'),
-                            validation_steps=dataset.val_size()//batch_size,max_queue_size=20)
+    train_stats = model.fit_generator(dataset.batch_generator(is_text_only, is_img_only),
+                                      steps_per_epoch=samples_per_train_epoch//batch_size,
+                                      epochs=max_epochs, callbacks=callbacks,
+                                      validation_data=val_dataset.batch_generator(is_text_only, is_img_only), 
+                                      validation_steps=samples_per_val_epoch//batch_size,max_queue_size=20)
 
     # save loss and accuracy plots to local disk
     loss_fig_path, acc_fig_path = plot_train_metrics(train_stats, options)
@@ -399,25 +382,10 @@ def train(model, dataset, options, val_dataset=None):
         test(model, val_dataset, options)
         val_dataset.dataset_type = DatasetType.VALIDATION
 
-def validate(model, dataset, options):
-
-    weights_path = options['weights_path']
-    batch_size   = options['batch_size']
-    print('Loading weights...')
-    model.load_weights(weights_path)
-    print('Weights loaded')
-    print('Start validation...')
-    result = model.evaluate_generator(dataset.batch_generator(batch_size), val_samples=dataset.size())
-    print('Validated. Loss: {}'.format(result))
-
-    return result
-
-
-# TODO: Needs to be modified for one hot encoding of answers
 def test(model, dataset, options, attention_model=None):
 
     weights_path  = options['weights_path']
-    results_path  = options['results_path']
+    results_json_path  = options['results_json_path']
     probabilities_path = options['probabilities_path']
     batch_size    = options['batch_size']
     max_test_size = options['max_test_size']
@@ -445,43 +413,64 @@ def test(model, dataset, options, attention_model=None):
     # define filename for y_proba file
     d = options['run_timestamp']
     y_proba_path = options['results_dir_path'] + \
-        'y_pred/y_proba_{}_expt{}_{}.p'.format(options['model_name'], options['experiment_id'], d)
+        'pred_probs/y_proba_{}_expt{}_{}.p'.format(options['model_name'], options['experiment_id'], d)
 
     # make sure directory exists before trying to save to it
     y_proba_dir = os.path.dirname(os.path.abspath(y_proba_path))
-    print('Saving y_proba predictions (shape = {}) to directory -> {}'.format(results.shape, y_proba_dir))
+    print('Saving predicted probabilities (shape = {}) to directory -> {}'.format(results.shape, y_proba_dir))
     if not os.path.isdir(y_proba_dir):
         os.mkdir(y_proba_dir)
     
     # save to disk (and also to MLFlow if logging is enabled)
     pickle.dump(results, open(y_proba_path, 'wb'))
-    print('y_proba saved ->', y_proba_path)
     if options['logging']:
         mlflow.log_artifact(y_proba_path)
-    print('Resulting predicted y_proba saved -> ', y_proba_path)
+    print('Resulting predicted probabilities saved -> ', y_proba_path)
 
-    print('Transforming results...')
-    results = np.argmax(results, axis=1)  # Max index evaluated on rows (1 row = 1 sample)
-    results = list(results)
-    print('Results transformed')
+    print('Transforming probabilities to predicted labels (argmax)...')
+    y_pred_ohe = list(np.argmax(results, axis=1))  # Max index evaluated on rows (1 row = 1 sample)
 
-    print('Building reverse word dictionary...')
-    answer_dict = {idx: word for word, idx in dataset.answer_one_hot_mapping.items()}
-    print('Reverse dictionary built')
+    print('Building reverse word dictionary from one-hot answer mappings...')
+    ohe_to_answer_str = {idx: word for word, idx in dataset.answer_one_hot_mapping.items()}
 
-    print('Saving results...')
-
-    results_dict = [{'answer': answer_dict[results[idx]], 'question_id': sample.question.id, 'question': sample.question.question_str}
-                    for idx, sample in enumerate(dataset.samples)]
-    with open(results_path, 'w') as f:
+    if options['val_test_split']:
+        print('Saving results (questions, true answers, and predictions)...')
+        no_answers = 0
+        results_dict = []
+        for idx, sample in enumerate(dataset.samples):
+            if not hasattr(sample,'answer'):
+                no_answers += 1
+            else:
+                results_dict.append({'predicted_answer': ohe_to_answer_str[y_pred_ohe[idx]], 
+                                     'question_id': sample.question.id,
+                                     'question_str': sample.question.question_str,
+                                     'question_type': sample.answer.question_type,
+                                     'image_id': sample.question.image_id,
+                                     'answer_id': sample.answer.id,
+                                     'answer_str': sample.answer.answer_str,
+                                     'answer_type': sample.answer.answer_type,
+                                     'annotations': sample.answer.annotations
+                                    })
+        print('Discarded {} samples without answers...'.format(no_answers))
+    else:
+        print('Saving results (questions and predictions)...')
+        results_dict = [{'predicted_answer': ohe_to_answer_str[y_pred_ohe[idx]], 
+                         'question_id': sample.question.id,
+                         'question_str': sample.question.question_str,
+                         'image_id': sample.question.image_id
+                        }
+                        for idx, sample in enumerate(dataset.samples)]
+    with open(results_json_path, 'w') as f:
         json.dump(results_dict, f)
-    print('Results saved')
+    if options['logging']:
+        mlflow.log_artifact(results_json_path)
+    print('Results saved to -> ', results_json_path)
 
     # save attention probabilities to disk
     if not attention_model == None:
         # list will have one numpy array for each attention_layer output by the model
         attention_probabilities = attention_model \
-            .predict_generator(dataset.batch_generator(), steps=orig_dataset_size//batch_size + 1, verbose=1)
+            .predict_generator(dataset.batch_generator(), steps=test_dataset_size//batch_size + 1, verbose=1)
 
         print('Attention probabilities extracted from {} attention layers'.format(len(attention_probabilities)))
         with h5py.File(probabilities_path, 'a') as f:
@@ -629,13 +618,6 @@ if __name__ == '__main__':
         choices=ACTIONS,
         default=DEFAULT_ACTION,
         help='Which action should be perform on the model. By default, training will be done'
-    )
-    parser.add_argument(
-        '--extended',
-        action='store_true',
-        help='Add this flag if you want to use the extended dataset, this is, ' + \
-             'use part of the validation dataset to' + \
-             'train your model. Only valid for the --action=train'
     )
     parser.add_argument(
         '-x',

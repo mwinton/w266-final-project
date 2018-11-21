@@ -243,13 +243,13 @@ class StackedAttentionNetwork(object):
         # in:  [batch_size, max_t]
         # out: [batch_size, max_t, n_text_embed]
         # default to randomly initialized embeddings (rather than GloVe)
-        sent_embed_initializer = self.options.get('sent_init_type', 'random') 
+        sent_embed_initializer = self.options['sent_init_type']
         sent_embed_dim = self.options['n_sent_embed']
         if sent_embed_initializer == 'random':
             layer_x = Embedding(input_dim=V, 
                                 output_dim=sent_embed_dim,
                                 input_length=max_t,
-                                embeddings_initializer=sent_embed_initializer,
+                                embeddings_initializer='uniform',
                                 mask_zero=False,  # CNN layers don't seem to be able to deal with True
                                 name='sentence_embedding'
                                )(layer_sent_input)

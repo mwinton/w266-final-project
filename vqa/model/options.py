@@ -99,12 +99,11 @@ class ModelOptions(object):
 
         # Training parameters
         self.options['batch_size'] = 100
-        self.options['max_epochs'] = 50
+        self.options['max_epochs'] = 25  # Yang's code used 50, but we haven't seen models that take that long to converge
         self.options['early_stop_patience'] = 5
         self.options['max_train_size'] = None # interpreted as full size of training set unless overridden
         self.options['max_val_size'] = None # interpreted as full validation set size unless overridden
         self.options['max_test_size'] = None # interpreted as full test set size unless overridden
-        self.options['extended']  = False # use train+val set for training
 
         # When changing the optimize, also update set_optimizer_params()
         self.options['optimizer'] = 'sgd'       
@@ -134,9 +133,10 @@ class ModelOptions(object):
         selector = {
             DatasetType.TRAIN      : options["train_dataset_path"],
             DatasetType.VALIDATION : options["val_dataset_path"],
-            DatasetType.TEST       : options["test_dataset_path"],
-            DatasetType.EVAL       : options["eval_dataset_path"]
+            DatasetType.TEST       : options["test_dataset_path"],  # this is the official VQA test set (unlabeled)
         }
+        if (options['val_test_split']):
+            selector[DatasetType.TEST] = options['valtest_dataset_path']
         return selector.get(datasetType)
 
     @staticmethod
@@ -148,7 +148,6 @@ class ModelOptions(object):
             DatasetType.TRAIN      : options["questions_train_path"],
             DatasetType.VALIDATION : options["questions_val_path"],
             DatasetType.TEST       : options["questions_test_path"],
-            DatasetType.EVAL       : options["questions_val_path"]
         }
         if (options['val_test_split']):
             selector[DatasetType.TEST] = options['questions_val_path']
@@ -164,7 +163,6 @@ class ModelOptions(object):
                 DatasetType.TRAIN      : options["pairs_train_path"],
                 DatasetType.VALIDATION : options["pairs_val_path"],
                 DatasetType.TEST       : None,
-                DatasetType.EVAL       : None
             }
             if (options['val_test_split']):
                 selector[DatasetType.TEST] = options['pairs_val_path']
@@ -182,7 +180,6 @@ class ModelOptions(object):
             DatasetType.TRAIN      : options["annotations_train_path"],
             DatasetType.VALIDATION : options["annotations_val_path"],
             DatasetType.TEST       : None,
-            DatasetType.EVAL       : None
         }
         if (options['val_test_split']):
             selector[DatasetType.TEST] = options['annotations_val_path']
@@ -199,7 +196,6 @@ class ModelOptions(object):
             DatasetType.TRAIN      : options["images_embed_train_path"],
             DatasetType.VALIDATION : options["images_embed_val_path"],
             DatasetType.TEST       : options["images_embed_test_path"],
-            DatasetType.EVAL       : options["images_embed_val_path"]
         }
         if (options['val_test_split']):
             selector[DatasetType.TEST] = options['images_embed_val_path']
@@ -215,7 +211,6 @@ class ModelOptions(object):
             DatasetType.TRAIN      : options["images_train_root_path"],
             DatasetType.VALIDATION : options["images_val_root_path"],
             DatasetType.TEST       : options["images_test_root_path"],
-            DatasetType.EVAL       : options["images_val_root_path"]
         }
         if (options['val_test_split']):
             selector[DatasetType.TEST] = options['images_val_root_path']
@@ -225,21 +220,15 @@ class ModelOptions(object):
     @staticmethod
     def set_local_paths(options):
         """
-            returns the weights and losses paths based on the dataset and 
-            the -extended option
+            returns the weights and losses paths based on the dataset
         """
         action    = options['action_type']
         model_name = options["model_name"]
-        extended  = options['extended']
         data_root = options['data_root']
         
         # VQAv2 json files have a `v2_` filename prefix
         prefix = ''
         if options['dataset'] == 'v2': prefix = 'v2_'
-
-        # Also neeed to annotate extended dataset
-        suffix = ''
-        if extended: suffix = "_ext"
 
         # Need to prefix v2 files with `v2_`
         options['questions_train_path'] = data_root + \
@@ -266,12 +255,18 @@ class ModelOptions(object):
         options['local_data_path']  =  os.path.abspath("../data/preprocessed") + '/'
         options['weights_dir_path'] =  os.path.abspath("../saved_models/weights") + '/'
         options['results_dir_path'] =  os.path.abspath("../results") + '/' 
+        options['losses_dir_path'] =  os.path.abspath("../results/losses") + '/'
+        options['results_json_dir_path'] =  os.path.abspath("../results/json") + '/' 
+        options['probabilities_dir_path'] =  os.path.abspath("../results/attn_probs") + '/' 
         options['saved_models_path'] = os.path.abspath('../saved_models/json') + '/'
 
         # create directories if they don't exist
         os.makedirs(options['local_data_path'],   exist_ok=True)
         os.makedirs(options['weights_dir_path'],  exist_ok=True)
         os.makedirs(options['results_dir_path'],  exist_ok=True)
+        os.makedirs(options['losses_dir_path'],  exist_ok=True)
+        os.makedirs(options['results_json_dir_path'],  exist_ok=True)
+        os.makedirs(options['probabilities_dir_path'],  exist_ok=True)
         os.makedirs(options['saved_models_path'], exist_ok=True) 
 
         local_data_path = options['local_data_path']
@@ -281,11 +276,14 @@ class ModelOptions(object):
         options['glove_matrix_path']  = options['glove_root'] + prefix + 'glove_matrix.p'  # built from tokenizer
         options['train_dataset_path'] = local_data_path + prefix + 'train_dataset.p'
         options['val_dataset_path']   = local_data_path + prefix + 'validate_dataset.p'
+        options['valtest_dataset_path']   = local_data_path + prefix + 'valtest_dataset.p'
         options['test_dataset_path']  = local_data_path + prefix + 'test_dataset.p'
-        options['eval_dataset_path']  = local_data_path + prefix + 'eval_dataset.p'
 
         weights_dir_path = options['weights_dir_path']
         results_dir_path = options['results_dir_path']
+        losses_dir_path = options['losses_dir_path']
+        results_json_dir_path = options['results_json_dir_path']
+        probabilities_dir_path = options['probabilities_dir_path']
         
         # get run- and experiment-dependent filename annotations
         d = options['run_timestamp']
@@ -293,33 +291,22 @@ class ModelOptions(object):
         
         if (action == "train"):
             # timestamp the weights; later we create a symlink to the most recent set (for prediction)
-            weights_dir_path = weights_dir_path + prefix + 'model_weights_{}{}_expt{}_{}' \
-                .format(model_name, suffix, expt, d)
+            weights_dir_path = weights_dir_path + prefix + 'model_weights_{}_expt{}_{}' \
+                .format(model_name, expt, d)
             # Keras requires that we must use named `epoch` placeholder in format string
             options["weights_path"] = weights_dir_path + '.{epoch:02d}.hdf5'
-            
             # timestamp the losses_path for logging purposes
-            options['losses_path'] = results_dir_path + prefix + 'losses_{}{}_expt{}_{}.hdf5' \
-                .format(model_name, suffix, expt, d)
-            
-        elif (action == "val" ):
-            options["weights_path"] = weights_dir_path + prefix + 'model_weights_{}{}_expt{}_{}' \
-                .format(model_name, suffix, expt, d)
-
+            options['losses_path'] = losses_dir_path + prefix + 'losses_{}_expt{}_{}.hdf5' \
+                .format(model_name, expt, d)
         elif (action == "test"):
-            options['weights_path'] = weights_dir_path + prefix + 'model_weights_{}{}_expt{}_latest' \
-                .format(model_name, suffix, expt )
-            options['results_path'] = results_dir_path + prefix + 'test2015_results_{}{}_expt{}_{}.json' \
-                .format(model_name, suffix, expt, d)
-            options['probabilities_path'] = results_dir_path + prefix + 'attention_prob_{}{}_expt{}_{}.hdf5' \
-                .format(model_name, suffix, expt, d)
-        
+            options['weights_path'] = weights_dir_path + prefix + 'model_weights_{}_expt{}_latest' \
+                .format(model_name, expt )
+            options['results_json_path'] = results_json_dir_path + prefix + 'test2015_results_{}_expt{}_{}.json' \
+                .format(model_name, expt, d)
+            options['probabilities_path'] = probabilities_dir_path + prefix + 'attention_prob_{}_expt{}_{}.hdf5' \
+                .format(model_name, expt, d)
         else:
-            # action type is eval
-            options['weights_path'] = weights_dir_path + prefix + 'model_weights_{}{}_expt{}_{}' \
-                .format(model_name, suffix, expt, d)
-            options['results_path'] = results_dir_path + prefix + 'val2014_results_{}{}_expt{}_{}.json' \
-                .format(model_name, suffix, expt, d)
+            raise ValueError('Invalid action selected.  Options are \"train\" or \"test\".')
 
         return options
  
