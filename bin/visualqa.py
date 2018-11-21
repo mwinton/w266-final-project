@@ -139,6 +139,7 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping=None, tokenizer=N
     # if this isn't a training dataset, the answer one hot indices and tokenizer are expected to be available
     if (dataset_type != DatasetType.TRAIN):
         assert(answer_one_hot_mapping != None) 
+    if (dataset_type == DatasetType.TEST):
         assert(tokenizer != None)
 
     # If pickle file is older than dataset.py, delete and recreate
