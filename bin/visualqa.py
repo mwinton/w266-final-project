@@ -433,6 +433,9 @@ def test(model, dataset, options, attention_model=None):
     results = list(results)
     print('Results transformed')
 
+    #
+    # TODO: verify that this section is working right, and switch to use `get_qa_lists()` to save more complete json
+    #
     print('Building reverse word dictionary...')
     answer_dict = {idx: word for word, idx in dataset.answer_one_hot_mapping.items()}
     print('Reverse dictionary built')
@@ -449,7 +452,7 @@ def test(model, dataset, options, attention_model=None):
     if not attention_model == None:
         # list will have one numpy array for each attention_layer output by the model
         attention_probabilities = attention_model \
-            .predict_generator(dataset.batch_generator(), steps=orig_dataset_size//batch_size + 1, verbose=1)
+            .predict_generator(dataset.batch_generator(), steps=test_dataset_size//batch_size + 1, verbose=1)
 
         print('Attention probabilities extracted from {} attention layers'.format(len(attention_probabilities)))
         with h5py.File(probabilities_path, 'a') as f:
