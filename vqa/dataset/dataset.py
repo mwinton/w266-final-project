@@ -729,7 +729,7 @@ class VQADataset:
         """
         
         _, _, _, _, ans_ids, ans_strings, ans_types, ans_annotations, ans_ohe = self.get_qa_lists()
-        return ans_ids, ans_strings, ans_types, ans_annotations
+        return ans_ids, ans_strings, ans_types, ans_annotations, ans_ohe
         
     def _init_tokenizer(self, questions, answers, build_glove_matrix=False):
         """Fits the tokenizer with the questions and answers and saves this tokenizer into a file for later use"""
@@ -738,6 +738,7 @@ class VQADataset:
         if len(self.tokenizer.word_index) == 0:
             # only have to train it once.
             print('Tokenizer is not yet trained.  Training now...')
+            need_to_build_glove = True
             questions_list = [question.question_str for _, question in questions.items()]
             answers_list = [answer.answer_str for _, answer in answers.items()]
             self.tokenizer.fit_on_texts(questions_list + answers_list)

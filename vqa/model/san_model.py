@@ -389,13 +389,6 @@ class StackedAttentionNetwork(object):
         
         # compile model so that it's ready to train
         self.model.compile (optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
-        
-        # build attention layer model with one output for each attention layer, and connect to
-        # the main model in order to extract attention probabilities output
-        attention_layers = []
-        for idx in range(n_attention_layers):
-            attention_layers.append(self.model.get_layer('layer_prob_attn_%d' % (idx)).output)
-        self.attention_layer_model = Model(inputs=self.model.input, outputs=attention_layers)
 
         # build attention layer model with one output for each attention layer, and connect to
         # the main model in order to extract attention probabilities output
