@@ -738,7 +738,6 @@ class VQADataset:
         if len(self.tokenizer.word_index) == 0:
             # only have to train it once.
             print('Tokenizer is not yet trained.  Training now...')
-            need_to_build_glove = True
             questions_list = [question.question_str for _, question in questions.items()]
             answers_list = [answer.answer_str for _, answer in answers.items()]
             self.tokenizer.fit_on_texts(questions_list + answers_list)
