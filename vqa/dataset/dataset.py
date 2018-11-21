@@ -102,47 +102,50 @@ class VQADataset:
 
         # Tokenizer path (pickle file previously generated in prepare() method)
         self.tokenizer_path = os.path.abspath(self.options['tokenizer_path'])
-        print("Tokenizer path -> ", self.tokenizer_path)
         # if directory doesn't exist, create it
         tokenizer_dir = os.path.dirname(self.tokenizer_path)
-        print("Tokenizer directory -> ", tokenizer_dir)
         if not os.path.isdir(tokenizer_dir):
             os.mkdir(tokenizer_dir)
+
+        if self.dataset_type != DatasetType.TEST:
+            print("Tokenizer path -> ", self.tokenizer_path)
+            # If Tokenizer pickle file is older than dataset.py, delete Tokenizer and GloVe matrix
+            dataset_py_path = os.path.abspath(inspect.stack()[0][1])
+            if os.path.isfile(self.tokenizer_path) and \
+            os.path.getmtime(self.tokenizer_path) < os.path.getmtime(dataset_py_path):
+                to_delete = input('\nWARNING: Tokenizer is outdated.  Remove it (y/n)? ')
+                if len(to_delete) > 0 and to_delete[:1] == 'y':
+                    os.remove(self.tokenizer_path)
+                    print('Tokenizer was outdated.  Removed ->', self.tokenizer_path)
+                    os.remove(self.glove_matrix_path)
+                    print('GloVe embedding matrix was outdated. Removed -> ', self.glove_matrix_path)
+                else:
+                    print('Continuing with pre-existing Tokenizer and GloVe embedding matrix.')
             
-        # If Tokenizer pickle file is older than dataset.py, delete Tokenizer and GloVe matrix
-        dataset_py_path = os.path.abspath(inspect.stack()[0][1])
-        if os.path.isfile(self.tokenizer_path) and \
-        os.path.getmtime(self.tokenizer_path) < os.path.getmtime(dataset_py_path):
-            to_delete = input('WARNING: Tokenizer is outdated.  Remove it (y/n)? ')
-            if len(to_delete) > 0 and to_delete[:1] == 'y':
-                os.remove(self.tokenizer_path)
-                print('Tokenizer was outdated.  Removed ->', self.tokenizer_path)
-                os.remove(self.glove_matrix_path)
-                print('GloVe embedding matrix was outdated. Removed -> ', self.glove_matrix_path)
+            # Load pre-trained Tokenizer if one exists
+            if os.path.isfile(self.tokenizer_path):
+                self.tokenizer = pickle.load(open(self.tokenizer_path, 'rb'))
+                print("Loading existing Tokenizer and attaching to dataset...")
+            # Create new Tokenizer, but it can't be used until it's trained in prepare() method
             else:
-                print('Continuing with pre-existing Tokenizer and GloVe embedding matrix.')
-            
+                print("Creating new (untrained) Tokenizer...")
+                # TODO: determine if we need to set the oov_token param for the Tokenizer
+                # NOTE: 0 is a reserved index that won't be assigned to any word.
+                # NOTE: Tokenizer removes all punctuation, so contraction preprocessing isn't needed
+                self.tokenizer = Tokenizer(num_words=None, lower=True)
+        else:
+            # for test set, it must be provided by training set, not loaded from disk
+            self.tokenizer = None
+
         # If GloVe matrix pickle file is older than dataset.py, delete GloVe matrix
-        if os.path.isfile(self.glove_matrix_path) and \
-        os.path.getmtime(self.glove_matrix_path) < os.path.getmtime(dataset_py_path):
-            to_delete = input('WARNING: GloVe embedding matrix is outdated. Remove it (y/n)? ')
+        if os.path.isfile(self.glove_matrix_path) and os.path.isfile(self.tokenizer_path) and \
+        os.path.getmtime(self.glove_matrix_path) < os.path.getmtime(self.tokenizer_path):
+            to_delete = input('\nWARNING: GloVe embedding matrix is outdated (older than Tokenizer). Remove it (y/n)? ')
             if len(to_delete) > 0 and to_delete[:1] == 'y':
                 os.remove(self.glove_matrix_path)
                 print('GloVe embedding matrix was outdated. Removed -> ', self.glove_matrix_path)
             else:
                 print('Continuing with pre-existing GloVe embedding matrix.')
-
-        # Load pre-trained Tokenizer if one exists
-        if os.path.isfile(self.tokenizer_path):
-            self.tokenizer = pickle.load(open(self.tokenizer_path, 'rb'))
-            print("Opening existing Tokenizer...")
-        # Create new Tokenizer, but it can't be used until it's trained in prepare() method
-        else:
-            print("Creating new (untrained) tokenizer...")
-            # TODO: determine if we need to set the oov_token param for the Tokenizer
-            # NOTE: 0 is a reserved index that won't be assigned to any word.
-            # NOTE: Tokenizer removes all punctuation, so contraction preprocessing isn't needed
-            self.tokenizer = Tokenizer(num_words=None, lower=True)
 
         # Check if max sentence length has been specified
         self.max_sentence_len = self.options.get('max_sentence_len', None)
@@ -161,7 +164,8 @@ class VQADataset:
         # List with samples
         self.samples = []
 
-    def prepare(self, answer_one_hot_mapping):
+        
+    def prepare(self, answer_one_hot_mapping, tokenizer=None):
         """Prepares the dataset to be used.
 
         It will load all the questions and answers in memory and references to
@@ -199,11 +203,14 @@ class VQADataset:
         answers = self._encode_answers(answers, answer_one_hot_mapping)
 
         # Initialize Tokenizer and GloVe matrix
+        if tokenizer is not None:
+            self.tokenizer = tokenizer
+            print('Using the Tokenizer that was provided by the training set.')
         if self.sent_init_type == 'glove':
-            self._init_tokenizer(build_glove_matrix=True)
+            self._init_tokenizer(questions, answers, build_glove_matrix=True)
             print('Tokenizer trained and GloVe matrix built...')
         else:
-            self._init_tokenizer()
+            self._init_tokenizer(questions, answers)
             print('Tokenizer trained...')
         
         max_len = 0  # To compute the maximum question length
@@ -234,6 +241,12 @@ class VQADataset:
 
         self._create_samples(images, questions, answers)
 
+        print('\nSample Questions -> Answers')
+        print('---------------------------')
+        _, ques_strings, _, _, _, ans_strings, _, _, _ = self.get_qa_lists()
+        for q, a in zip(ques_strings[:20], ans_strings[:20]):
+            print('{} -> {}'.format(q, a))
+        
     def _encode_answers(self,answers,answer_one_hot_mapping):
         """
            keep top [n_answer_classes] most common answers to reduce the number of answer classes
@@ -668,22 +681,21 @@ class VQADataset:
             self.max_sample_size = len(self.samples)
             print('Used max_sample_size for dataset {} = {}'.format(self.dataset_type, self.max_sample_size))
       
-        # build the dictionary of these lists the first time it's requested
-        if not hasattr(self, 'qa_lists'):
-            self.qa_lists = defaultdict(list)
-            for s in self.samples:
-                # populate attributes of Question objects
-                self.qa_lists['question_ids'].append(s.question.id)
-                self.qa_lists['question_strings'].append(s.question.question_str)
-                self.qa_lists['image_ids'].append(s.question.image_id)
-                if self.dataset_type != DatasetType.TEST:
-                    # populate attributes of Answer objects
-                    self.qa_lists['answer_ids'].append(s.answer.id)
-                    self.qa_lists['answer_strings'].append(s.answer.answer_str)
-                    self.qa_lists['question_types'].append(s.answer.question_type)
-                    self.qa_lists['answer_types'].append(s.answer.answer_type)
-                    self.qa_lists['answer_annotations'].append(s.answer.annotations) 
-                    self.qa_lists['one_hot_index'].append(s.answer.one_hot_index)
+        # build optional, alternate list-based representation
+        self.qa_lists = defaultdict(list)
+        for s in self.samples:
+            # populate attributes of Question objects
+            self.qa_lists['question_ids'].append(s.question.id)
+            self.qa_lists['question_strings'].append(s.question.question_str)
+            self.qa_lists['image_ids'].append(s.question.image_id)
+            if self.dataset_type != DatasetType.TEST or self.options['val_test_split']:
+                # populate attributes of Answer objects
+                self.qa_lists['answer_ids'].append(s.answer.id)
+                self.qa_lists['answer_strings'].append(s.answer.answer_str)
+                self.qa_lists['question_types'].append(s.answer.question_type)
+                self.qa_lists['answer_types'].append(s.answer.answer_type)
+                self.qa_lists['answer_annotations'].append(s.answer.annotations) 
+                self.qa_lists['one_hot_index'].append(s.answer.one_hot_index)
         
     def get_qa_lists(self):
         """
@@ -719,33 +731,22 @@ class VQADataset:
         _, _, _, _, ans_ids, ans_strings, ans_types, ans_annotations, ans_ohe = self.get_qa_lists()
         return ans_ids, ans_strings, ans_types, ans_annotations
         
-    def _init_tokenizer(self, build_glove_matrix=False):
+    def _init_tokenizer(self, questions, answers, build_glove_matrix=False):
         """Fits the tokenizer with the questions and answers and saves this tokenizer into a file for later use"""
 
         # contrary to the docs, `word_index` exists before training, so can't use `hasattr` check
         if len(self.tokenizer.word_index) == 0:
             # only have to train it once.
             print('Tokenizer is not yet trained.  Training now...')
-            _, questions_list, _, _, _, answers_list, _, _, _ = self.get_qa_lists()
-#             TODO: delete the following code after confirming get_qa_lists works
-#             questions_list = [question.question_str for _, question in questions.items()]
-#             answers_list = [answer.answer_str for _, answer in answers.items()]
-
-            print('Sample Questions | Answers')
-            for q, a in zip(questions_list[:10], answers_list[:10]):
-                print('{} | {}'.format(q, a))
-#             TODO: delete the following code after confirming zip code works
-#             print("Sample Questions : \n {}".format(questions_list[:10]))
-#             print ("\n*************\n")
-#             print("Sample Answers : \n {}".format(answers_list[:10]))
-
+            questions_list = [question.question_str for _, question in questions.items()]
+            answers_list = [answer.answer_str for _, answer in answers.items()]
             self.tokenizer.fit_on_texts(questions_list + answers_list)
 
             # Save tokenizer object
             pickle.dump(self.tokenizer, open(self.tokenizer_path, 'wb'))  
             
         else:
-            print('Trained Tokenizer is already available in dataset...')
+            print('Trained Tokenizer is available. Using it...')
 
         # Calculate vocab size. NOTE: this is different than Yang's number
         self.word_index = self.tokenizer.word_index           # Keras word_index starts indexing at 1
