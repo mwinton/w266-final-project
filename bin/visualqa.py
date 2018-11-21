@@ -94,24 +94,26 @@ def main(options):
     with open(json_path, 'w') as json_file:
         json_file.write(vqa_model.to_json())
 
+    # log non-empty model parameters (else mlflow crashes)
+    for key, val in options.items():
+        if val != '' and val != None:
+            mlflow.log_param(key, val)
+    print('Logged experiment params to MLFlow...')
+
     # Load dataset depending on the action to perform
     action = options['action_type']
     if action == 'train':
         if options['logging']:
             # log Keras model configuration
             mlflow.log_artifact(json_path)
-            # log non-empty model parameters (else mlflow crashes)
-            for key, val in options.items():
-                if val != '' and val != None:
-                    mlflow.log_param(key, val)
-            print('Logged experiment params to MLFlow...')
                     
         dataset = train_dataset
         val_dataset = load_dataset(DatasetType.VALIDATION,options,answer_one_hot_mapping)
         train(vqa_model, dataset, options, val_dataset=val_dataset)
         
     elif action == 'test':
-        dataset = load_dataset(DatasetType.TEST,options,answer_one_hot_mapping)
+        # test set needs to be tokenized with the same tokenizer that was used in the training set
+        dataset = load_dataset(DatasetType.TEST,options,answer_one_hot_mapping, tokenizer=train_dataset.tokenizer)
         test(vqa_model, dataset, options, attention_model)
 
     else:
@@ -126,7 +128,7 @@ def main(options):
         print('MLFlow logs for this run are available at ->', mlflow_url)
 
 
-def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
+def load_dataset(dataset_type, options, answer_one_hot_mapping=None, tokenizer=None):
     
     """
         Load the dataset from disk if available. If not, build it from the questions/answers json and image embeddings
@@ -134,16 +136,17 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
     """ 
 
     dataset_path = ModelOptions.get_dataset_path(options,dataset_type)
-    # if this isn't a training dataset, the answer one hot indices are expected to be available
+    # if this isn't a training dataset, the answer one hot indices and tokenizer are expected to be available
     if (dataset_type != DatasetType.TRAIN):
         assert(answer_one_hot_mapping != None) 
+        assert(tokenizer != None)
 
     # If pickle file is older than dataset.py, delete and recreate
     print('Checking timestamp on dataset -> {}'.format(dataset_path))
     dataset_py_path = os.path.abspath('../vqa/dataset/dataset.py')
     if os.path.isfile(dataset_path) and \
     os.path.getmtime(dataset_path) < os.path.getmtime(dataset_py_path):
-        to_delete = input('WARNING: Dataset (which also contains the Tokenizer) is outdated.  Remove it (y/n)? ')
+        to_delete = input('\nWARNING: Dataset (which also contains the Tokenizer) is outdated.  Remove it (y/n)? ')
         if len(to_delete) > 0 and to_delete[:1] == 'y':
             os.remove(dataset_path)
             print('Dataset was outdated. Removed -> ', dataset_path)
@@ -173,10 +176,10 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
                 mlflow.log_param('max_val_size', max_size)
         elif dataset_type == DatasetType.TEST:
             max_size = options["max_test_size"]   
-            if options['logging']:
-                # TODO: log this at better point for val_test_split
-                mlflow.log_param('test_dataset_size', len(samples))
-                mlflow.log_param('max_test_size', max_size)
+#             if options['logging']:
+#                 # TODO: log this at better point for val_test_split
+#                 mlflow.log_param('test_dataset_size', len(samples))
+#                 mlflow.log_param('max_test_size', max_size)
         else:
             max_size = None
 
@@ -201,9 +204,10 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
         print('Creating dataset...')
         dataset = VQADataset(dataset_type, options)
 
-        # as part of preparation, if one-hot mapping is not provided, generate it
+        # as part of preparation, if one-hot mapping is not provided, generate it.
+        # both are expected to be provided if this is a test set
         print('Preparing dataset...')
-        dataset.prepare(answer_one_hot_mapping)
+        dataset.prepare(answer_one_hot_mapping, tokenizer)
 
         # TODO: fix the n_vocab logic when we're ready to do standalone test sets.  Currently,
         # n_vocab will never get set if a training set isn't processeed first.
@@ -429,20 +433,27 @@ def test(model, dataset, options, attention_model=None):
     print('Building reverse word dictionary from one-hot answer mappings...')
     ohe_to_answer_str = {idx: word for word, idx in dataset.answer_one_hot_mapping.items()}
 
-    print('Saving results (questions, true answers, and predictions)...')
     if options['val_test_split']:
-        results_dict = [{'predicted_answer': ohe_to_answer_str[y_pred_ohe[idx]], 
-                         'question_id': sample.question.id,
-                         'question_str': sample.question.question_str,
-                         'question_type': sample.answer.question_type,
-                         'image_id': sample.question.image_id,
-                         'answer_id': sample.answer.id,
-                         'answer_str': sample.answer.answer_str,
-                         'answer_type': sample.answer.answer_type,
-                         'annotations': sample.answer.annotations
-                        }
-                        for idx, sample in enumerate(dataset.samples)]
+        print('Saving results (questions, true answers, and predictions)...')
+        no_answers = 0
+        results_dict = []
+        for idx, sample in enumerate(dataset.samples):
+            if not hasattr(sample,'answer'):
+                no_answers += 1
+            else:
+                results_dict.append({'predicted_answer': ohe_to_answer_str[y_pred_ohe[idx]], 
+                                     'question_id': sample.question.id,
+                                     'question_str': sample.question.question_str,
+                                     'question_type': sample.answer.question_type,
+                                     'image_id': sample.question.image_id,
+                                     'answer_id': sample.answer.id,
+                                     'answer_str': sample.answer.answer_str,
+                                     'answer_type': sample.answer.answer_type,
+                                     'annotations': sample.answer.annotations
+                                    })
+        print('Discarded {} samples without answers...'.format(no_answers))
     else:
+        print('Saving results (questions and predictions)...')
         results_dict = [{'predicted_answer': ohe_to_answer_str[y_pred_ohe[idx]], 
                          'question_id': sample.question.id,
                          'question_str': sample.question.question_str,
