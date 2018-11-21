@@ -29,6 +29,7 @@ class VQASample:
             answer (Answer): Answer object with the answer sample. If dataset type is TEST, no answer is expected
             dataset_type (DatasetType): type of dataset this sample belongs to. The default is DatasetType.TRAIN
         """
+        
         # Question
         if isinstance(question, Question):
             self.question = question
