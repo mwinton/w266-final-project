@@ -8,6 +8,7 @@ import json
 import mlflow
 import numpy as np
 import os
+import pandas as pd
 import pickle
 import pprint
 import sys
@@ -437,12 +438,12 @@ def test(model, dataset, options, attention_model=None):
     if options['val_test_split']:
         print('Saving results (questions, true answers, and predictions)...')
         no_answers = 0
-        results_dict = []
+        final_results = []
         for idx, sample in enumerate(dataset.samples):
             if not hasattr(sample,'answer'):
                 no_answers += 1
             else:
-                results_dict.append({'predicted_answer': ohe_to_answer_str[y_pred_ohe[idx]], 
+                final_results.append({'predicted_answer': ohe_to_answer_str[y_pred_ohe[idx]], 
                                      'question_id': sample.question.id,
                                      'question_str': sample.question.question_str,
                                      'question_type': sample.answer.question_type,
@@ -455,17 +456,19 @@ def test(model, dataset, options, attention_model=None):
         print('Discarded {} samples without answers...'.format(no_answers))
     else:
         print('Saving results (questions and predictions)...')
-        results_dict = [{'predicted_answer': ohe_to_answer_str[y_pred_ohe[idx]], 
+        final_results = [{'predicted_answer': ohe_to_answer_str[y_pred_ohe[idx]], 
                          'question_id': sample.question.id,
                          'question_str': sample.question.question_str,
                          'image_id': sample.question.image_id
                         }
                         for idx, sample in enumerate(dataset.samples)]
     with open(results_json_path, 'w') as f:
-        json.dump(results_dict, f)
+        json.dump(final_results, f)
     if options['logging']:
         mlflow.log_artifact(results_json_path)
     print('Results saved to -> ', results_json_path)
+    
+    calculate_accuracies(final_results, labeled=options['val_test_split'])
 
     # save attention probabilities to disk
     if not attention_model == None:
@@ -482,6 +485,68 @@ def test(model, dataset, options, attention_model=None):
         print('Attention_probabilities saved ->', probabilities_path)
         if options['logging']:
             mlflow.log_artifact(probabilities_path)
+
+def calculate_accuracies(final_results, labeled=False):
+    """
+        Calculate various accuracy metrics after a test run.  This method is only for
+        post-processing; Keras reports its built-in accuracy calculations during
+        training/validation runs.
+        
+        Args:
+            final_results (list) - each list item is a dict of name/value pairs
+    """
+    if not labeled:
+        return
+    
+    def _partial_acc(obs):
+        """
+            inner function used to calculate a partial accuracy based on how many human
+            raters' annotations the predicted value matches.  Applied to a single Series.
+
+            Args:
+                obs = pandas.Series object containing 'predicted_answer' and 'annotations' columns
+        """
+        prediction = obs['predicted_answer']
+        annotations = obs['annotations']
+        matches = 0
+        for a in annotations:
+            if prediction.strip().lower() == a.strip().lower():
+                matches += 1
+        return min(1, matches/3)
+
+    # convert to dataframe for easier manipulation
+    df = pd.DataFrame(final_results)
+    df['correct'] = (df['answer_str'].str.strip().str.lower() \
+                     == df['predicted_answer'].str.strip().str.lower()).astype(int)
+    df['partial'] = df.apply(_partial_acc, axis=1)
+    
+    # calculate accuracy and partial accuracy (suggested by original VQA paper)
+    acc = df['correct'].mean()
+    partial_acc = df['partial'].mean()
+    print('Accuracy = {:.3f}. Partial Accuracy = {:.3f}.'.format(acc, partial_acc))
+    if options['logging']:
+        mlflow.log_metric('test_acc', acc)
+        mlflow.log_metric('partial_acc', partial_acc)
+        
+    # calculate grouped accuracies by question type
+    acc_by_qtype = df.groupby(['question_type'])['correct','partial'] \
+        .mean() \
+        .sort_values(['correct'], ascending=False)
+    print('\nBest performing question types:')
+    print(acc_by_qtype[:10])
+    print('\nWorst performing question types:')
+    print(acc_by_qtype[-10:])
+    if options['logging']:
+        mlflow.log_param('acc_by_qtype', acc_by_qtype.to_dict('index'))  # log_metric only takes floats
+    
+    # calculate grouped accuracies by answer type
+    acc_by_anstype = df.groupby(['answer_type'])['correct','partial'] \
+        .mean() \
+        .sort_values(['correct'], ascending=False)
+    print('\nAccuracy by answer type')
+    print(acc_by_anstype)
+    if options['logging']:
+        mlflow.log_param('acc_by_anstype', acc_by_anstype.to_dict('index'))  
 
     
 # ------------------------------- CALLBACKS -------------------------------
