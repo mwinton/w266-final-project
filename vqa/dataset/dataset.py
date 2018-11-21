@@ -729,7 +729,7 @@ class VQADataset:
         """
         
         _, _, _, _, ans_ids, ans_strings, ans_types, ans_annotations, ans_ohe = self.get_qa_lists()
-        return ans_ids, ans_strings, ans_types, ans_annotations
+        return ans_ids, ans_strings, ans_types, ans_annotations, ans_ohe
         
     def _init_tokenizer(self, questions, answers, build_glove_matrix=False):
         """Fits the tokenizer with the questions and answers and saves this tokenizer into a file for later use"""
