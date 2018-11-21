@@ -777,13 +777,17 @@ class VQADataset:
                 
         # build glove_matrix containing embeddings, keyed by word id (from self.word_index)
         print('Buiding GloVe embedding matrix')
+        no_embedding = 0
         glove_matrix = np.zeros((self.vocab_size, embed_dim)) # accounts for <unk>
         for word, i in self.word_index.items():               # loops (vocab_size - 1) times because <unk> isn't in index
             glove_vector = glove_index.get(word)
             if glove_vector is not None:
                 # words not found in embedding index (incl. <unk>) will be all-zeros.
                 glove_matrix[i] = glove_vector
+            else:
+                no_embedding += 1
         # Save glove_matrix pickle file (which will be loaded by the model)
+        print('{} words didn\'t have GloVe embeddings'.format(no_embedding))
         pickle.dump(glove_matrix, open(glove_matrix_path, 'wb'))  
 
         print('Generated and saved GloVe embedding lookup matrix.  Shape: {}'.format(glove_matrix.shape))
