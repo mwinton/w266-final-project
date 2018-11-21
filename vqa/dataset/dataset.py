@@ -113,7 +113,7 @@ class VQADataset:
         dataset_py_path = os.path.abspath(inspect.stack()[0][1])
         if os.path.isfile(self.tokenizer_path) and \
         os.path.getmtime(self.tokenizer_path) < os.path.getmtime(dataset_py_path):
-            to_delete = input('WARNING: Tokenizer is outdated.  Remove it (y/n)?')
+            to_delete = input('WARNING: Tokenizer is outdated.  Remove it (y/n)? ')
             if len(to_delete) > 0 and to_delete[:1] == 'y':
                 os.remove(self.tokenizer_path)
                 print('Tokenizer was outdated.  Removed ->', self.tokenizer_path)
@@ -125,13 +125,13 @@ class VQADataset:
         # If GloVe matrix pickle file is older than dataset.py, delete GloVe matrix
         if os.path.isfile(self.glove_matrix_path) and \
         os.path.getmtime(self.glove_matrix_path) < os.path.getmtime(dataset_py_path):
-            to_delete = input('WARNING: GloVe embedding matrix is outdated. Remove it (y/n)?')
+            to_delete = input('WARNING: GloVe embedding matrix is outdated. Remove it (y/n)? ')
             if len(to_delete) > 0 and to_delete[:1] == 'y':
                 os.remove(self.glove_matrix_path)
                 print('GloVe embedding matrix was outdated. Removed -> ', self.glove_matrix_path)
             else:
                 print('Continuing with pre-existing GloVe embedding matrix.')
-        
+
         # Load pre-trained Tokenizer if one exists
         if os.path.isfile(self.tokenizer_path):
             self.tokenizer = pickle.load(open(self.tokenizer_path, 'rb'))
@@ -576,9 +576,8 @@ class VQADataset:
         """
 
         # There are no answers in the test dataset
-        if self.dataset_type == DatasetType.TEST:
-            if not self.val_test_split:
-                return {}
+        if self.dataset_type == DatasetType.TEST and not self.val_test_split:
+            return {}
 
         print('Loading VQA answers data from ->', answers_json_path)
         answers_json = json.load(open(answers_json_path))
@@ -629,17 +628,18 @@ class VQADataset:
 
         # Check for DatasetType
         answers_built = True
-        if self.dataset_type == DatasetType.TEST:
-            if not self.val_test_split:
-                answers_built = False
+        if self.dataset_type == DatasetType.TEST and not self.val_test_split:
+            answers_built = False
 
         if answers_built:
-            print("Creating Samples with Image,Questions and Answers")
+            print("Creating Samples with Images, Questions and Answers")
             for answer_id, answer in answers.items():
                 question = questions[answer.question_id]
                 image_id = question.image_id
                 image = images[image_id]
-                self.samples.append(VQASample(question, image, answer, self.dataset_type))
+                self.samples.append(VQASample(question, image, answer, \
+                                              self.dataset_type, \
+                                              val_test_split=self.options['val_test_split']))
         else:
             print("Creating Samples with Image and Questions ")
             for question_id, question in questions.items():
@@ -658,13 +658,15 @@ class VQADataset:
 
         if(self.val_test_split):
             if (self.dataset_type == DatasetType.VALIDATION):
+                print('Using first half of validation set (for validation)')
                 self.samples = self.samples[:len(self.samples)//2]
             elif (self.dataset_type == DatasetType.TEST):
+                print('Using reserved second half of validation set (for test)')
                 self.samples = self.samples[len(self.samples)//2:]
 
         if (self.max_sample_size == None):
             self.max_sample_size = len(self.samples)
-            print('Saved max_sample_size for dataset {} = {}'.format(self.dataset_type, self.max_sample_size))
+            print('Used max_sample_size for dataset {} = {}'.format(self.dataset_type, self.max_sample_size))
       
         # build the dictionary of these lists the first time it's requested
         if not hasattr(self, 'qa_lists'):
@@ -748,7 +750,7 @@ class VQADataset:
         # Calculate vocab size. NOTE: this is different than Yang's number
         self.word_index = self.tokenizer.word_index           # Keras word_index starts indexing at 1
         self.vocab_size = len(self.tokenizer.word_index) + 1  # +1 to account for <unk>
-        print('Words in tokenizer index (+1 for <unk>):', self.vocab_size)
+        print('Words in tokenizer index (incl. 1 for <unk>):', self.vocab_size)
 
         # it's possible that Tokenizer was originally created without GloVe embeddings,
         # so check if the file needs to be created

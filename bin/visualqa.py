@@ -74,9 +74,9 @@ def main(options):
 
     # Always load train dataset to obtain the one hot encoding indices 
     # and  max_sentence_len from it
+    print('Training dataset must be loaded, even for testing (it contains OHE indices).')
     train_dataset = load_dataset(DatasetType.TRAIN,options)
     options['max_sentence_len'] = train_dataset.max_sentence_len
-
     answer_one_hot_mapping = train_dataset.answer_one_hot_mapping
 
     # Load model
@@ -143,10 +143,10 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
     dataset_py_path = os.path.abspath('../vqa/dataset/dataset.py')
     if os.path.isfile(dataset_path) and \
     os.path.getmtime(dataset_path) < os.path.getmtime(dataset_py_path):
-        to_delete = input('WARNING: Dataset (which also contains the Tokenizer) is outdated.  Remove it (y/n)?')
+        to_delete = input('WARNING: Dataset (which also contains the Tokenizer) is outdated.  Remove it (y/n)? ')
         if len(to_delete) > 0 and to_delete[:1] == 'y':
             os.remove(dataset_path)
-            print('GloVe embedding matrix was outdated. Removed -> ', dataset_path)
+            print('Dataset was outdated. Removed -> ', dataset_path)
         else:
             print('Continuing with pre-existing dataset.')
 
@@ -156,58 +156,53 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping = None):
             dataset = pickle.load(f)
             print('Dataset loaded')
 
-            options['n_vocab'] = dataset.vocab_size
+        options['n_vocab'] = dataset.vocab_size
             
-            dataset.samples = sorted(dataset.samples, key=lambda sample: sample.image.features_idx)
-            samples = dataset.samples
+        dataset.samples = sorted(dataset.samples, key=lambda sample: sample.image.features_idx)
+        samples = dataset.samples
 
-            if dataset_type == DatasetType.TRAIN:
-                max_size = options['max_train_size'] 
-                if options['logging']:
-                    mlflow.log_param('train_dataset_size', len(samples))
-                    mlflow.log_param('max_train_size', max_size)
-            elif dataset_type == DatasetType.VALIDATION:
-                max_size = options["max_val_size"]   
-                if options['logging']:
-                    mlflow.log_param('val_dataset_size', len(samples))
-                    mlflow.log_param('max_val_size', max_size)
-            elif dataset_type == DatasetType.TEST:
-                max_size = options["max_test_size"]   
-                if options['logging']:
-                    mlflow.log_param('test_dataset_size', len(samples))
-                    mlflow.log_param('max_test_size', max_size)
-            else:
-                max_size = None
+        if dataset_type == DatasetType.TRAIN:
+            max_size = options['max_train_size'] 
+            if options['logging']:
+                mlflow.log_param('train_dataset_size', len(samples))
+                mlflow.log_param('max_train_size', max_size)
+        elif dataset_type == DatasetType.VALIDATION:
+            max_size = options["max_val_size"]   
+            if options['logging']:
+                mlflow.log_param('val_dataset_size', len(samples))
+                mlflow.log_param('max_val_size', max_size)
+        elif dataset_type == DatasetType.TEST:
+            max_size = options["max_test_size"]   
+            if options['logging']:
+                # TODO: log this at better point for val_test_split
+                mlflow.log_param('test_dataset_size', len(samples))
+                mlflow.log_param('max_test_size', max_size)
+        else:
+            max_size = None
 
-            if(max_size == None):
-                dataset.max_sample_size = len(samples)
-            else:
-                dataset.max_sample_size = min(max_size,len(samples))
+        if(max_size == None):
+            dataset.max_sample_size = len(samples)
+        else:
+            dataset.max_sample_size = min(max_size,len(samples))
 
-            if dataset_type==DatasetType.TRAIN :
-                answer_one_hot_mapping = dataset.answer_one_hot_mapping
+        # check to make sure the samples list is sorted by image indices
+        if(all(samples[i].image.features_idx <= samples[i+1].image.features_idx \
+               for i in range(len(samples)-1))):
+            print("Passed sorted sample array check")
+        else:
+            assert(0)
 
-            # check to make sure the samples list is sorted by image indices
-            if( all(samples[i].image.features_idx <= samples[i+1].image.features_idx
-                    for i in range(len(samples)-1))) :
-
-                 print("Passed sorted sample array check")
-            else:
-                 assert(0)
-
-
-            print("{} loaded from disk. Dataset size {}, Processing {} samples "
-                                   .format(dataset_type, len(samples), max_size))
+        print("{} loaded from disk. Dataset size {}, processing limited to max_size = {}." \
+              .format(dataset_type, len(samples), max_size))
 
     except IOError:
 
         # If dataset file does not exist create and save it for future runs.   
-
         print('Creating dataset...')
         dataset = VQADataset(dataset_type, options)
-        print('Preparing dataset...')
 
         # as part of preparation, if one-hot mapping is not provided, generate it
+        print('Preparing dataset...')
         dataset.prepare(answer_one_hot_mapping)
 
         # TODO: fix the n_vocab logic when we're ready to do standalone test sets.  Currently,
@@ -435,17 +430,25 @@ def test(model, dataset, options, attention_model=None):
     ohe_to_answer_str = {idx: word for word, idx in dataset.answer_one_hot_mapping.items()}
 
     print('Saving results (questions, true answers, and predictions)...')
-    results_dict = [{'predicted_answer': ohe_to_answer_str[y_pred_ohe[idx]], 
-                     'question_id': sample.question.id,
-                     'question_str': sample.question.question_str,
-                     'question_type': sample.answer.question_type,
-                     'image_id': sample.question.image_id,
-                     'answer_id': sample.answer.id,
-                     'answer_str': sample.answer_str,
-                     'answer_type': sample.answer_type,
-                     'annotations': sample.answer.annotations
-                    }
-                    for idx, sample in enumerate(dataset.samples)]
+    if options['val_test_split']:
+        results_dict = [{'predicted_answer': ohe_to_answer_str[y_pred_ohe[idx]], 
+                         'question_id': sample.question.id,
+                         'question_str': sample.question.question_str,
+                         'question_type': sample.answer.question_type,
+                         'image_id': sample.question.image_id,
+                         'answer_id': sample.answer.id,
+                         'answer_str': sample.answer.answer_str,
+                         'answer_type': sample.answer.answer_type,
+                         'annotations': sample.answer.annotations
+                        }
+                        for idx, sample in enumerate(dataset.samples)]
+    else:
+        results_dict = [{'predicted_answer': ohe_to_answer_str[y_pred_ohe[idx]], 
+                         'question_id': sample.question.id,
+                         'question_str': sample.question.question_str,
+                         'image_id': sample.question.image_id
+                        }
+                        for idx, sample in enumerate(dataset.samples)]
     with open(results_json_path, 'w') as f:
         json.dump(results_dict, f)
     if options['logging']:

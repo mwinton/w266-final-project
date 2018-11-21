@@ -133,8 +133,10 @@ class ModelOptions(object):
         selector = {
             DatasetType.TRAIN      : options["train_dataset_path"],
             DatasetType.VALIDATION : options["val_dataset_path"],
-            DatasetType.TEST       : options["test_dataset_path"],
+            DatasetType.TEST       : options["test_dataset_path"],  # this is the official VQA test set (unlabeled)
         }
+        if (options['val_test_split']):
+            selector[DatasetType.TEST] = options['valtest_dataset_path']
         return selector.get(datasetType)
 
     @staticmethod
@@ -274,6 +276,7 @@ class ModelOptions(object):
         options['glove_matrix_path']  = options['glove_root'] + prefix + 'glove_matrix.p'  # built from tokenizer
         options['train_dataset_path'] = local_data_path + prefix + 'train_dataset.p'
         options['val_dataset_path']   = local_data_path + prefix + 'validate_dataset.p'
+        options['valtest_dataset_path']   = local_data_path + prefix + 'valtest_dataset.p'
         options['test_dataset_path']  = local_data_path + prefix + 'test_dataset.p'
 
         weights_dir_path = options['weights_dir_path']
