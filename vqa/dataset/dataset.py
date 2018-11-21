@@ -3,6 +3,7 @@
 # 
 # Added Memory management related code for Image Embeddings
 
+import datetime
 import h5py
 import inspect
 import json
@@ -94,6 +95,10 @@ class VQADataset:
 
         # Number of answer classes
         self.n_answer_classes = self.options['n_answer_classes']
+        
+        # Sentence embedding params
+        self.sent_init_type = self.options['sent_init_type']
+        self.glove_matrix_path = self.options['glove_matrix_path']
 
         # Tokenizer path (pickle file previously generated in prepare() method)
         self.tokenizer_path = os.path.abspath(self.options['tokenizer_path'])
@@ -104,12 +109,28 @@ class VQADataset:
         if not os.path.isdir(tokenizer_dir):
             os.mkdir(tokenizer_dir)
             
-        # If Tokenizer pickle file is older than dataset.py, delete and recreate
+        # If Tokenizer pickle file is older than dataset.py, delete Tokenizer and GloVe matrix
         dataset_py_path = os.path.abspath(inspect.stack()[0][1])
         if os.path.isfile(self.tokenizer_path) and \
         os.path.getmtime(self.tokenizer_path) < os.path.getmtime(dataset_py_path):
-            os.remove(self.tokenizer_path)
-            print('Tokenizer was outdated.  Removed ->', self.tokenizer_path)
+            to_delete = input('WARNING: Tokenizer is outdated.  Remove it (y/n)?')
+            if len(to_delete) > 0 and to_delete[:1] == 'y':
+                os.remove(self.tokenizer_path)
+                print('Tokenizer was outdated.  Removed ->', self.tokenizer_path)
+                os.remove(self.glove_matrix_path)
+                print('GloVe embedding matrix was outdated. Removed -> ', self.glove_matrix_path)
+            else:
+                print('Continuing with pre-existing Tokenizer and GloVe embedding matrix.')
+            
+        # If GloVe matrix pickle file is older than dataset.py, delete GloVe matrix
+        if os.path.isfile(self.glove_matrix_path) and \
+        os.path.getmtime(self.glove_matrix_path) < os.path.getmtime(dataset_py_path):
+            to_delete = input('WARNING: GloVe embedding matrix is outdated. Remove it (y/n)?')
+            if len(to_delete) > 0 and to_delete[:1] == 'y':
+                os.remove(self.glove_matrix_path)
+                print('GloVe embedding matrix was outdated. Removed -> ', self.glove_matrix_path)
+            else:
+                print('Continuing with pre-existing GloVe embedding matrix.')
         
         # Load pre-trained Tokenizer if one exists
         if os.path.isfile(self.tokenizer_path):
@@ -117,7 +138,7 @@ class VQADataset:
             print("Opening existing Tokenizer...")
         # Create new Tokenizer, but it can't be used until it's trained in prepare() method
         else:
-            print("Creating tokenizer...")
+            print("Creating new (untrained) tokenizer...")
             # TODO: determine if we need to set the oov_token param for the Tokenizer
             # NOTE: 0 is a reserved index that won't be assigned to any word.
             # NOTE: Tokenizer removes all punctuation, so contraction preprocessing isn't needed
@@ -177,10 +198,14 @@ class VQADataset:
         # is formulated as a classification problem
         answers = self._encode_answers(answers, answer_one_hot_mapping)
 
-        # Ensure we have a trained tokenizer with a dictionary
-        self._init_tokenizer(questions, answers)
-        print('Tokenizer trained')
-
+        # Initialize Tokenizer and GloVe matrix
+        if self.sent_init_type == 'glove':
+            self._init_tokenizer(questions, answers, build_glove_matrix=True)
+            print('Tokenizer trained and GloVe matrix built...')
+        else:
+            self._init_tokenizer(questions, answers)
+            print('Tokenizer trained...')
+        
         max_len = 0  # To compute the maximum question length
         # Tokenize and encode questions and answers
         debug = 0
@@ -716,13 +741,14 @@ class VQADataset:
         _, _, _, _, ans_ids, ans_strings, ans_types, ans_annotations = self.get_qa_lists()
         return ans_ids, ans_strings, ans_types, ans_annotations
         
-    def _init_tokenizer(self, questions, answers):
+    def _init_tokenizer(self, questions, answers, build_glove_matrix=False):
         """Fits the tokenizer with the questions and answers and saves this tokenizer into a file for later use"""
 
         # contrary to the docs, `word_index` exists before training, so can't use `hasattr` check
         if len(self.tokenizer.word_index) == 0:
             # only have to train it once.
             print('Tokenizer is not yet trained.  Training now...')
+            need_to_build_glove = True
             questions_list = [question.question_str for _, question in questions.items()]
             answers_list = [answer.answer_str for _, answer in answers.items()]
 
@@ -732,14 +758,51 @@ class VQADataset:
 
             self.tokenizer.fit_on_texts(questions_list + answers_list)
 
-            # Calculate vocab size. NOTE: this is different than Yang's number
-            self.vocab_size = len(self.tokenizer.word_index)
-            print('Words in tokenizer index: ', self.vocab_size)
-
             # Save tokenizer object
-            pickle.dump(self.tokenizer, open(self.tokenizer_path, 'wb'))
+            pickle.dump(self.tokenizer, open(self.tokenizer_path, 'wb'))  
+            
         else:
-            print('Trained Tokenizer is already available...')
+            print('Trained Tokenizer is already available in dataset...')
+
+        # Calculate vocab size. NOTE: this is different than Yang's number
+        self.word_index = self.tokenizer.word_index
+        self.vocab_size = len(self.tokenizer.word_index) + 1  # +1 to account for <unk>
+        print('Words in tokenizer index: ', self.vocab_size)
+
+        # it's possible that Tokenizer was originally created without GloVe embeddings,
+        # so check if the file needs to be created
+        if build_glove_matrix:
+            self._init_glove()
+
+    def _init_glove(self):
+        """
+            Builds a lookup matrix of GloVe embeddings and save to disk as a separate pickle file.
+            It can't just be an attribute of the dataset because in test mode, it will need to be loaded
+            separately.
+        """
+        
+        glove_path = self.options['glove_path']  # input
+        glove_matrix_path = self.options['glove_matrix_path']  # output
+        
+        print('Loading glove embeddings from ->', glove_path)
+        print('Saving glove matrix to ->', glove_matrix_path)
+        glove_index = pickle.load(open(glove_path, 'rb')) # dictionary, keyed by word (string)
+        # Confirm embedding dimension by looking up "the"; if "the" isn't present the embeddings aren't valid
+        embed_dim = self.options['n_sent_embed'] = len(glove_index['the'])
+        print('Using {} dimensional GloVe embeddings'.format(embed_dim))
+                
+        # build glove_matrix containing embeddings, keyed by word id (from self.word_index)
+        print('Buiding GloVe embedding matrix')
+        glove_matrix = np.zeros((len(self.word_index) + 1, embed_dim)) 
+        for word, i in self.word_index.items():
+            glove_vector = glove_index.get(word)
+            if glove_vector is not None:
+                # words not found in embedding index will be all-zeros.
+                glove_matrix[i] = glove_vector
+        # Save glove_matrix pickle file (which will be loaded by the model)
+        pickle.dump(glove_matrix, open(glove_matrix_path, 'wb'))  
+
+        print('Generated and saved GloVe embedding lookup matrix.  Shape: {}'.format(glove_matrix.shape))
             
     def _get_image_ids(self, image_features_path):
         """
