@@ -36,7 +36,7 @@ class VQASample:
             raise TypeError('question has to be an instance of class Question')
 
         # Answer
-        if dataset_type != DatasetType.TEST and dataset_type != DatasetType.EVAL:
+        if dataset_type != DatasetType.TEST:
             if isinstance(answer, Answer):
                 self.answer = answer
             else:

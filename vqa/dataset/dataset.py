@@ -678,7 +678,6 @@ class VQADataset:
                     # populate attributes of Answer objects
                     self.qa_lists['answer_ids'].append(s.answer.id)
                     self.qa_lists['answer_strings'].append(s.answer.answer_str)
-                    self.qa_lists['answer_types'].append(s.answer.answer_type)
                     self.qa_lists['question_types'].append(s.answer.question_type)
                     self.qa_lists['answer_types'].append(s.answer.answer_type)
                     self.qa_lists['answer_annotations'].append(s.answer.annotations) 
