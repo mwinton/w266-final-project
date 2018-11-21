@@ -20,7 +20,7 @@ class VQASample:
         dataset_type (DatasetType): the type of dataset this sample belongs to
     """
 
-    def __init__(self, question, image, answer=None, dataset_type=DatasetType.TRAIN):
+    def __init__(self, question, image, answer=None, dataset_type=DatasetType.TRAIN, val_test_split=False):
         """Instantiate a VQASample.
 
         Args:
@@ -36,7 +36,8 @@ class VQASample:
             raise TypeError('question has to be an instance of class Question')
 
         # Answer
-        if dataset_type != DatasetType.TEST:
+        if (dataset_type != DatasetType.TEST) or \
+        (dataset_type == DatasetType.TEST and val_test_split):
             if isinstance(answer, Answer):
                 self.answer = answer
             else:
