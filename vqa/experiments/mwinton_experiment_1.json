@@ -1,6 +1,7 @@
 {
   "experiment_id": 1,
   "experiment_name": "Text_only_CNN",
+  "n_attention_layers": 0,
   "model_name": "text_cnn",
   "optimizer": "sgd",
   "sgd_learning_rate": 0.1,
