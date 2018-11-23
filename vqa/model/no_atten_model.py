@@ -28,6 +28,9 @@ class NoAttentionNetwork(object):
         verbose = options['verbose']
         print('Building graph...')
 
+        # check options for alternate activation type
+        activation_type = options.get('activation_type', 'tanh')
+
         batch_size = self.options['batch_size']
         n_attention_input = self.options['n_attention_input']
         
@@ -184,9 +187,28 @@ class NoAttentionNetwork(object):
         # replace attention layers in original model with simple concatenation of features
         #
         
+        # Single dense layer to reduce sentence dimensions for attention
+        # in:  [batch_size, n_attention_input]
+        # out: [batch_size, n_attention_features]
+        n_attention_features = self.options['n_attention_features']
+        layer_v_q = Dense(units=n_attention_features,
+                                activation=activation_type,
+                                use_bias=True,
+                                kernel_initializer='random_uniform',
+                                bias_initializer='zeros',
+                                kernel_regularizer=self.regularizer,
+                                name='v_q_reduced'
+                               )(layer_v_q)
+        if verbose: print('layer_v_q output shape', layer_v_q.shape)
+
+        # need to expand the rank of the tensor to concatenate with image vector
+        # in:  [batch_size, n_attention_features]
+        # out: [batch_size, 1, n_attention_features]
+        layer_v_q = Reshape((1, n_attention_features))(layer_v_q)
+
         # apply batch normalization to get image and sentence features on same scale; then concatenate
-        layer_v_i_norm  = BatchNormalization(name='batch_norm_image_%d' % (idx))(layer_reshaped_vgg16)
-        layer_v_q_norm  = BatchNormalization(name='batch_norm_sent_%d' % (idx))(layer_v_q)
+        layer_v_i_norm  = BatchNormalization(name='batch_norm_image')(layer_reshaped_vgg16)
+        layer_v_q_norm  = BatchNormalization(name='batch_norm_sent')(layer_v_q)
         layer_all_feats = Concatenate(axis=1, name='all_feats')([layer_v_i_norm, layer_v_q_norm])
         if verbose: print('layer_all_feats output shape:', layer_all_feats.shape)
         
