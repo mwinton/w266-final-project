@@ -410,7 +410,19 @@ def test(model, dataset, options, attention_model=None):
     else:
         test_dataset_size = len(dataset.samples)
 
-    results = model.predict_generator(dataset.batch_generator(),
+    model_name = options['model_name']
+    # flag to tell batch_generator not to yield image data
+    if model_name == 'text_cnn':
+        is_text_only = True
+    else:
+        is_text_only = False
+    # flag to tell batch_generator not to yield sentence data
+    if model_name == 'vggnet_only':
+        is_img_only = True
+    else:
+        is_img_only = False
+        
+    results = model.predict_generator(dataset.batch_generator(is_text_only, is_img_only),
                                       steps=test_dataset_size//batch_size + 1,
                                       verbose=1)
 

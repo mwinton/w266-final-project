@@ -7,6 +7,7 @@ import keras.layers
 from keras.layers import Activation, Add, Concatenate, Conv1D, Dense, Dropout, Embedding
 from keras.layers import Input, GlobalMaxPooling1D, Lambda, Multiply, RepeatVector, Reshape
 from keras.models import Model
+from keras.regularizers import l2
 import mlflow
 import mlflow.keras
 from pprint import pprint
@@ -30,12 +31,18 @@ class VGGNetModel(object):
         batch_size = self.options['batch_size']
         n_attention_input = self.options['n_attention_input']
         
+        # Instantiate a regularizer if weight-decay was specified
+        self.regularizer = None
+        if self.options.get('regularizer', False) == True:
+            self.regularizer = l2(options['weight_decay'])
+            if verbose: print('Using L2 regularizer with weight_decay={}...'.format(options['weight_decay']))
+        else:
+            print('No regularization applied')
+
         #
         # begin image pipeline
         # diagram: https://docs.google.com/drawings/d/1ZWRPmy4e2ACvqOsk4ttAEaWZfUX_qiQEb0DE05e8dXs/edit
         #
-        
-        # TODO: make sure images are rescaled from 256x256 -> 448x448 during preprocessing
         
         image_input_dim = self.options['vggnet_input_dim']
         image_input_depth = self.options['image_depth']
@@ -46,7 +53,8 @@ class VGGNetModel(object):
 
         if options['start_with_image_embed']:
             # if loading embeddings directly, we can start with this layer
-            layer_reshaped_vgg16  = Input(batch_shape=(None,n_image_regions,n_image_embed),name="reshaped_vgg16")
+            layer_image_input = layer_reshaped_vgg16  = Input(batch_shape=(None,n_image_regions,n_image_embed),name="reshaped_vgg16")
+            
             if verbose: print('layer_reshaped_vgg16 output shape:', layer_reshaped_vgg16.shape)
         
         # Single dense layer to transform dimensions to match sentence dims
@@ -57,6 +65,7 @@ class VGGNetModel(object):
                           use_bias=True,
                           kernel_initializer='random_uniform',
                           bias_initializer='zeros',
+                          kernel_regularizer=self.regularizer,
                           name='v_i'
                          )(layer_reshaped_vgg16)
         if verbose: print('layer_v_i output shape:', layer_v_i.shape)
@@ -78,6 +87,7 @@ class VGGNetModel(object):
                                   use_bias=True,
                                   kernel_initializer='random_uniform',
                                   bias_initializer='zeros',
+                                  kernel_regularizer=self.regularizer,
                                   name='prob_answer'
                                  )(layer_max_pooled_i)
         if verbose: print('layer_prob_answer output shape:', layer_prob_answer.shape)
@@ -91,12 +101,7 @@ class VGGNetModel(object):
         print('Compiling model with {} optimizer...'.format(self.options['optimizer']))
         
         # compile model so that it's ready to train
-        self.model.compile (optimizer=optimizer,
-                            loss='categorical_crossentropy',  # can train if not using the sparse version
-                            # TODO: to match Yang's paper we may need to write our own loss function
-                            # see https://github.com/keras-team/keras/blob/master/keras/losses.py
-                            metrics=['accuracy'])
-
+        self.model.compile (optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
 
     def summary(self):
         ''' wrapper around keras.Model.summary()'''

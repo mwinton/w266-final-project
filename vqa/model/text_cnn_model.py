@@ -7,6 +7,7 @@ import keras.layers
 from keras.layers import Activation, Add, Concatenate, Conv1D, Dense, Dropout, Embedding
 from keras.layers import Input, GlobalMaxPooling1D, Lambda, Multiply, RepeatVector, Reshape
 from keras.models import Model
+from keras.regularizers import l2
 import mlflow
 import mlflow.keras
 from pprint import pprint
@@ -30,6 +31,14 @@ class TextCNNModel(object):
         batch_size = self.options['batch_size']
         n_attention_input = self.options['n_attention_input']
         
+        # Instantiate a regularizer if weight-decay was specified
+        self.regularizer = None
+        if self.options.get('regularizer', False) == True:
+            self.regularizer = l2(options['weight_decay'])
+            if verbose: print('Using L2 regularizer with weight_decay={}...'.format(options['weight_decay']))
+        else:
+            print('No regularization applied')
+
         #
         # begin sentence pipeline
         # diagram: https://docs.google.com/drawings/d/1PJKOcQA73sUvH-w3UlLOhFH0iHOaPJ9-IRb7S75yw0M/edit
@@ -37,6 +46,7 @@ class TextCNNModel(object):
         
         max_t = self.options['max_sentence_len']
         V = self.options['n_vocab']
+        if verbose: print('input vocab size:', V)
 
         # sentence input receives sequences of [batch_size, max_time] integers between 1 and V
         layer_sent_input = Input(batch_shape=(None, max_t),
@@ -50,20 +60,31 @@ class TextCNNModel(object):
         # This embedding layer will encode the input sequence
         # in:  [batch_size, max_t]
         # out: [batch_size, max_t, n_text_embed]
-        sent_embed_initializer = self.options.get('sent_init_type', 'uniform')
+        sent_embed_initializer = self.options['sent_init_type']
         sent_embed_dim = self.options['n_sent_embed']
-        if sent_embed_initializer == 'uniform':
+        if sent_embed_initializer == 'random':
             layer_x = Embedding(input_dim=V, 
                                 output_dim=sent_embed_dim,
                                 input_length=max_t,
-                                embeddings_initializer=sent_embed_initializer,
+                                embeddings_initializer='uniform',
                                 mask_zero=False,  # CNN layers don't seem to be able to deal with True
                                 name='sentence_embedding'
                                )(layer_sent_input)
-#                                )(kbe.to_dense(layer_sent_input))
-        # TODO: implement GloVe option
         elif sent_embed_initializer == 'glove':
-            pass
+            trainable = options['sent_embed_trainable']
+            glove_matrix = pickle.load(open(options['glove_matrix_path'], 'rb'))
+            if sent_embed_dim != glove_matrix.shape[1]:
+                # if options don't match the matrix shape, override with actual (but logs may be wrong)
+                sent_embed_dim = self.options['n_sent_embed'] = glove_matrix.shape[1]
+            print('Loaded GloVe embedding matrix')
+            layer_x = Embedding(input_dim=V, 
+                                output_dim=sent_embed_dim, 
+                                input_length=max_t,
+                                weights=[glove_matrix],
+                                trainable=trainable,
+                                name='sentence_embedding'
+                               )(layer_sent_input)
+
         if verbose: print('layer_x output shape:', layer_x.shape)
     
         # Unigram CNN layer
@@ -78,6 +99,7 @@ class TextCNNModel(object):
                                     use_bias=True,
                                     kernel_initializer='random_uniform',
                                     bias_initializer='zeros',
+                                    kernel_regularizer=self.regularizer,
                                     name='unigram_conv'
                                    )(layer_x)
         if verbose: print('layer_conv_unigram output shape:', layer_conv_unigram.shape)
@@ -100,6 +122,7 @@ class TextCNNModel(object):
                                    use_bias=True,
                                    kernel_initializer='random_uniform',
                                    bias_initializer='zeros',
+                                   kernel_regularizer=self.regularizer,
                                    name='bigram_conv'
                                   )(layer_x)
         if verbose: print('layer_conv_bigram output shape:', layer_conv_bigram.shape)
@@ -122,6 +145,7 @@ class TextCNNModel(object):
                               use_bias=True,
                               kernel_initializer='random_uniform',
                               bias_initializer='zeros',
+                              kernel_regularizer=self.regularizer,
                               name='trigram_conv'
                              )(layer_x)
         if verbose: print('layer_conv_trigram output shape:', layer_conv_trigram.shape)
@@ -148,6 +172,7 @@ class TextCNNModel(object):
                                   use_bias=True,
                                   kernel_initializer='random_uniform',
                                   bias_initializer='zeros',
+                                  kernel_regularizer=self.regularizer,
                                   name='prob_answer'
                                  )(layer_v_q)
         if verbose: print('layer_prob_answer output shape:', layer_prob_answer.shape)
@@ -161,11 +186,7 @@ class TextCNNModel(object):
         print('Compiling model with {} optimizer...'.format(self.options['optimizer']))
         
         # compile model so that it's ready to train
-        self.model.compile (optimizer=optimizer,
-                            loss='categorical_crossentropy',  # can train if not using the sparse version
-                            # TODO: to match Yang's paper we may need to write our own loss function
-                            # see https://github.com/keras-team/keras/blob/master/keras/losses.py
-                            metrics=['accuracy'])
+        self.model.compile (optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
 
     def summary(self):
         ''' wrapper around keras.Model.summary()'''

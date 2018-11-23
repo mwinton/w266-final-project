@@ -1,8 +1,8 @@
 {
-  "experiment_id": 1,
-  "experiment_name": "Text_only_CNN",
+  "experiment_id": 4,
+  "experiment_name": "VGGNet_only",
   "n_attention_layers": 0,
-  "model_name": "text_cnn",
+  "model_name": "vggnet_only",
   "optimizer": "sgd",
   "sgd_learning_rate": 0.1,
   "sgd_momentum": 0.9,
