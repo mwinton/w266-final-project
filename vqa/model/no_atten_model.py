@@ -3,21 +3,24 @@ import keras.activations
 import keras.backend as kbe
 from keras.callbacks import EarlyStopping
 import keras.layers
-from keras.layers import Concatenate, Conv1D, Dense, Dropout, Embedding, Input, GlobalMaxPooling1D
+from keras.layers import Concatenate, Conv1D, Dense, Dropout, Embedding
+from keras.layers import Input, GlobalMaxPooling1D, Reshape, Softmax
+from keras.layers import BatchNormalization 
 from keras.models import Model
 from keras.regularizers import l2
 import mlflow
 import mlflow.keras
+import pickle
 from pprint import pprint
 
 from . options import ModelOptions
 
-class TextCNNModel(object):
+class NoAttentionNetwork(object):
     
     def __init__ (self, options):
-        ''' Initialize Model '''
+        ''' Initialize SAN object '''
         if options['verbose']:
-            print('Initializing Text-only CNN model...')
+            print('Initializing SAN...')
         self.options = options
     
     def build_graph (self, options):
@@ -37,10 +40,27 @@ class TextCNNModel(object):
             print('No regularization applied')
 
         #
+        # begin image pipeline
+        # diagram: https://docs.google.com/drawings/d/1ZWRPmy4e2ACvqOsk4ttAEaWZfUX_qiQEb0DE05e8dXs/edit
+        #
+        
+#         image_input_dim = self.options['vggnet_input_dim']
+#         image_input_depth = self.options['image_depth']
+
+        n_image_regions = self.options['n_image_regions']
+        n_image_embed = self.options['n_image_embed']
+
+        # pre-load image loading embeddings
+        # in:  [batch_size, n_image_regions, image_output_depth]
+        layer_reshaped_vgg16 = Input(batch_shape=(None, n_image_regions, n_image_embed), name="reshaped_vgg16")
+        if verbose: print('layer_reshaped_vgg16 output shape:', layer_reshaped_vgg16.shape)
+
+        #
         # begin sentence pipeline
         # diagram: https://docs.google.com/drawings/d/1PJKOcQA73sUvH-w3UlLOhFH0iHOaPJ9-IRb7S75yw0M/edit
         #
         
+        # these are both set when the dataset is prepared
         max_t = self.options['max_sentence_len']
         V = self.options['n_vocab']
         if verbose: print('input vocab size:', V)
@@ -49,7 +69,6 @@ class TextCNNModel(object):
         layer_sent_input = Input(batch_shape=(None, max_t),
                                  dtype='int32',
                                  sparse=False,
-#                                  sparse=True,  # if we start as sparse, have to convert to dense later
                                  name='sentence_input'
                                 )
         if verbose: print('layer_sent_input shape:', layer_sent_input._keras_shape)
@@ -57,6 +76,7 @@ class TextCNNModel(object):
         # This embedding layer will encode the input sequence
         # in:  [batch_size, max_t]
         # out: [batch_size, max_t, n_text_embed]
+        # default to randomly initialized embeddings (rather than GloVe)
         sent_embed_initializer = self.options['sent_init_type']
         sent_embed_dim = self.options['n_sent_embed']
         if sent_embed_initializer == 'random':
@@ -81,7 +101,7 @@ class TextCNNModel(object):
                                 trainable=trainable,
                                 name='sentence_embedding'
                                )(layer_sent_input)
-
+        
         if verbose: print('layer_x output shape:', layer_x.shape)
     
         # Unigram CNN layer
@@ -159,7 +179,24 @@ class TextCNNModel(object):
         layer_v_q = Concatenate(axis=1, name='v_q')(
             [layer_pooled_unigram, layer_pooled_bigram, layer_pooled_trigram])
         if verbose: print('layer_v_q output shape:', layer_v_q.shape)
-                
+        
+        #
+        # replace attention layers in original model with simple concatenation of features
+        #
+        
+        # apply batch normalization to get image and sentence features on same scale; then concatenate
+        layer_v_i_norm  = BatchNormalization(name='batch_norm_image_%d' % (idx))(layer_reshaped_vgg16)
+        layer_v_q_norm  = BatchNormalization(name='batch_norm_sent_%d' % (idx))(layer_v_q)
+        layer_all_feats = Concatenate(axis=1, name='all_feats')([layer_v_i_norm, layer_v_q_norm])
+        if verbose: print('layer_all_feats output shape:', layer_all_feats.shape)
+        
+        # apply dropout after final concatenation layer
+        # (repurposing `attention_dropout_ratio` option for this experimeent)
+        # In Keras, dropout is automatically disabled in test mode 
+        attention_dropout_ratio = self.options['attention_dropout_ratio']
+        layer_dropout = Dropout(rate=attention_dropout_ratio, name='dropout')(layer_all_feats)
+        if verbose: print('layer_dropout output shape:', layer_dropout.shape)
+         
         # final classification
         # in:  [batch_size, n_attention_input]
         # out: [batch_size, n_answer_classes]
@@ -171,13 +208,11 @@ class TextCNNModel(object):
                                   bias_initializer='zeros',
                                   kernel_regularizer=self.regularizer,
                                   name='prob_answer'
-                                 )(layer_v_q)
+                                 )(layer_dropout)
         if verbose: print('layer_prob_answer output shape:', layer_prob_answer.shape)
         
-        # do argmax to make predictions (or look for canned classifier)
-        
         # assemble all these layers into model
-        self.model = Model(inputs=[layer_sent_input], outputs=layer_prob_answer)
+        self.model = Model(inputs=[layer_reshaped_vgg16, layer_sent_input], outputs=layer_prob_answer)
 
         optimizer = ModelOptions.get_optimizer(options)
         print('Compiling model with {} optimizer...'.format(self.options['optimizer']))

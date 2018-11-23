@@ -1,0 +1,12 @@
+{
+  "experiment_id": 5,
+  "experiment_name": "No_Attention",
+  "n_attention_layers": 0,
+  "model_name": "no_atten",
+  "attention_dropout_ratio": 0.5,
+  "optimizer": "sgd",
+  "sgd_learning_rate": 0.1,
+  "sgd_momentum": 0.9,
+  "sgd_decay_rate": 0.0, 
+  "sgd_grad_clip": 0.1        
+}
