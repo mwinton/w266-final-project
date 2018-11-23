@@ -155,6 +155,15 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping=None, tokenizer=N
         else:
             print('Continuing with pre-existing dataset.')
 
+    # If GloVe is selected, make sure glove matrix was previously saved.  It's possible training dataset
+    # was previously built without the glove option.
+    if (dataset_type == DatasetType.TRAIN and options['sent_init_type'] == 'glove' 
+        and not os.path.isfile(options['glove_matrix_path'])):
+        
+        print('GloVe embeddings selected, but glove_matrix.p doesn\'t exist, so rebuilding training set.')
+        os.remove(dataset_path)
+        print('Dataset was outdated. Removed -> ', dataset_path)
+        
     try:
         with open(dataset_path, 'rb') as f:
             print('Loading dataset from {}'.format(dataset_path))
