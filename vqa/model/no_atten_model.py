@@ -33,6 +33,7 @@ class NoAttentionNetwork(object):
 
         batch_size = self.options['batch_size']
         n_attention_input = self.options['n_attention_input']
+        n_attention_features = self.options['n_attention_features']
         
         # Instantiate a regularizer if weight-decay was specified
         self.regularizer = None
@@ -52,11 +53,18 @@ class NoAttentionNetwork(object):
 
         n_image_regions = self.options['n_image_regions']
         n_image_embed = self.options['n_image_embed']
+        assert(n_attention_features == n_image_embed)
 
         # pre-load image loading embeddings
-        # in:  [batch_size, n_image_regions, image_output_depth]
+        # in:  [batch_size, n_image_regions, n_attention_features]
         layer_reshaped_vgg16 = Input(batch_shape=(None, n_image_regions, n_image_embed), name="reshaped_vgg16")
         if verbose: print('layer_reshaped_vgg16 output shape:', layer_reshaped_vgg16.shape)
+
+        # need to expand the rank of the tensor to concatenate with image vector
+        # in:  [batch_size, n_image_regions, n_attention_features]
+        # out: [batch_size, n_image_regions * n_attention_features]
+        layer_flattened_img = Reshape((n_image_regions * n_attention_features,), name='flattened_img')(layer_reshaped_vgg16)
+        if verbose: print('layer_flattened_img output shape:', layer_flattened_img.shape)
 
         #
         # begin sentence pipeline
@@ -190,7 +198,6 @@ class NoAttentionNetwork(object):
         # Single dense layer to reduce sentence dimensions for attention
         # in:  [batch_size, n_attention_input]
         # out: [batch_size, n_attention_features]
-        n_attention_features = self.options['n_attention_features']
         layer_v_q = Dense(units=n_attention_features,
                                 activation=activation_type,
                                 use_bias=True,
@@ -201,15 +208,15 @@ class NoAttentionNetwork(object):
                                )(layer_v_q)
         if verbose: print('layer_v_q output shape', layer_v_q.shape)
 
-        # need to expand the rank of the tensor to concatenate with image vector
-        # in:  [batch_size, n_attention_features]
-        # out: [batch_size, 1, n_attention_features]
-        layer_v_q = Reshape((1, n_attention_features))(layer_v_q)
+#         # need to expand the rank of the tensor to concatenate with image vector
+#         # in:  [batch_size, n_attention_features]
+#         # out: [batch_size, 1, n_attention_features]
+#         layer_v_q = Reshape((1, n_attention_features))(layer_v_q)
 
         # apply batch normalization to get image and sentence features on same scale; then concatenate
-        layer_v_i_norm  = BatchNormalization(name='batch_norm_image')(layer_reshaped_vgg16)
+        layer_v_i_norm  = BatchNormalization(name='batch_norm_image')(layer_flattened_img)
         layer_v_q_norm  = BatchNormalization(name='batch_norm_sent')(layer_v_q)
-        layer_all_feats = Concatenate(axis=1, name='all_feats')([layer_v_i_norm, layer_v_q_norm])
+        layer_all_feats = Concatenate(axis=-1, name='all_feats')([layer_v_i_norm, layer_v_q_norm])
         if verbose: print('layer_all_feats output shape:', layer_all_feats.shape)
         
         # apply dropout after final concatenation layer
