@@ -82,7 +82,7 @@ def main(options):
 
     # Load model
     # NOTE: cannot be loaded until after dataset because it needs the vocab size
-    if options['model_name'] == 'san':
+    if options['model_name'] in ('san','mrr_san'):
         vqa_model, attention_model = ModelLibrary.get_model(options)
     else:
         vqa_model = ModelLibrary.get_model(options)

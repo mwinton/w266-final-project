@@ -51,11 +51,9 @@ class VGGNetModel(object):
         n_image_regions = self.options['n_image_regions']
         n_image_embed = self.options['n_image_embed']
 
-        if options['start_with_image_embed']:
-            # if loading embeddings directly, we can start with this layer
-            layer_image_input = layer_reshaped_vgg16  = Input(batch_shape=(None,n_image_regions,n_image_embed),name="reshaped_vgg16")
-            
-            if verbose: print('layer_reshaped_vgg16 output shape:', layer_reshaped_vgg16.shape)
+        # loading embeddings directly, so we can start with this layer
+        layer_image_input = layer_reshaped_vgg16  = Input(batch_shape=(None,n_image_regions,n_image_embed),name="reshaped_vgg16")
+        if verbose: print('layer_reshaped_vgg16 output shape:', layer_reshaped_vgg16.shape)
         
         # Single dense layer to transform dimensions to match sentence dims
         # in:  [batch_size, n_image_regions, image_output_depth]

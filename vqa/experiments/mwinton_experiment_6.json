@@ -1,0 +1,14 @@
+{
+  "experiment_id": 6,
+  "experiment_name": "MRR_SAN",
+  "n_attention_layers": 2,
+  "model_name": "mrr_san",
+  "activation_type": "tanh",
+  "n_final_extra_dense": 1,
+  "attention_dropout_ratio": 0.1,
+  "optimizer": "sgd",
+  "sgd_learning_rate": 0.3,
+  "sgd_momentum": 0.9,
+  "sgd_decay_rate": 0.0, 
+  "sgd_grad_clip": 0.1        
+}
