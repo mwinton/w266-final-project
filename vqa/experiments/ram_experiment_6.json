@@ -1,0 +1,10 @@
+{
+  "experiment_id": 6,
+  "user_name": "ram_iyer",
+  "experiment_name": "SAN_w_GloVe_resNet",
+  "model_name": "san",
+  "optimizer": "adam",
+  "sent_init_type": "glove",
+  "n_sent_embed": 300,
+  "image_embed_model":"resNet50"
+}
