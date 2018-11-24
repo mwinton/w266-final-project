@@ -161,8 +161,10 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping=None, tokenizer=N
         and not os.path.isfile(options['glove_matrix_path'])):
         
         print('GloVe embeddings selected, but glove_matrix.p doesn\'t exist, so rebuilding training set.')
-        os.remove(dataset_path)
-        print('Dataset was outdated. Removed -> ', dataset_path)
+        #if dataset.p file path exists then remove it
+        if (os.path.isfile(dataset_path)):
+            os.remove(dataset_path)
+            print('Dataset was outdated. Removed -> ', dataset_path)
         
     try:
         with open(dataset_path, 'rb') as f:
@@ -666,6 +668,10 @@ if __name__ == '__main__':
                         help = 'set batch size (int)')
     parser.add_argument('-e', '--epochs', type=int,
                         help = 'set max number of epochs (int)')
+    parser.add_argument('--image_embed_model', type=str.lower,
+                        choices=['vgg16','resnet50'],
+                        default='vgg16',
+                        help = 'image embedding model to use')
     parser.add_argument("--max_train_size", type=int,
                         help="maximum number of training samples to use")
     parser.add_argument("--max_val_size", type=int,
@@ -740,6 +746,8 @@ if __name__ == '__main__':
     options['model_name'] = args.model 
     options['optimizer'] = args.optimizer
     options['action_type'] = args.action
+
+    options['image_embed_model'] = args.image_embed_model
     
     if args.action == 'train' and args.predict_on_validation_set:
         options['predict_on_validation_set'] = True

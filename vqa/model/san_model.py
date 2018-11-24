@@ -164,7 +164,7 @@ class StackedAttentionNetwork(object):
         # diagram: https://docs.google.com/drawings/d/1ZWRPmy4e2ACvqOsk4ttAEaWZfUX_qiQEb0DE05e8dXs/edit
         #
         
-        image_input_dim = self.options['vggnet_input_dim']
+        image_input_dim = self.options['image_input_dim']
         image_input_depth = self.options['image_depth']
 
         # TODO: determine these dynamically from the VGG16 output

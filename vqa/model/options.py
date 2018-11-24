@@ -22,11 +22,19 @@ class ModelOptions(object):
         self.options['tb_logs_root'] = "/home/" + user_name + "/logs/"
         self.options['experiments_path'] =  os.path.abspath("../vqa/experiments") + '/'
 
-        # Image embedding root
-        image_embed_root = data_root+'images/mscoco/embeddings/vgg16/'
-        self.options['images_embed_train_path'] = image_embed_root + 'train.hdf5'
-        self.options['images_embed_val_path']   = image_embed_root + 'val.hdf5'
-        self.options['images_embed_test_path'] = image_embed_root + 'test.hdf5'
+        self.options['image_embed_model'] = 'vgg16'
+
+        # VGG16 Image embedding paths 
+        image_embed_root_vgg16 = data_root+'images/mscoco/embeddings/vgg16/'
+        self.options['vgg16_images_embed_train_path'] = image_embed_root_vgg16 + 'train.hdf5'
+        self.options['vgg16_images_embed_val_path']   = image_embed_root_vgg16 + 'val.hdf5'
+        self.options['vgg16_images_embed_test_path'] = image_embed_root_vgg16 + 'test.hdf5'
+
+        # resNet50 Image embedding paths
+        image_embed_root_resNet50 = data_root+'images/mscoco/embeddings/resNet50/'
+        self.options['resNet50_images_embed_train_path'] = image_embed_root_resNet50 + 'train.hdf5'
+        self.options['resNet50_images_embed_val_path']   = image_embed_root_resNet50 + 'val.hdf5'
+        self.options['resNet50_images_embed_test_path'] = image_embed_root_resNet50 + 'test.hdf5'
         
         # Path to full set of GloVe embeddings (input)
         self.options['glove_root'] = '/home/' + user_name + '/glove/' 
@@ -64,7 +72,7 @@ class ModelOptions(object):
         self.options['n_image_embed'] = 512     # VGGNet
         self.options['n_image_regions'] = 196   # 14x14 regions
         self.options['mscoco_dim'] = 256        # x, y dimension of photos
-        self.options['vggnet_input_dim'] = 448  # expected x, y dim of VGGNet
+        self.options['image_input_dim'] = 448   # expected x, y dim of VGGNet
         self.options['image_depth'] = 3         # 3 color channels (RGB)
         self.options['start_with_image_embed'] = True
 
@@ -192,13 +200,17 @@ class ModelOptions(object):
         """
            returns the dataset path for the given datasetType
         """
+        image_model = options['image_embed_model'] 
+        # Based on the image model, select the correct prefix
+        select_string = "{}_images_embed_".format(image_model)
+
         selector = {
-            DatasetType.TRAIN      : options["images_embed_train_path"],
-            DatasetType.VALIDATION : options["images_embed_val_path"],
-            DatasetType.TEST       : options["images_embed_test_path"],
+            DatasetType.TRAIN      : options[select_string + "train_path"],
+            DatasetType.VALIDATION : options[select_string + "val_path"],
+            DatasetType.TEST       : options[select_string + "test_path"],
         }
         if (options['val_test_split']):
-            selector[DatasetType.TEST] = options['images_embed_val_path']
+            selector[DatasetType.TEST] = options[select_string+'val_path']
 
         return selector.get(datasetType)
 
@@ -338,7 +350,7 @@ class ModelOptions(object):
             # options['sgd_step'] = 10             # TBD whether we need this
             # options['sgd_step_start'] = 100      # TBD whether we need this
         elif options['optimizer'] == 'adam':
-            options['adam_learning_rate'] = 0.001
+            options['adam_learning_rate'] = 0.001       # matches Keras default
             options['adam_beta_1'] = 0.9                # matches Keras default
             options['adam_beta_2'] = 0.999              # matches Keras default
         elif options['optimizer'] == 'rmsprop':
