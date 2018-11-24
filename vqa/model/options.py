@@ -338,7 +338,7 @@ class ModelOptions(object):
             # options['sgd_step'] = 10             # TBD whether we need this
             # options['sgd_step_start'] = 100      # TBD whether we need this
         elif options['optimizer'] == 'adam':
-            options['adam_learning_rate'] = 0.1
+            options['adam_learning_rate'] = 0.001
             options['adam_beta_1'] = 0.9                # matches Keras default
             options['adam_beta_2'] = 0.999              # matches Keras default
         elif options['optimizer'] == 'rmsprop':

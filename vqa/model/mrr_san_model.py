@@ -157,7 +157,7 @@ class MRRStackedAttentionNetwork(object):
         # loading embeddings directly, so we can start with this layer
         # in: [batch_size, n_image_regions, n_image_embed = n_attention_features]
         layer_reshaped_vgg16 = Input(batch_shape=(None, n_image_regions, n_image_embed), name="reshaped_vgg16")   
-        layer_image_input = layer_reshaped_vgg16 
+        layer_v_i = layer_reshaped_vgg16 
         if verbose: print('layer_reshaped_vgg16 output shape:', layer_reshaped_vgg16.shape)
 
         #
@@ -296,9 +296,9 @@ class MRRStackedAttentionNetwork(object):
                                 kernel_initializer='random_uniform',
                                 bias_initializer='zeros',
                                 kernel_regularizer=self.regularizer,
-                                name='attention_sent'
+                                name='v_q_reduced'
                                )(layer_v_q)
-        if verbose: print('attention_sent', layer_attn_sent.shape)
+        if verbose: print('layer_v_q output shape:', layer_v_q.shape)
 
         #
         # begin attention layers
@@ -321,9 +321,9 @@ class MRRStackedAttentionNetwork(object):
         if verbose: print('layer_dropout_v_q output shape:', layer_dropout_v_q.shape)
         
         # CHANGE: add optional dense layers (dim=n_attention_features) before final softmax
+        layer_extra_dense = layer_dropout_v_q
         n_final_extra_dense = options.get('n_final_extra_dense', 0)
         for idx in range(n_final_extra_dense):
-            layer_extra_dense = layer_dropout_v_q
             layer_extra_dense = Dense(units=n_attention_features,
                                       activation=activation_type,
                                       use_bias=True,
@@ -333,9 +333,6 @@ class MRRStackedAttentionNetwork(object):
                                       name='extra_dense_%d' % idx,
                                      )(layer_extra_dense)
             if verbose: print('layer_extra_dense_%d' % (idx), layer_extra_dense.shape)
-        # outputting as the same variable name (in Python-scope) to minimize additional code
-        # changes from the original SAN model (san_model.py)
-        layer_dropout_v_q = layer_extra_dense
             
         # final classification
         # CHANGE: working with 512-dim feature vectors instead of 1280-dim
@@ -349,11 +346,11 @@ class MRRStackedAttentionNetwork(object):
                                   bias_initializer='zeros',
                                   kernel_regularizer=self.regularizer,
                                   name='prob_answer'
-                                 )(layer_dropout_v_q)
+                                 )(layer_extra_dense)
         if verbose: print('layer_prob_answer output shape:', layer_prob_answer.shape)
         
         # assemble all these layers into model
-        self.model = Model(inputs=[layer_image_input, layer_sent_input], outputs=layer_prob_answer)
+        self.model = Model(inputs=[layer_reshaped_vgg16, layer_sent_input], outputs=layer_prob_answer)
 
         optimizer = ModelOptions.get_optimizer(options)
         print('Compiling model with {} optimizer...'.format(self.options['optimizer']))
