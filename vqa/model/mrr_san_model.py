@@ -10,6 +10,7 @@ from keras.models import Model
 from keras.regularizers import l2
 import mlflow
 import mlflow.keras
+import os
 import pickle
 from pprint import pprint
 
@@ -143,7 +144,7 @@ class MRRStackedAttentionNetwork(object):
 
         #
         # begin image pipeline
-        # diagram: https://docs.google.com/drawings/d/1ZWRPmy4e2ACvqOsk4ttAEaWZfUX_qiQEb0DE05e8dXs/edit
+        # diagram: TODO: update after "best" model is finalized
         #
         
         image_input_dim = self.options['vggnet_input_dim']
@@ -156,13 +157,13 @@ class MRRStackedAttentionNetwork(object):
         # CHANGE: not transforming image features from 512 -> 1280 -> 512 before attention
         # loading embeddings directly, so we can start with this layer
         # in: [batch_size, n_image_regions, n_image_embed = n_attention_features]
-        layer_reshaped_vgg16 = Input(batch_shape=(None, n_image_regions, n_image_embed), name="reshaped_vgg16")   
-        layer_v_i = layer_reshaped_vgg16 
-        if verbose: print('layer_reshaped_vgg16 output shape:', layer_reshaped_vgg16.shape)
+        layer_reshaped_image = Input(batch_shape=(None, n_image_regions, n_image_embed), name="reshaped_vgg16")   
+        layer_v_i = layer_reshaped_image 
+        if verbose: print('layer_reshaped_image output shape:', layer_reshaped_image.shape)
 
         #
         # begin sentence pipeline
-        # diagram: https://docs.google.com/drawings/d/1PJKOcQA73sUvH-w3UlLOhFH0iHOaPJ9-IRb7S75yw0M/edit
+        # diagram: TODO: update after "best" model is finalized
         #
         
         # these are both set when the dataset is prepared
@@ -194,7 +195,11 @@ class MRRStackedAttentionNetwork(object):
                                )(layer_sent_input)
         elif sent_embed_initializer == 'glove':
             trainable = options['sent_embed_trainable']
-            glove_matrix = pickle.load(open(options['glove_matrix_path'], 'rb'))
+            if os.path.isfile(options['glove_matrix_path']):
+                glove_matrix = pickle.load(open(options['glove_matrix_path'], 'rb'))
+            else:
+                raise Exception('Regenerate training dataset. Glove matrix not found at {}' \
+                                .format(options['glove_matrix_path']))
             if sent_embed_dim != glove_matrix.shape[1]:
                 # if options don't match the matrix shape, override with actual (but logs may be wrong)
                 sent_embed_dim = self.options['n_sent_embed'] = glove_matrix.shape[1]
@@ -350,7 +355,7 @@ class MRRStackedAttentionNetwork(object):
         if verbose: print('layer_prob_answer output shape:', layer_prob_answer.shape)
         
         # assemble all these layers into model
-        self.model = Model(inputs=[layer_reshaped_vgg16, layer_sent_input], outputs=layer_prob_answer)
+        self.model = Model(inputs=[layer_reshaped_image, layer_sent_input], outputs=layer_prob_answer)
 
         optimizer = ModelOptions.get_optimizer(options)
         print('Compiling model with {} optimizer...'.format(self.options['optimizer']))
