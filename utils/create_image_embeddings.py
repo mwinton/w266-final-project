@@ -75,8 +75,10 @@ class ImageBatchGenerator(Sequence):
 
         if self.model_name == "vgg16":
             img = vgg16.preprocess_input(img)
-        else:
+        elif self.model_name == "resNet50":
             img = resnet50.preprocess_input(img)
+        else :
+            raise ValueError("Unsupported embedding model name provided")
 
         return img
 
@@ -208,8 +210,11 @@ class CreateImageVectors():
 
         if(self.model_name=="VGG16"):
             self.create_vgg16_model()   
-        else:
-            self.create_resNet50_model()
+        elif self.model_name == "resNet50":
+            self.create_resNet50_model() 
+        else :
+            raise ValueError("Unsupported embedding model name provided")
+
 
         #num_samples = self.files_df.shape[0]
         self.num_samples = self.files_df.shape[0]
