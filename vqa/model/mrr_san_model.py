@@ -87,7 +87,6 @@ class MRRStackedAttentionNetwork(object):
         # in:   [batch_size, n_image_regions, n_attention_features]
         # out:  [batch_size, n_image_regions, 1]
         layer_pre_softmax = Dense(units=1,
-#                                   activation='tanh', 
                                   use_bias=True,
                                   kernel_initializer='random_uniform',
                                   bias_initializer='zeros',
