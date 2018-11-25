@@ -82,22 +82,6 @@ class MRRStackedAttentionNetwork(object):
             raise ValueError ('No other attention combination defined except \"addition\".')
         if verbose: print('h_a_%d' % (idx), layer_h_a.shape)
         
-#         # CHANGE: eliminating the tanh activation that immediately preceded softmax
-#         # Single dense layer to reduce axis=2 to 1 dimension for softmax (one per image region)
-#         # in:   [batch_size, n_image_regions, n_attention_features]
-#         # out:  [batch_size, n_image_regions, 1]
-#         layer_attn_prob_dist = Dense(units=1,
-#                                   activation='softmax',
-#                                   use_bias=True,
-#                                   kernel_initializer='random_uniform',
-#                                   bias_initializer='zeros',
-#                                   kernel_regularizer=self.regularizer,
-#                                   name='layer_prob_attn_%d' % (idx)
-#                                  )(layer_h_a)
-#         if verbose: print('layer_attn_prob_dist_%d' % (idx), layer_attn_prob_dist.shape)
-
-        # BEGIN TEMPORARY CODE
-
         # CHANGE: eliminating the tanh activation that immediately preceded softmax
         # Single dense layer to reduce axis=2 to 1 dimension for softmax (one per image region)
         # in:   [batch_size, n_image_regions, n_attention_features]
@@ -117,8 +101,6 @@ class MRRStackedAttentionNetwork(object):
         # out:  [batch_size, n_image_regions, 1]
         layer_attn_prob_dist = Softmax(axis=1, name='layer_prob_attn_%d' % (idx))(layer_pre_softmax)
         if verbose: print('layer_attn_prob_dist_%d' % (idx), layer_attn_prob_dist.shape)
-        
-        # END TEMPORARY CODE
         
         # CHANGE: expanding to output 512-dim (n_attention_features), not 1280-dim (n_attention_input)
         # Need to expand and repeat the attention vector to be multiplied by each image region
