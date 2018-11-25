@@ -354,7 +354,7 @@ class ModelOptions(object):
             options['adam_beta_1'] = 0.9                # matches Keras default
             options['adam_beta_2'] = 0.999              # matches Keras default
         elif options['optimizer'] == 'rmsprop':
-            options['rmsprop_learning_rate'] = 0.1      # Keras recommends not changing other params
+            options['rmsprop_learning_rate'] = 0.001    # Keras recommends not changing other params
         else:
             raise TypeError('Invalid optimizer specified.  Only \'sgd\' is currently supported.')
             
