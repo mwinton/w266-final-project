@@ -10,5 +10,5 @@
   "sgd_learning_rate": 0.3,
   "sgd_momentum": 0.9,
   "sgd_decay_rate": 0.0, 
-  "sgd_grad_clip": 0.1        
+  "sgd_grad_clip": 0.1  
 }
