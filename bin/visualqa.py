@@ -110,7 +110,7 @@ def main(options):
                     
         dataset = train_dataset
         val_dataset = load_dataset(DatasetType.VALIDATION,options,answer_one_hot_mapping)
-        train(vqa_model, dataset, options, val_dataset=val_dataset)
+        train(vqa_model, dataset, options, val_dataset=val_dataset, attention_model=attention_model)
         
     elif action == 'test':
         # test set needs to be tokenized with the same tokenizer that was used in the training set
@@ -303,7 +303,7 @@ def plot_train_metrics(train_stats, options, plot_type='epochs'):
     return loss_fig_path, acc_fig_path
 
 
-def train(model, dataset, options, val_dataset=None):
+def train(model, dataset, options, val_dataset=None, attention_model=None):
 
     if not val_dataset:
         raise ValueError('A validation dataset must be provided')
@@ -391,7 +391,7 @@ def train(model, dataset, options, val_dataset=None):
         # change dataset_type to prevent shuffling during batch generation; otherwise 
         # it won't be possible to compare to true lablels
         val_dataset.dataset_type = DatasetType.TEST
-        test(model, val_dataset, options)
+        test(model, val_dataset, options, attention_model)
         val_dataset.dataset_type = DatasetType.VALIDATION
 
 def test(model, dataset, options, attention_model=None):
@@ -495,6 +495,7 @@ def test(model, dataset, options, attention_model=None):
     # save attention probabilities to disk
     if not attention_model == None:
         # list will have one numpy array for each attention_layer output by the model
+        print('Running predictions on the secondary attention model.')
         attention_probabilities = attention_model \
             .predict_generator(dataset.batch_generator(), steps=test_dataset_size//batch_size + 1, verbose=1)
 
@@ -507,6 +508,8 @@ def test(model, dataset, options, attention_model=None):
         print('Attention_probabilities saved ->', probabilities_path)
         if options['logging']:
             mlflow.log_artifact(probabilities_path)
+
+    print('Testing done!')
 
 def calculate_accuracies(final_results, labeled=False):
     """
