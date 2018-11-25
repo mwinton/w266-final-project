@@ -112,7 +112,7 @@ class StackedAttentionNetwork(object):
                                  )(layer_h_a)
         if verbose: print('layer_pre_softmax_%d' % (idx), layer_pre_softmax.shape)
         
-        # Calculate softmax
+        # Calculate softmax; explicitly specify axis because default axis = -1 (not what we want)
         # in:   [batch_size, n_image_regions, 1]
         # out:  [batch_size, n_image_regions, 1]
         layer_attn_prob_dist = Softmax(axis=1, name='layer_prob_attn_%d' % (idx))(layer_pre_softmax)

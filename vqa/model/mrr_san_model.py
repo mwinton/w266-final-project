@@ -5,7 +5,7 @@ from keras.callbacks import EarlyStopping
 import keras.layers
 from keras.layers import Activation, Add, Concatenate, Conv1D, Dense, Dropout, Embedding
 from keras.layers import Input, GlobalMaxPooling1D, Lambda, Multiply, RepeatVector, Reshape
-from keras.layers import BatchNormalization 
+from keras.layers import BatchNormalization, Softmax
 from keras.models import Model
 from keras.regularizers import l2
 import mlflow
@@ -52,23 +52,23 @@ class MRRStackedAttentionNetwork(object):
         # One reason for this might be that standardization of the image and question
         # vectors keep them in equal footing in terms of their respective magnitudes
 
-        layer_attn_image  = BatchNormalization(name='batch_norm_image_%d' % (idx))(layer_attn_image)
+        layer_norm_image  = BatchNormalization(name='batch_norm_image_%d' % (idx))(layer_attn_image)
         
         # CHANGE: not transforming image features from 512 -> 1280 -> 512 before attention
         # in:   [batch_size, n_attention_features]
         layer_attn_sent = layer_v_q
         if verbose: print('attention_sent_%d' % (idx), layer_attn_sent.shape)
-
-        # Adding a batch norm before image and sentence vectors are added
-        layer_attn_sent = BatchNormalization(name='batch_norm_sent_%d' % (idx))(layer_attn_sent)
         
         # Need to expand and repeat the sentence vector to be added to each image region
         # in:   [batch_size, n_attention_features]
         # out:  [batch_size, n_image_regions, n_attention_features]
         n_image_regions = options['n_image_regions']
-        layer_attn_sent = RepeatVector(n_image_regions,
+        layer_repeated_sent = RepeatVector(n_image_regions,
                                        name='expanded_attn_sent_%d' % (idx))(layer_attn_sent)
-        if verbose: print('expanded_attn_sent_%d' % (idx), layer_attn_sent.shape)
+        if verbose: print('expanded_attn_sent_%d' % (idx), layer_repeated_sent.shape)
+
+        # Adding a batch norm before image and sentence vectors are added
+        layer_norm_sent = BatchNormalization(name='batch_norm_sent_%d' % (idx))(layer_repeated_sent)
 
         # combine the image and sentence tensors
         # in (image):     [batch_size, n_image_regions, n_attention_features]
@@ -76,24 +76,29 @@ class MRRStackedAttentionNetwork(object):
         # out:            [batch_size, n_image_regions, n_attention_features]
         attention_merge_type = self.options['attention_merge_type']
         if attention_merge_type == 'addition':  # Yang's paper did simple matrix + vector addition
-            layer_h_a = Add(name='h_a_%d' % (idx))([layer_attn_sent, layer_attn_image])
+            layer_h_a = Add(name='h_a_%d' % (idx))([layer_norm_sent, layer_norm_image])
         else:
             # TODO: add option to combine some other way
-            pass
+            raise ValueError ('No other attention combination defined except \"addition\".')
         if verbose: print('h_a_%d' % (idx), layer_h_a.shape)
         
         # CHANGE: eliminating the tanh activation that immediately preceded softmax
         # Single dense layer to reduce axis=2 to 1 dimension for softmax (one per image region)
         # in:   [batch_size, n_image_regions, n_attention_features]
         # out:  [batch_size, n_image_regions, 1]
-        layer_attn_prob_dist = Dense(units=1,
-                                  activation='softmax',
+        layer_pre_softmax = Dense(units=1,
                                   use_bias=True,
                                   kernel_initializer='random_uniform',
                                   bias_initializer='zeros',
                                   kernel_regularizer=self.regularizer,
-                                  name='layer_prob_attn_%d' % (idx)
+                                  name='pre_softmax_%d' % (idx)
                                  )(layer_h_a)
+        if verbose: print('layer_pre_softmax_%d' % (idx), layer_pre_softmax.shape)
+        
+        # Calculate softmax; explicitly specify axis because default axis = -1 (not what we want)
+        # in:   [batch_size, n_image_regions, 1]
+        # out:  [batch_size, n_image_regions, 1]
+        layer_attn_prob_dist = Softmax(axis=1, name='layer_prob_attn_%d' % (idx))(layer_pre_softmax)
         if verbose: print('layer_attn_prob_dist_%d' % (idx), layer_attn_prob_dist.shape)
         
         # CHANGE: expanding to output 512-dim (n_attention_features), not 1280-dim (n_attention_input)
@@ -147,7 +152,7 @@ class MRRStackedAttentionNetwork(object):
         # diagram: TODO: update after "best" model is finalized
         #
         
-        image_input_dim = self.options['vggnet_input_dim']
+        image_input_dim = self.options['image_input_dim']
         image_input_depth = self.options['image_depth']
 
         # TODO: determine these dynamically from the VGG16 output
@@ -157,7 +162,7 @@ class MRRStackedAttentionNetwork(object):
         # CHANGE: not transforming image features from 512 -> 1280 -> 512 before attention
         # loading embeddings directly, so we can start with this layer
         # in: [batch_size, n_image_regions, n_image_embed = n_attention_features]
-        layer_reshaped_image = Input(batch_shape=(None, n_image_regions, n_image_embed), name="reshaped_vgg16")   
+        layer_reshaped_image = Input(batch_shape=(None, n_image_regions, n_image_embed), name="reshaped_image")   
         layer_v_i = layer_reshaped_image 
         if verbose: print('layer_reshaped_image output shape:', layer_reshaped_image.shape)
 
