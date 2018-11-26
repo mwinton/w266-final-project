@@ -82,7 +82,7 @@ class ModelLibrary:
         # secondary model for extracting attention layer probabilities
         if hasattr(san, 'attention_layer_model'):
             attention_model = san.attention_layer_model
-            print('Secondary attention created and compiled')
+            print('Secondary attention model created and compiled')
             return vqa_model, attention_model
         else:
             return vqa_model

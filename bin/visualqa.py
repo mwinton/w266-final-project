@@ -35,7 +35,7 @@ ACTIONS = ['train', 'test']
 
 
 # Defaults
-DEFAULT_MODEL = "baseline"
+DEFAULT_MODEL = "san"
 DEFAULT_EXPERIMENT = 0
 DEFAULT_ACTION = 'train'
 
@@ -469,6 +469,7 @@ def test(model, dataset, options, attention_model=None):
                                      'question_id': sample.question.id,
                                      'question_str': sample.question.question_str,
                                      'question_type': sample.answer.question_type,
+                                     'complement_id': sample.question.complement_id,
                                      'image_id': sample.question.image_id,
                                      'answer_id': sample.answer.id,
                                      'answer_str': sample.answer.answer_str,
@@ -481,6 +482,7 @@ def test(model, dataset, options, attention_model=None):
         final_results = [{'predicted_answer': ohe_to_answer_str[y_pred_ohe[idx]], 
                          'question_id': sample.question.id,
                          'question_str': sample.question.question_str,
+                         'complement_id': sample.question.complement_id,
                          'image_id': sample.question.image_id
                         }
                         for idx, sample in enumerate(dataset.samples)]
@@ -619,6 +621,10 @@ class CustomModelCheckpoint(ModelCheckpoint):
         self.model_name = model_name
         self.experiment_id = experiment_id
         self.last_epoch = 0
+        if options['dataset'] == 'v2':
+            self.prefix = 'v2_'
+        else:
+            self.prefix = ''
 
     def on_epoch_end(self, epoch, logs={}):
         # save after every epoch to enable restarting at that epoch after a crash
@@ -637,7 +643,7 @@ class CustomModelCheckpoint(ModelCheckpoint):
                 print('Deleting temporary weight file ->', wt_file)
                 os.remove(wt_file)
             else:
-                symlink = os.path.abspath(self.weights_dir_path + 'model_weights_{}_expt{}_latest' \
+                symlink = os.path.abspath(self.weights_dir_path + self.prefix + 'model_weights_{}_expt{}_latest' \
                                           .format(self.model_name, self.experiment_id))
 
         if options['logging']:
