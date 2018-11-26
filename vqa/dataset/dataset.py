@@ -120,8 +120,9 @@ class VQADataset:
                 if len(to_delete) > 0 and to_delete[:1] == 'y':
                     os.remove(self.tokenizer_path)
                     print('Tokenizer was outdated.  Removed ->', self.tokenizer_path)
-                    os.remove(self.glove_matrix_path)
-                    print('GloVe embedding matrix was outdated. Removed -> ', self.glove_matrix_path)
+                    if os.path.isfile(self.glove_matrix_path):
+                        os.remove(self.glove_matrix_path)
+                        print('GloVe embedding matrix was outdated. Removed -> ', self.glove_matrix_path)
                 else:
                     print('Continuing with pre-existing Tokenizer and GloVe embedding matrix.')
             
@@ -246,10 +247,10 @@ class VQADataset:
 
         print('\nSample Questions -> Answers')
         print('---------------------------')
-        _, ques_strings, _, _, _, ans_strings, _, _, _ = self.get_qa_lists()
+        _, ques_strings, _, _, _, _, ans_strings, _, _, _ = self.get_qa_lists()
         for q, a in zip(ques_strings[:20], ans_strings[:20]):
-            print('{} -> {}'.format(q, a))
-        
+            print('{} -> {} '.format(q, a))
+
     def _encode_answers(self,answers,answer_one_hot_mapping):
         """
            keep top [n_answer_classes] most common answers to reduce the number of answer classes
@@ -531,8 +532,6 @@ class VQADataset:
 
         return len(self.samples)
 
-        # Add complementary_question_id
-
     def _create_questions_dict(self, questions_json_path):
         """Create a dictionary of Question objects containing the information of the questions from the .json file.
 
@@ -553,7 +552,7 @@ class VQADataset:
 
     def _set_question_complements(self, questions, pairs_json_path):
         """
-            Add `complementary_questions` attribute to quesetions that have one
+            Add `complement_id` attribute to questions that have one
             NOTE: this is only relevant for the VQA v2 dataset
 
         Args:
@@ -561,7 +560,7 @@ class VQADataset:
             pairs_json_path (str): path to the JSON file defining the pairs
             
         Returns:
-            queestions (updated dict of Question instances)
+            questions (updated dict of Question instances)
         """
 
         print('Loading VQA complementary pair data from ->', pairs_json_path)
@@ -573,10 +572,12 @@ class VQADataset:
         pairs.update(inverted_pairs)
 
         # iterate through questions dict and update complements
-        for question in questions:
-            if question in pairs:
-                questions[question].complement_id = pairs[question]
-        print('Complements added to questions')
+        num_complements = 0
+        for question_id in questions:
+            if question_id in pairs:
+                num_complements += 1
+                questions[question_id].complement_id = pairs[question_id]
+        print('Complements added to {} questions'.format(num_complements))
         
         return questions
         
@@ -690,6 +691,7 @@ class VQADataset:
             # populate attributes of Question objects
             self.qa_lists['question_ids'].append(s.question.id)
             self.qa_lists['question_strings'].append(s.question.question_str)
+            self.qa_lists['complement_ids'].append(s.question.complement_id)
             self.qa_lists['image_ids'].append(s.question.image_id)
             if self.dataset_type != DatasetType.TEST or self.options['val_test_split']:
                 # populate attributes of Answer objects
@@ -703,12 +705,15 @@ class VQADataset:
     def get_qa_lists(self):
         """
             Convenience method to return question and answer data as lists.  This is useful
-            during post-processing when true answers (labels) need to be compared to predictions
+            during post-processing when true answers (labels) need to be compared to predictions.
+            
+            For a true test set, the answer attributes will be empty lists (defaultdict)
         """
 
         ques_ids = self.qa_lists['question_ids']
         ques_strings = self.qa_lists['question_strings']
         ques_types = self.qa_lists['question_types']
+        ques_complement_ids = self.qa_lists['complement_ids']
         image_ids = self.qa_lists['image_ids']
         ans_ids = self.qa_lists['answer_ids']
         ans_strings = self.qa_lists['answer_strings']
@@ -716,22 +721,23 @@ class VQADataset:
         ans_annotations = self.qa_lists['answer_annotations']
         ans_ohe = self.qa_lists['one_hot_index']
 
-        return ques_ids, ques_strings, ques_types, image_ids, ans_ids, ans_strings, ans_types, ans_annotations, ans_ohe
+        return ques_ids, ques_strings, ques_types, ques_complement_ids, image_ids, \
+               ans_ids, ans_strings, ans_types, ans_annotations, ans_ohe
       
     def get_question_lists(self):
         """
             Return the subset of data lists corresponding to Question attributes
         """
         
-        ques_ids, ques_strings, ques_types, image_ids, _, _, _, _, _ = self.get_qa_lists()
-        return ques_ids, ques_strings, ques_types, image_ids
+        ques_ids, ques_strings, ques_types, ques_complement_ids, image_ids, _, _, _, _, _ = self.get_qa_lists()
+        return ques_ids, ques_strings, ques_types, ques_complement_ids, image_ids
     
     def get_answer_lists(self, with_annotations=False):
         """
             Return the subset of data lists corresponding to Answer attributes
         """
         
-        _, _, _, _, ans_ids, ans_strings, ans_types, ans_annotations, ans_ohe = self.get_qa_lists()
+        _, _, _, _, _, ans_ids, ans_strings, ans_types, ans_annotations, ans_ohe = self.get_qa_lists()
         return ans_ids, ans_strings, ans_types, ans_annotations, ans_ohe
         
     def _init_tokenizer(self, questions, answers, build_glove_matrix=False):

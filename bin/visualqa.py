@@ -35,7 +35,7 @@ ACTIONS = ['train', 'test']
 
 
 # Defaults
-DEFAULT_MODEL = "baseline"
+DEFAULT_MODEL = "san"
 DEFAULT_EXPERIMENT = 0
 DEFAULT_ACTION = 'train'
 
@@ -143,6 +143,12 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping=None, tokenizer=N
     if (dataset_type == DatasetType.TEST):
         assert(tokenizer != None)
 
+    # Options can specify a forced rebuild of datasets, regardless of timestamp
+    force_rebuild = options['rebuild_datasets']
+    if force_rebuild and os.path.isfile(dataset_path):
+        print('Forcing deletion and rebuilding of dataset ->', dataset_path)
+        os.remove(dataset_path)
+    
     # If pickle file is older than dataset.py, delete and recreate
     print('Checking timestamp on dataset -> {}'.format(dataset_path))
     dataset_py_path = os.path.abspath('../vqa/dataset/dataset.py')
@@ -469,6 +475,7 @@ def test(model, dataset, options, attention_model=None):
                                      'question_id': sample.question.id,
                                      'question_str': sample.question.question_str,
                                      'question_type': sample.answer.question_type,
+                                     'complement_id': sample.question.complement_id,
                                      'image_id': sample.question.image_id,
                                      'answer_id': sample.answer.id,
                                      'answer_str': sample.answer.answer_str,
@@ -481,6 +488,7 @@ def test(model, dataset, options, attention_model=None):
         final_results = [{'predicted_answer': ohe_to_answer_str[y_pred_ohe[idx]], 
                          'question_id': sample.question.id,
                          'question_str': sample.question.question_str,
+                         'complement_id': sample.question.complement_id,
                          'image_id': sample.question.image_id
                         }
                         for idx, sample in enumerate(dataset.samples)]
@@ -619,6 +627,10 @@ class CustomModelCheckpoint(ModelCheckpoint):
         self.model_name = model_name
         self.experiment_id = experiment_id
         self.last_epoch = 0
+        if options['dataset'] == 'v2':
+            self.prefix = 'v2_'
+        else:
+            self.prefix = ''
 
     def on_epoch_end(self, epoch, logs={}):
         # save after every epoch to enable restarting at that epoch after a crash
@@ -637,7 +649,7 @@ class CustomModelCheckpoint(ModelCheckpoint):
                 print('Deleting temporary weight file ->', wt_file)
                 os.remove(wt_file)
             else:
-                symlink = os.path.abspath(self.weights_dir_path + 'model_weights_{}_expt{}_latest' \
+                symlink = os.path.abspath(self.weights_dir_path + self.prefix + 'model_weights_{}_expt{}_latest' \
                                           .format(self.model_name, self.experiment_id))
 
         if options['logging']:
@@ -664,6 +676,8 @@ if __name__ == '__main__':
                         help = 'turn on verbose output')
     parser.add_argument('--no_logging', action='store_true',
                         help = 'turn off logging to MLFlow server')
+    parser.add_argument('--rebuild_datasets', action='store_true',
+                        help = 'rebuilds all datasets, regardless of timestamp')
     parser.add_argument('--predict_on_validation_set', action='store_true',
                         help = 'after training, run `model.predict()` on validation dataset')
 
@@ -755,6 +769,10 @@ if __name__ == '__main__':
     if args.action == 'train' and args.predict_on_validation_set:
         options['predict_on_validation_set'] = True
 
+    # force rebuild of datasets
+    if args.rebuild_datasets:
+        options['rebuild_datasets'] = args.rebuild_datasets
+    
     options['max_train_size'] = args.max_train_size
     options['max_val_size']   = args.max_val_size
     options['max_test_size']   = args.max_test_size
