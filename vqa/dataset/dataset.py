@@ -247,9 +247,9 @@ class VQADataset:
 
         print('\nSample Questions -> Answers')
         print('---------------------------')
-        _, ques_strings, _, ques_complement_ids, _, _, ans_strings, _, _, _ = self.get_qa_lists()
-        for q, a, c in zip(ques_strings[:20], ans_strings[:20], ques_complement_ids[:20]):
-            print('{} -> {} -> complement_ID={}'.format(q, a, c))
+        _, ques_strings, _, _, _, _, ans_strings, _, _, _ = self.get_qa_lists()
+        for q, a in zip(ques_strings[:20], ans_strings[:20]):
+            print('{} -> {} '.format(q, a))
 
     def _encode_answers(self,answers,answer_one_hot_mapping):
         """
