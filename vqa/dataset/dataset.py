@@ -113,9 +113,9 @@ class VQADataset:
         if self.dataset_type != DatasetType.TEST:
             # Options can specify a forced rebuild of datasets, regardless of timestamp
             force_rebuild = self.options['rebuild_datasets']
-            if force_rebuild and os.path.isfile(tokenizer_path):
-                print('Forcing deletion and rebuilding of tokenizer ->', tokenizer_path)
-                os.remove(tokenizer_path)
+            if force_rebuild and os.path.isfile(self.tokenizer_path):
+                print('Forcing deletion and rebuilding of tokenizer ->', self.tokenizer_path)
+                os.remove(self.tokenizer_path)
 
             print("Tokenizer path -> ", self.tokenizer_path)
             # If Tokenizer pickle file is older than dataset.py, delete Tokenizer and GloVe matrix
