@@ -14,6 +14,9 @@ class ModelOptions(object):
         
         self.options = OrderedDict()
         
+        # Force rebuilding of datasets even if timestamp is ok?
+        self.options['rebuild_datasets'] = False
+
         # Base file system paths
         user_name = getpass.getuser()
         self.options['user_name'] = user_name
@@ -21,8 +24,6 @@ class ModelOptions(object):
         self.options['data_root'] = data_root
         self.options['tb_logs_root'] = "/home/" + user_name + "/logs/"
         self.options['experiments_path'] =  os.path.abspath("../vqa/experiments") + '/'
-
-        self.options['image_embed_model'] = 'vgg16'
 
         # VGG16 Image embedding paths 
         image_embed_root_vgg16 = data_root+'images/mscoco/embeddings/vgg16/'
@@ -69,6 +70,7 @@ class ModelOptions(object):
         self.options['experiment_name'] = 'Default_Expt'   # name to display in MLFlow
         
         # Image model parameters
+        self.options['image_embed_model'] = 'vgg16'
         self.options['n_image_embed'] = 512     # VGGNet
         self.options['n_image_regions'] = 196   # 14x14 regions
         self.options['mscoco_dim'] = 256        # x, y dimension of photos

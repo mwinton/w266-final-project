@@ -167,15 +167,15 @@ class StackedAttentionNetwork(object):
         image_input_dim = self.options['image_input_dim']
         image_input_depth = self.options['image_depth']
 
-        # TODO: determine these dynamically from the VGG16 output
+        # TODO: determine these dynamically from the image embedding output
         n_image_regions = self.options['n_image_regions']
         n_image_embed = self.options['n_image_embed']
 
         if options['start_with_image_embed']:
             # if loading embeddings directly, we can start with this layer
-            layer_image_input = layer_reshaped_vgg16  = Input(batch_shape=(None,n_image_regions,n_image_embed),name="reshaped_vgg16")
+            layer_image_input = layer_reshaped_image  = Input(batch_shape=(None,n_image_regions,n_image_embed),name="reshaped_image")
             
-            if verbose: print('layer_reshaped_vgg16 output shape:', layer_reshaped_vgg16.shape)
+            if verbose: print('layer_reshaped_image output shape:', layer_reshaped_image.shape)
         else:
             # image input as [batch_size, image_input_dim, image_input_dim, image_input_depth] of floats
             layer_image_input = Input(batch_shape=(None, image_input_dim, image_input_dim, image_input_depth),
@@ -202,10 +202,10 @@ class StackedAttentionNetwork(object):
             # Reshaped image output to flatten the image region vectors
             # in:  [batch_size, image_output_dim, image_output_dim, n_image_embed]
             # out: [batch_size, n_image_regions, n_image_embed]
-            layer_reshaped_vgg16 = Reshape((n_image_regions, n_image_embed),  # excludes batch size
-                                           name='reshaped_vgg16'
+            layer_reshaped_image = Reshape((n_image_regions, n_image_embed),  # excludes batch size
+                                           name='reshaped_image'
                                           )(model_vgg16.output)  # model.output gives a tensor
-            if verbose: print('layer_reshaped_vgg16 output shape:', layer_reshaped_vgg16.shape)
+            if verbose: print('layer_reshaped_image output shape:', layer_reshaped_image.shape)
         
         # Single dense layer to transform dimensions to match sentence dims
         # in:  [batch_size, n_image_regions, image_output_depth]
@@ -217,7 +217,7 @@ class StackedAttentionNetwork(object):
                           bias_initializer='zeros',
                           kernel_regularizer=self.regularizer,
                           name='v_i'
-                         )(layer_reshaped_vgg16)
+                         )(layer_reshaped_image)
         if verbose: print('layer_v_i output shape:', layer_v_i.shape)
         
         

@@ -143,6 +143,12 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping=None, tokenizer=N
     if (dataset_type == DatasetType.TEST):
         assert(tokenizer != None)
 
+    # Options can specify a forced rebuild of datasets, regardless of timestamp
+    force_rebuild = options['rebuild_datasets']
+    if force_rebuild and os.path.isfile(dataset_path):
+        print('Forcing deletion and rebuilding of dataset ->', dataset_path)
+        os.remove(dataset_path)
+    
     # If pickle file is older than dataset.py, delete and recreate
     print('Checking timestamp on dataset -> {}'.format(dataset_path))
     dataset_py_path = os.path.abspath('../vqa/dataset/dataset.py')
@@ -670,6 +676,8 @@ if __name__ == '__main__':
                         help = 'turn on verbose output')
     parser.add_argument('--no_logging', action='store_true',
                         help = 'turn off logging to MLFlow server')
+    parser.add_argument('--rebuild_datasets', action='store_true',
+                        help = 'rebuilds all datasets, regardless of timestamp')
     parser.add_argument('--predict_on_validation_set', action='store_true',
                         help = 'after training, run `model.predict()` on validation dataset')
 
@@ -761,6 +769,10 @@ if __name__ == '__main__':
     if args.action == 'train' and args.predict_on_validation_set:
         options['predict_on_validation_set'] = True
 
+    # force rebuild of datasets
+    if args.rebuild_datasets:
+        options['rebuild_datasets'] = args.rebuild_datasets
+    
     options['max_train_size'] = args.max_train_size
     options['max_val_size']   = args.max_val_size
     options['max_test_size']   = args.max_test_size
