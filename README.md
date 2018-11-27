@@ -54,6 +54,7 @@ In the /home/&lt;username&gt;/vqa_data the following directory structure is expe
 │   └── mscoco
     	├── embeddings
             ├── vgg16
+            ├── resNet50
         ├── test2015
     	├── train2014
     	└── val2014
@@ -105,13 +106,13 @@ All runs need to be launched from the ./bin directory.  Here are some examples o
 1. The primary way to confirm a run is to load an experiment from a json file in `vqa/experiments/`
 
 ```
-python3 visualqa.py --verbose --experiment 2 --epochs 10
+python3 visualqa.py --verbose --experiment 2 --epochs 25 --rebuild_datasets
 ```
 
 2. Run the test set on the latest weights from a trained model:
 
 ```
-python3 visualqa.py --verbose --model san  --action test
+python3 visualqa.py --verbose --model san  --action test --rebuild_datasets
 ```
 
 3. (Optional) Train the SAN model with a smaller train/val set:
