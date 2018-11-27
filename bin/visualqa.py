@@ -580,6 +580,17 @@ def calculate_accuracies(final_results, labeled=False):
     print(acc_by_anstype)
     if options['logging']:
         mlflow.log_param('acc_by_anstype', acc_by_anstype.to_dict('index'))  
+        
+    # older results files and any v1 results files won't have complement_id's
+    if 'complement_id' in df.columns and df['complement_id'].notnull().any():
+        joined = pd.merge(df, df, left_on='complement_id', right_on='question_id')
+        joined['both_complements_correct'] = ((joined['correct_x']==1) & (joined['correct_y']==1)).astype(int)
+        complementary_acc = joined['both_complements_correct'].mean()
+        print('Complementary Pairs accuracy = {:.3f}'.format(complementary_acc))
+        if options['logging']:
+            mlflow.log_metric('complementary_acc', complementary_acc)
+    else:
+        print('No complementary pairs data.')
 
     
 # ------------------------------- CALLBACKS -------------------------------
