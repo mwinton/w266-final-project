@@ -1,23 +1,22 @@
-# standard modules
 from keras.applications.vgg16 import VGG16
 import keras.activations
 import keras.backend as kbe
 from keras.callbacks import EarlyStopping
 import keras.layers
-from keras.layers import Activation, Add, Concatenate, Conv1D, Dense, Dropout, Embedding, Softmax
+from keras.layers import Activation, Add, Concatenate, Conv1D, Dense, Dropout, Embedding
 from keras.layers import Input, GlobalMaxPooling1D, Lambda, Multiply, RepeatVector, Reshape
-from keras.layers import BatchNormalization 
+from keras.layers import BatchNormalization, Softmax
 from keras.models import Model
 from keras.regularizers import l2
 import mlflow
 import mlflow.keras
+import os
 import pickle
 from pprint import pprint
 
-# our own imports
 from . options import ModelOptions
 
-class StackedAttentionNetwork(object):
+class MRRStackedAttentionNetwork(object):
     
     def __init__ (self, options):
         ''' Initialize SAN object '''
@@ -38,18 +37,12 @@ class StackedAttentionNetwork(object):
         verbose = options['verbose']
         print('Building attention subgraph...')
 
-        # Single dense layer to reduce image dimensions for attention
-        # in:  [batch_size, n_image_regions, n_attention_input]
-        # out: [batch_size, n_image_regions, n_attention_features]
+        # CHANGE: not transforming image features from 512 -> 1280 -> 512 before attention
         n_attention_features = options['n_attention_features']
-        layer_attn_image = Dense(units=n_attention_features,
-                                   activation='tanh',
-                                   use_bias=True,
-                                   kernel_initializer='random_uniform',
-                                   bias_initializer='zeros',
-                                   kernel_regularizer=self.regularizer,
-                                   name='attention_image_%d' % (idx)
-                                  )(layer_v_i)
+        n_image_embed = self.options['n_image_embed']
+        assert(n_attention_features == n_image_embed)
+        # in:   [batch_size, n_attention_features]
+        layer_attn_image = layer_v_i
         if verbose: print('attention_image_%d' % (idx), layer_attn_image.shape)
 
         # Adding a batch norm step before image and sentence vectors are added
@@ -59,33 +52,23 @@ class StackedAttentionNetwork(object):
         # One reason for this might be that standardization of the image and question
         # vectors keep them in equal footing in terms of their respective magnitudes
 
-        layer_attn_image  = BatchNormalization(name='batch_norm_image_%d' % (idx))(layer_attn_image)
-
+        layer_norm_image  = BatchNormalization(name='batch_norm_image_%d' % (idx))(layer_attn_image)
         
-        # Single dense layer to reduce sentence dimensions for attention
-        # in:  [batch_size, n_attention_input]
-        # out: [batch_size, n_attention_features]
-        n_attention_features = self.options['n_attention_features']
-        layer_attn_sent = Dense(units=n_attention_features,
-                                activation='tanh',
-                                use_bias=True,
-                                kernel_initializer='random_uniform',
-                                bias_initializer='zeros',
-                                kernel_regularizer=self.regularizer,
-                                name='attention_sent_%d' % (idx)
-                               )(layer_v_q)
+        # CHANGE: not transforming image features from 512 -> 1280 -> 512 before attention
+        # in:   [batch_size, n_attention_features]
+        layer_attn_sent = layer_v_q
         if verbose: print('attention_sent_%d' % (idx), layer_attn_sent.shape)
-
-        # Adding a batch norm before image and sentence vectors are added
-        layer_attn_sent = BatchNormalization(name='batch_norm_sent_%d' % (idx))(layer_attn_sent)
         
         # Need to expand and repeat the sentence vector to be added to each image region
         # in:   [batch_size, n_attention_features]
         # out:  [batch_size, n_image_regions, n_attention_features]
         n_image_regions = options['n_image_regions']
-        layer_attn_sent = RepeatVector(n_image_regions,
+        layer_repeated_sent = RepeatVector(n_image_regions,
                                        name='expanded_attn_sent_%d' % (idx))(layer_attn_sent)
-        if verbose: print('expanded_attn_sent_%d' % (idx), layer_attn_sent.shape)
+        if verbose: print('expanded_attn_sent_%d' % (idx), layer_repeated_sent.shape)
+
+        # Adding a batch norm before image and sentence vectors are added
+        layer_norm_sent = BatchNormalization(name='batch_norm_sent_%d' % (idx))(layer_repeated_sent)
 
         # combine the image and sentence tensors
         # in (image):     [batch_size, n_image_regions, n_attention_features]
@@ -93,17 +76,17 @@ class StackedAttentionNetwork(object):
         # out:            [batch_size, n_image_regions, n_attention_features]
         attention_merge_type = self.options['attention_merge_type']
         if attention_merge_type == 'addition':  # Yang's paper did simple matrix + vector addition
-            layer_h_a = Add(name='h_a_%d' % (idx))([layer_attn_sent, layer_attn_image])
+            layer_h_a = Add(name='h_a_%d' % (idx))([layer_norm_sent, layer_norm_image])
         else:
             # TODO: add option to combine some other way
-            pass
+            raise ValueError ('No other attention combination defined except \"addition\".')
         if verbose: print('h_a_%d' % (idx), layer_h_a.shape)
         
+        # CHANGE: eliminating the tanh activation that immediately preceded softmax
         # Single dense layer to reduce axis=2 to 1 dimension for softmax (one per image region)
         # in:   [batch_size, n_image_regions, n_attention_features]
         # out:  [batch_size, n_image_regions, 1]
         layer_pre_softmax = Dense(units=1,
-                                  activation='tanh',
                                   use_bias=True,
                                   kernel_initializer='random_uniform',
                                   bias_initializer='zeros',
@@ -118,23 +101,24 @@ class StackedAttentionNetwork(object):
         layer_attn_prob_dist = Softmax(axis=1, name='layer_prob_attn_%d' % (idx))(layer_pre_softmax)
         if verbose: print('layer_attn_prob_dist_%d' % (idx), layer_attn_prob_dist.shape)
         
+        # CHANGE: expanding to output 512-dim (n_attention_features), not 1280-dim (n_attention_input)
         # Need to expand and repeat the attention vector to be multiplied by each image region
         # in:  [batch_size, n_image_regions, 1]
-        # out:  [batch_size, n_image_regions, n_attention_input]
+        # out:  [batch_size, n_image_regions, n_attention_features]
         n_attention_input = options['n_attention_input']
         layer_prob_expanded = Lambda(self._repeat_elements, 
                                      name='layer_prob_expanded_%d' % (idx),
-                                     arguments={'n':n_attention_input})(layer_attn_prob_dist)
+                                     arguments={'n':n_attention_features})(layer_attn_prob_dist)
         if verbose: print('layer_prob_expanded_%d' % (idx), layer_prob_expanded.shape)
 
         # Refined query vector
-        # in:   [batch_size, n_image_regions, n_attention_input]
+        # in:   [batch_size, n_image_regions, n_attention_features]
         # out:  [batch_size, n_attention_input]
         layer_v_tilde = Multiply()([layer_v_i, layer_prob_expanded])
         layer_v_tilde = Lambda(self._sum_axis_1, name='v_tilde_%d' % (idx))(layer_v_tilde)
         if verbose: print('v_tilde_%d' % (idx), layer_v_tilde.shape)
 
-        # Adding a batch norm befsre image and sentence vectors are added
+        # Adding a batch norm before image and sentence vectors are added
         layer_v_tilde = BatchNormalization(name='batch_norm_v_tilde_%d' % (idx)) (layer_v_tilde)
         layer_v_q     = BatchNormalization(name='batch_norm_v_q_%d' % (idx))(layer_v_q)
 
@@ -147,6 +131,10 @@ class StackedAttentionNetwork(object):
         ''' Build Keras graph '''
         verbose = options['verbose']
         print('Building graph...')
+
+        # CHANGE: original published model always used tanh
+        # check options for alternate activation type
+        activation_type = options.get('activation_type', 'tanh')
 
         batch_size = self.options['batch_size']
         n_attention_input = self.options['n_attention_input']
@@ -161,69 +149,26 @@ class StackedAttentionNetwork(object):
 
         #
         # begin image pipeline
-        # diagram: https://docs.google.com/drawings/d/1ZWRPmy4e2ACvqOsk4ttAEaWZfUX_qiQEb0DE05e8dXs/edit
+        # diagram: TODO: update after "best" model is finalized
         #
         
         image_input_dim = self.options['image_input_dim']
         image_input_depth = self.options['image_depth']
 
-        # TODO: determine these dynamically from the image embedding output
+        # TODO: determine these dynamically from the VGG16 output
         n_image_regions = self.options['n_image_regions']
         n_image_embed = self.options['n_image_embed']
 
-        if options['start_with_image_embed']:
-            # if loading embeddings directly, we can start with this layer
-            layer_image_input = layer_reshaped_image  = Input(batch_shape=(None,n_image_regions,n_image_embed),name="reshaped_image")
-            
-            if verbose: print('layer_reshaped_image output shape:', layer_reshaped_image.shape)
-        else:
-            # image input as [batch_size, image_input_dim, image_input_dim, image_input_depth] of floats
-            layer_image_input = Input(batch_shape=(None, image_input_dim, image_input_dim, image_input_depth),
-                                      dtype='float32',
-                                      sparse=False,
-                                      name='image_input'
-                                     )
-            if verbose: print('layer_image_input shape:', layer_image_input._keras_shape)
-        
-            # Runs VGGNet16 model and extracts last pooling layeer
-            # in:  [batch_size, image_input_dim, image_input_dim, image_input_depth]
-            # out: [batch_size, image_output_dim, image_output_dim, image_output_depth]
-            image_model_initializer = self.options.get('image_init_type', None)
-            model_vgg16 = VGG16(include_top=False,
-                                weights=image_model_initializer,  # None = random initialization
-                                input_tensor=layer_image_input,
-                                input_shape=(image_input_dim, image_input_dim, image_input_depth),
-                                pooling=None  # output is 4D tensor from last convolutional layer
-                                # TODO: check the order of returned tensor dimensions
-                               )
-            if verbose: print('model_vgg16 output shape:', model_vgg16.output_shape)
-        
+        # CHANGE: not transforming image features from 512 -> 1280 -> 512 before attention
+        # loading embeddings directly, so we can start with this layer
+        # in: [batch_size, n_image_regions, n_image_embed = n_attention_features]
+        layer_reshaped_image = Input(batch_shape=(None, n_image_regions, n_image_embed), name="reshaped_image")   
+        layer_v_i = layer_reshaped_image 
+        if verbose: print('layer_reshaped_image output shape:', layer_reshaped_image.shape)
 
-            # Reshaped image output to flatten the image region vectors
-            # in:  [batch_size, image_output_dim, image_output_dim, n_image_embed]
-            # out: [batch_size, n_image_regions, n_image_embed]
-            layer_reshaped_image = Reshape((n_image_regions, n_image_embed),  # excludes batch size
-                                           name='reshaped_image'
-                                          )(model_vgg16.output)  # model.output gives a tensor
-            if verbose: print('layer_reshaped_image output shape:', layer_reshaped_image.shape)
-        
-        # Single dense layer to transform dimensions to match sentence dims
-        # in:  [batch_size, n_image_regions, image_output_depth]
-        # out: [batch_size, n_image_regions, n_attention_input]
-        layer_v_i = Dense(units=n_attention_input,
-                          activation='tanh',
-                          use_bias=True,
-                          kernel_initializer='random_uniform',
-                          bias_initializer='zeros',
-                          kernel_regularizer=self.regularizer,
-                          name='v_i'
-                         )(layer_reshaped_image)
-        if verbose: print('layer_v_i output shape:', layer_v_i.shape)
-        
-        
         #
         # begin sentence pipeline
-        # diagram: https://docs.google.com/drawings/d/1PJKOcQA73sUvH-w3UlLOhFH0iHOaPJ9-IRb7S75yw0M/edit
+        # diagram: TODO: update after "best" model is finalized
         #
         
         # these are both set when the dataset is prepared
@@ -255,7 +200,11 @@ class StackedAttentionNetwork(object):
                                )(layer_sent_input)
         elif sent_embed_initializer == 'glove':
             trainable = options['sent_embed_trainable']
-            glove_matrix = pickle.load(open(options['glove_matrix_path'], 'rb'))
+            if os.path.isfile(options['glove_matrix_path']):
+                glove_matrix = pickle.load(open(options['glove_matrix_path'], 'rb'))
+            else:
+                raise Exception('Regenerate training dataset. Glove matrix not found at {}' \
+                                .format(options['glove_matrix_path']))
             if sent_embed_dim != glove_matrix.shape[1]:
                 # if options don't match the matrix shape, override with actual (but logs may be wrong)
                 sent_embed_dim = self.options['n_sent_embed'] = glove_matrix.shape[1]
@@ -278,7 +227,7 @@ class StackedAttentionNetwork(object):
                                     kernel_size=1,
                                     strides=1,
                                     padding='valid',  # this results in output length != input length
-                                    activation='tanh',
+                                    activation=activation_type,
                                     use_bias=True,
                                     kernel_initializer='random_uniform',
                                     bias_initializer='zeros',
@@ -301,7 +250,7 @@ class StackedAttentionNetwork(object):
                                    kernel_size=2,
                                    strides=1,
                                    padding='valid',  # this results in output length != input length
-                                   activation='tanh',
+                                   activation=activation_type,
                                    use_bias=True,
                                    kernel_initializer='random_uniform',
                                    bias_initializer='zeros',
@@ -324,7 +273,7 @@ class StackedAttentionNetwork(object):
                               kernel_size=3,
                               strides=1,
                               padding='valid',  # this results in output length != input length
-                              activation='tanh',
+                              activation=activation_type,
                               use_bias=True,
                               kernel_initializer='random_uniform',
                               bias_initializer='zeros',
@@ -346,15 +295,31 @@ class StackedAttentionNetwork(object):
             [layer_pooled_unigram, layer_pooled_bigram, layer_pooled_trigram])
         if verbose: print('layer_v_q output shape:', layer_v_q.shape)
         
+        # CHANGE: reducing sentence dimension 1280 -> 512 before attention layer instead of during them
+        # Single dense layer to reduce sentence dimensions for attention
+        # in:  [batch_size, n_attention_input]
+        # out: [batch_size, n_attention_features]
+        n_attention_features = self.options['n_attention_features']
+        layer_v_q = Dense(units=n_attention_features,
+                                activation=activation_type,
+                                use_bias=True,
+                                kernel_initializer='random_uniform',
+                                bias_initializer='zeros',
+                                kernel_regularizer=self.regularizer,
+                                name='v_q_reduced'
+                               )(layer_v_q)
+        if verbose: print('layer_v_q output shape:', layer_v_q.shape)
+
         #
         # begin attention layers
         # diagram: https://docs.google.com/drawings/d/1EDpuHGZHA_BjR0kE23B6UsjccvHr0z-uAB6F-CKLop0/edit
         #
         
         # build multi-layer attention stack
+        # CHANGE: working with 512-dim feature vectors instead of 1280-dim
         # image in:     [batch_size, n_image_regions, n_attention_input]
-        # sentence in:  [batch_size, n_attention_input]
-        # out:          [batch_size, n_attention_input]
+        # sentence in:  [batch_size, n_attention_features]
+        # out:          [batch_size, n_attention_features]
         n_attention_layers = options['n_attention_layers']          
         for idx in range(n_attention_layers):
             layer_v_q = self._build_attention_subgraph(options, idx, layer_v_i, layer_v_q)
@@ -365,8 +330,23 @@ class StackedAttentionNetwork(object):
         layer_dropout_v_q = Dropout(rate=attention_dropout_ratio, name='dropout_v_q')(layer_v_q)
         if verbose: print('layer_dropout_v_q output shape:', layer_dropout_v_q.shape)
         
+        # CHANGE: add optional dense layers (dim=n_attention_features) before final softmax
+        layer_extra_dense = layer_dropout_v_q
+        n_final_extra_dense = options.get('n_final_extra_dense', 0)
+        for idx in range(n_final_extra_dense):
+            layer_extra_dense = Dense(units=n_attention_features,
+                                      activation=activation_type,
+                                      use_bias=True,
+                                      kernel_initializer='random_uniform',
+                                      bias_initializer='zeros',
+                                      kernel_regularizer=self.regularizer,
+                                      name='extra_dense_%d' % idx,
+                                     )(layer_extra_dense)
+            if verbose: print('layer_extra_dense_%d' % (idx), layer_extra_dense.shape)
+            
         # final classification
-        # in:  [batch_size, n_attention_input]
+        # CHANGE: working with 512-dim feature vectors instead of 1280-dim
+        # in:  [batch_size, n_attention_features]
         # out: [batch_size, n_answer_classes]
         n_answer_classes = self.options['n_answer_classes']
         layer_prob_answer = Dense(units=n_answer_classes,
@@ -376,13 +356,11 @@ class StackedAttentionNetwork(object):
                                   bias_initializer='zeros',
                                   kernel_regularizer=self.regularizer,
                                   name='prob_answer'
-                                 )(layer_dropout_v_q)
+                                 )(layer_extra_dense)
         if verbose: print('layer_prob_answer output shape:', layer_prob_answer.shape)
         
-        # do argmax to make predictions (or look for canned classifier)
-        
         # assemble all these layers into model
-        self.model = Model(inputs=[layer_image_input, layer_sent_input], outputs=layer_prob_answer)
+        self.model = Model(inputs=[layer_reshaped_image, layer_sent_input], outputs=layer_prob_answer)
 
         optimizer = ModelOptions.get_optimizer(options)
         print('Compiling model with {} optimizer...'.format(self.options['optimizer']))

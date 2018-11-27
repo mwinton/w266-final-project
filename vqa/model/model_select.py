@@ -1,6 +1,4 @@
-
-## Adapted from https://github.com/imatge-upc/vqa-2016-cvprw, Issey Masuda Mora 
-
+# ModelLibrary architecture adapted from https://github.com/imatge-upc/vqa-2016-cvprw, Issey Masuda Mora 
 
 from keras.layers import Input, Embedding, merge, LSTM, Dropout, Dense, RepeatVector, BatchNormalization, \
     TimeDistributed, Reshape, concatenate
@@ -10,6 +8,8 @@ from . baseline_model import BaselineModel
 from . san_model import StackedAttentionNetwork
 from . text_cnn_model import TextCNNModel
 from . vggnet_model import VGGNetModel
+from . no_atten_model import NoAttentionNetwork
+from . mrr_san_model import MRRStackedAttentionNetwork
 
 class ModelLibrary:
     # ---------------------------------- CONSTANTS --------------------------------
@@ -19,6 +19,8 @@ class ModelLibrary:
     MODEL_SAN      = "san"          # SAN Model  (To reproduce Yang's paper results)
     MODEL_TEXT_CNN = "text_cnn"     # Text-only CNN Model
     MODEL_VGGNET   = "vggnet_only"  # Image-only VGGNet Model
+    MODEL_NO_ATTEN = "no_atten"     # Similar to SAN, but simple concatenated features
+    MODEL_MRR_SAN  = "mrr_san"      # Mike/Rachel/Ram "improved" SAN model (at least an attempt)
 
     # ---------------------------------- FUNCTIONS --------------------------------
 
@@ -45,6 +47,10 @@ class ModelLibrary:
             return ModelLibrary.get_text_cnn_model(options)
         elif model_name == ModelLibrary.MODEL_VGGNET:
             return ModelLibrary.get_vggnet_only_model(options)
+        elif model_name == ModelLibrary.MODEL_NO_ATTEN:
+            return ModelLibrary.get_no_atten_model(options)
+        elif model_name == ModelLibrary.MODEL_MRR_SAN:
+            return ModelLibrary.get_mrr_san_model(options)
         else:
             print("Model not registered")
   
@@ -76,7 +82,7 @@ class ModelLibrary:
         # secondary model for extracting attention layer probabilities
         if hasattr(san, 'attention_layer_model'):
             attention_model = san.attention_layer_model
-            print('Secondary attention created and compiled')
+            print('Secondary attention model created and compiled')
             return vqa_model, attention_model
         else:
             return vqa_model
@@ -107,5 +113,36 @@ class ModelLibrary:
 
         return vqa_model
 
+    @staticmethod
+    def get_no_atten_model(options):
+
+        print('Creating model...')
+        no_atten  = NoAttentionNetwork(options)
+        no_atten.build_graph(options)
+
+        vqa_model = no_atten.model
+        print('Model created and compiled')
+        vqa_model.summary()
+
+        return vqa_model
+
+    @staticmethod
+    def get_mrr_san_model(options):
+
+        print('Creating model...')
+        san  = MRRStackedAttentionNetwork(options)
+        san.build_graph(options)
+
+        vqa_model = san.model
+        print('Model created and compiled')
+        vqa_model.summary()
+ 
+        # secondary model for extracting attention layer probabilities
+        if hasattr(san, 'attention_layer_model'):
+            attention_model = san.attention_layer_model
+            print('Secondary attention model created and compiled')
+            return vqa_model, attention_model
+        else:
+            return vqa_model
 
 

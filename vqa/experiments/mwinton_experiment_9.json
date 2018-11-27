@@ -1,0 +1,17 @@
+{
+  "experiment_id": 9,
+  "experiment_name": "SAN_w_V2_dataset",
+  "dataset": "v2",
+  "n_attention_layers": 2,
+  "model_name": "san",
+  "attention_dropout_ratio": 0.5,
+  "sent_init_type": "random",
+  "sent_embed_trainable": true,
+  "n_sent_embed": 500,
+  "image_embed_model": "vgg16",
+  "optimizer": "sgd",
+  "sgd_learning_rate": 0.1,
+  "sgd_momentum": 0.9,
+  "sgd_decay_rate": 0.0, 
+  "sgd_grad_clip": 0.1  
+}

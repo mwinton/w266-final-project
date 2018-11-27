@@ -35,7 +35,7 @@ ACTIONS = ['train', 'test']
 
 
 # Defaults
-DEFAULT_MODEL = "baseline"
+DEFAULT_MODEL = "san"
 DEFAULT_EXPERIMENT = 0
 DEFAULT_ACTION = 'train'
 
@@ -82,7 +82,7 @@ def main(options):
 
     # Load model
     # NOTE: cannot be loaded until after dataset because it needs the vocab size
-    if options['model_name'] == 'san':
+    if options['model_name'] in ('san','mrr_san'):
         vqa_model, attention_model = ModelLibrary.get_model(options)
     else:
         vqa_model = ModelLibrary.get_model(options)
@@ -110,7 +110,7 @@ def main(options):
                     
         dataset = train_dataset
         val_dataset = load_dataset(DatasetType.VALIDATION,options,answer_one_hot_mapping)
-        train(vqa_model, dataset, options, val_dataset=val_dataset)
+        train(vqa_model, dataset, options, val_dataset=val_dataset, attention_model=attention_model)
         
     elif action == 'test':
         # test set needs to be tokenized with the same tokenizer that was used in the training set
@@ -143,6 +143,12 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping=None, tokenizer=N
     if (dataset_type == DatasetType.TEST):
         assert(tokenizer != None)
 
+    # Options can specify a forced rebuild of datasets, regardless of timestamp
+    force_rebuild = options['rebuild_datasets']
+    if force_rebuild and os.path.isfile(dataset_path):
+        print('Forcing deletion and rebuilding of dataset ->', dataset_path)
+        os.remove(dataset_path)
+    
     # If pickle file is older than dataset.py, delete and recreate
     print('Checking timestamp on dataset -> {}'.format(dataset_path))
     dataset_py_path = os.path.abspath('../vqa/dataset/dataset.py')
@@ -161,8 +167,10 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping=None, tokenizer=N
         and not os.path.isfile(options['glove_matrix_path'])):
         
         print('GloVe embeddings selected, but glove_matrix.p doesn\'t exist, so rebuilding training set.')
-        os.remove(dataset_path)
-        print('Dataset was outdated. Removed -> ', dataset_path)
+        #if dataset.p file path exists then remove it
+        if (os.path.isfile(dataset_path)):
+            os.remove(dataset_path)
+            print('Dataset was outdated. Removed -> ', dataset_path)
         
     try:
         with open(dataset_path, 'rb') as f:
@@ -301,7 +309,7 @@ def plot_train_metrics(train_stats, options, plot_type='epochs'):
     return loss_fig_path, acc_fig_path
 
 
-def train(model, dataset, options, val_dataset=None):
+def train(model, dataset, options, val_dataset=None, attention_model=None):
 
     if not val_dataset:
         raise ValueError('A validation dataset must be provided')
@@ -389,7 +397,7 @@ def train(model, dataset, options, val_dataset=None):
         # change dataset_type to prevent shuffling during batch generation; otherwise 
         # it won't be possible to compare to true lablels
         val_dataset.dataset_type = DatasetType.TEST
-        test(model, val_dataset, options)
+        test(model, val_dataset, options, attention_model)
         val_dataset.dataset_type = DatasetType.VALIDATION
 
 def test(model, dataset, options, attention_model=None):
@@ -467,6 +475,7 @@ def test(model, dataset, options, attention_model=None):
                                      'question_id': sample.question.id,
                                      'question_str': sample.question.question_str,
                                      'question_type': sample.answer.question_type,
+                                     'complement_id': sample.question.complement_id,
                                      'image_id': sample.question.image_id,
                                      'answer_id': sample.answer.id,
                                      'answer_str': sample.answer.answer_str,
@@ -479,6 +488,7 @@ def test(model, dataset, options, attention_model=None):
         final_results = [{'predicted_answer': ohe_to_answer_str[y_pred_ohe[idx]], 
                          'question_id': sample.question.id,
                          'question_str': sample.question.question_str,
+                         'complement_id': sample.question.complement_id,
                          'image_id': sample.question.image_id
                         }
                         for idx, sample in enumerate(dataset.samples)]
@@ -493,6 +503,7 @@ def test(model, dataset, options, attention_model=None):
     # save attention probabilities to disk
     if not attention_model == None:
         # list will have one numpy array for each attention_layer output by the model
+        print('Running predictions on the secondary attention model.')
         attention_probabilities = attention_model \
             .predict_generator(dataset.batch_generator(), steps=test_dataset_size//batch_size + 1, verbose=1)
 
@@ -505,6 +516,8 @@ def test(model, dataset, options, attention_model=None):
         print('Attention_probabilities saved ->', probabilities_path)
         if options['logging']:
             mlflow.log_artifact(probabilities_path)
+
+    print('Testing done!')
 
 def calculate_accuracies(final_results, labeled=False):
     """
@@ -567,6 +580,17 @@ def calculate_accuracies(final_results, labeled=False):
     print(acc_by_anstype)
     if options['logging']:
         mlflow.log_param('acc_by_anstype', acc_by_anstype.to_dict('index'))  
+        
+    # older results files and any v1 results files won't have complement_id's
+    if 'complement_id' in df.columns and df['complement_id'].notnull().any():
+        joined = pd.merge(df, df, left_on='complement_id', right_on='question_id')
+        joined['both_complements_correct'] = ((joined['correct_x']==1) & (joined['correct_y']==1)).astype(int)
+        complementary_acc = joined['both_complements_correct'].mean()
+        print('Complementary Pairs accuracy = {:.3f}'.format(complementary_acc))
+        if options['logging']:
+            mlflow.log_metric('complementary_acc', complementary_acc)
+    else:
+        print('No complementary pairs data.')
 
     
 # ------------------------------- CALLBACKS -------------------------------
@@ -614,6 +638,10 @@ class CustomModelCheckpoint(ModelCheckpoint):
         self.model_name = model_name
         self.experiment_id = experiment_id
         self.last_epoch = 0
+        if options['dataset'] == 'v2':
+            self.prefix = 'v2_'
+        else:
+            self.prefix = ''
 
     def on_epoch_end(self, epoch, logs={}):
         # save after every epoch to enable restarting at that epoch after a crash
@@ -632,7 +660,7 @@ class CustomModelCheckpoint(ModelCheckpoint):
                 print('Deleting temporary weight file ->', wt_file)
                 os.remove(wt_file)
             else:
-                symlink = os.path.abspath(self.weights_dir_path + 'model_weights_{}_expt{}_latest' \
+                symlink = os.path.abspath(self.weights_dir_path + self.prefix + 'model_weights_{}_expt{}_latest' \
                                           .format(self.model_name, self.experiment_id))
 
         if options['logging']:
@@ -659,6 +687,8 @@ if __name__ == '__main__':
                         help = 'turn on verbose output')
     parser.add_argument('--no_logging', action='store_true',
                         help = 'turn off logging to MLFlow server')
+    parser.add_argument('--rebuild_datasets', action='store_true',
+                        help = 'rebuilds all datasets, regardless of timestamp')
     parser.add_argument('--predict_on_validation_set', action='store_true',
                         help = 'after training, run `model.predict()` on validation dataset')
 
@@ -666,6 +696,10 @@ if __name__ == '__main__':
                         help = 'set batch size (int)')
     parser.add_argument('-e', '--epochs', type=int,
                         help = 'set max number of epochs (int)')
+    parser.add_argument('--image_embed_model', type=str.lower,
+                        choices=['vgg16','resnet50'],
+                        default='vgg16',
+                        help = 'image embedding model to use')
     parser.add_argument("--max_train_size", type=int,
                         help="maximum number of training samples to use")
     parser.add_argument("--max_val_size", type=int,
@@ -740,10 +774,16 @@ if __name__ == '__main__':
     options['model_name'] = args.model 
     options['optimizer'] = args.optimizer
     options['action_type'] = args.action
+
+    options['image_embed_model'] = args.image_embed_model
     
     if args.action == 'train' and args.predict_on_validation_set:
         options['predict_on_validation_set'] = True
 
+    # force rebuild of datasets
+    if args.rebuild_datasets:
+        options['rebuild_datasets'] = args.rebuild_datasets
+    
     options['max_train_size'] = args.max_train_size
     options['max_val_size']   = args.max_val_size
     options['max_test_size']   = args.max_test_size

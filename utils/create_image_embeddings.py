@@ -14,14 +14,16 @@ from skimage.transform import resize
 
 from keras.preprocessing.image import ImageDataGenerator
 from keras.preprocessing import image
-from keras.applications.vgg16 import VGG16
-from keras.applications.vgg16 import preprocess_input
+from keras.applications import vgg16 
+from keras.applications import resnet50
 from keras import Sequential
+from keras.models import Model
 from keras.layers import Flatten
 from keras.layers import Reshape
 from keras.utils import Sequence
 
 from vgg16_options import VGG16Options
+from resNet50_options import resNet50Options
 
 class ImageBatchGenerator(Sequence):
     """
@@ -32,12 +34,14 @@ class ImageBatchGenerator(Sequence):
 
     def __init__(self, options, dir_prefix, image_filenames, loop_start,items_in_loop, max_samples):
 
-        self.vggnet_input_dim = options['vggnet_input_dim']  # 448
-        self.image_depth = options['image_depth']  # 3
-        self.n_image_embed = options['n_image_embed']  # 512
+        self.model_name = options['model_name']
+
+        self.input_dim = options['input_dim']              # 448
+        self.image_depth = options['image_depth']          # 3
+        self.n_image_embed = options['n_image_embed']      # 512
         self.n_image_regions = options['n_image_regions']  # 196
-        self.batch_size = options['batch_size']  # 15 
-        
+        self.batch_size = options['batch_size']            # 15 
+                  
         self.loop_start = loop_start
         self.items_in_loop = items_in_loop
 
@@ -60,20 +64,21 @@ class ImageBatchGenerator(Sequence):
         print("Size of image files => {}".format(len(self.image_filenames)))
 
 
-    def image_preprocess_vgg16_san(self,img):
+    def preprocess_image(self,img):
         # convert the image pixels to a numpy array
         img = image.img_to_array(img)
-        #resize to fit the dimensions of the SAN paper
-        #img = cv2.resize(img,dsize=(self.vggnet_input_dim, self.vggnet_input_dim))
-        # reshape data for the model
-        #img = img.reshape((1, img.shape[0], img.shape[1], img.shape[2]))
-        #img = img.reshape((1, self.vggnet_input_dim, self.vggnet_input_dim, 3 ))
-        assert(img.shape[0] == self.vggnet_input_dim)
-        assert(img.shape[1] == self.vggnet_input_dim)
+        assert(img.shape[0] == self.input_dim)
+        assert(img.shape[1] == self.input_dim)
         assert(img.shape[2] == self.image_depth)
-        # prepare the image for the VGG model
+        # prepare the image for the model
         img = np.expand_dims(img,axis=0)
-        img = preprocess_input(img)
+
+        if self.model_name == "vgg16":
+            img = vgg16.preprocess_input(img)
+        elif self.model_name == "resNet50":
+            img = resnet50.preprocess_input(img)
+        else :
+            raise ValueError("Unsupported embedding model name provided")
 
         return img
 
@@ -89,14 +94,14 @@ class ImageBatchGenerator(Sequence):
         batch_x = self.image_filenames[idx * self.batch_size:(idx + 1) * self.batch_size]
         img_list = []
         for file_name in batch_x:
-            #print("getitem -> loading image {}".format(self.dir_prefix+file_name))
+            # Use keras utility function to load the image and resize it to confirm with input dimensions 
             img = image.load_img(self.dir_prefix+file_name,
-                                 target_size=(self.vggnet_input_dim, self.vggnet_input_dim))
+                                 target_size=(self.input_dim, self.input_dim))
             img_list.append(img)
 
         img_array = np.vstack([
-                   self.image_preprocess_vgg16_san(img)
-                   for img in img_list ])
+                    self.preprocess_image(img)
+                    for img in img_list ])
 
         return img_array
 
@@ -104,10 +109,11 @@ class ImageBatchGenerator(Sequence):
 class CreateImageVectors():
 
     def __init__(self, options, root_dir, dest_dir, target_task,
-                 dataset_type="mscoco", model_name="VGG16",
+                 dataset_type="mscoco", 
                  test_dir="test2015/", train_dir="train2014/", val_dir="val2014/"):
 
-        self.vggnet_input_dim = options['vggnet_input_dim']  # 448
+        self.model_name = options['model_name']
+        self.input_dim = options['input_dim']  # 448
         self.image_depth = options['image_depth']  # 3
         self.n_image_embed = options['n_image_embed']  # 512
         self.n_image_regions = options['n_image_regions']  # 196
@@ -119,7 +125,6 @@ class CreateImageVectors():
         self.test_dir = self.root_dir + "/images/mscoco/" + test_dir
         self.train_dir = self.root_dir + "/images/mscoco/" + train_dir 
         self.val_dir = self.root_dir + "/images/mscoco/" + val_dir
-        self.model_name = model_name
         self.dest_dir = dest_dir
         self.target_task = target_task
 
@@ -144,12 +149,21 @@ class CreateImageVectors():
         return        
 
     def create_vgg16_model(self):
-        base_model = VGG16(include_top = False,
+        base_model = vgg16.VGG16(include_top = False,
                           weights = 'imagenet',
-                          input_shape = (self.vggnet_input_dim, self.vggnet_input_dim, self.image_depth))
+                          input_shape = (self.input_dim, self.input_dim, self.image_depth))
         self.model = Sequential()
         self.model.add(base_model)
         self.model.add(Reshape((self.n_image_regions, self.n_image_embed)))
+        self.model.summary()
+
+    def create_resNet50_model(self):
+        base_model = resnet50.ResNet50(include_top = False,
+                          weights = 'imagenet',
+                          input_shape = (self.input_dim, self.input_dim, self.image_depth))
+
+        reshape_output = Reshape((self.n_image_regions, self.n_image_embed))(base_model.get_layer("activation_48").output)
+        self.model = Model(inputs=base_model.input, outputs=reshape_output)
         self.model.summary()
 
     def write_hd5_image_ids(self):
@@ -196,8 +210,11 @@ class CreateImageVectors():
 
         if(self.model_name=="VGG16"):
             self.create_vgg16_model()   
-        else:
-            print("Only VGG16 model is currently supported")
+        elif self.model_name == "resNet50":
+            self.create_resNet50_model() 
+        else :
+            raise ValueError("Unsupported embedding model name provided")
+
 
         #num_samples = self.files_df.shape[0]
         self.num_samples = self.files_df.shape[0]
@@ -233,10 +250,11 @@ if __name__ == "__main__":
 
     """
       Sample usage:
-        python3 create_embeddings.py --root_dir /home/ram_iyer/vqa_data/  
-                                     --dest_dir /home/ram_iyer/w266-final-project/data/ 
-                                     --target_task "train" 
-                                     --batch_size 15
+        python ./create_image_embeddings.py --root_dir ~/vqa_data/ 
+                                            --dest_dir ~/vqa_data/images/mscoco/embeddings/resNet50/ 
+                                            --target_task "train" 
+                                            --image_model resNet50 
+                                            --batch_size 20
     """
 
     class WriteableDir(argparse.Action):
@@ -271,10 +289,18 @@ if __name__ == "__main__":
     imageSetChoices = ['train','val','test']
     parser.add_argument('--target_task',choices=imageSetChoices , required=True,
                          help='specifies target image set for embeddings ')
+
+    imageModels = ['vgg16','resNet50']
+    parser.add_argument('--image_model',choices=imageModels , required=True,
+                         help='specifies the imageModel to use for creating the embeddings  ')
+
     args = parser.parse_args()
 
     # load model options from config file
-    options = VGG16Options().get_options()
+    if (args.image_model == 'vgg16'):
+        options = VGG16Options().get_options()
+    else:
+        options = resNet50Options().get_options()
 
     # override default for batch_size if specified
     if args.batch_size:

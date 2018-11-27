@@ -1,0 +1,18 @@
+{
+  "experiment_id": 8,
+  "experiment_name": "MRR_SAN_w_GloVe_ResNet",
+  "n_attention_layers": 2,
+  "model_name": "mrr_san",
+  "activation_type": "tanh",
+  "n_final_extra_dense": 1,
+  "attention_dropout_ratio": 0.1,
+  "sent_init_type": "glove",
+  "sent_embed_trainable": true,
+  "image_embed_model": "resNet50",
+  "n_sent_embed": 300,
+  "optimizer": "sgd",
+  "sgd_learning_rate": 0.1,
+  "sgd_momentum": 0.9,
+  "sgd_decay_rate": 0.0, 
+  "sgd_grad_clip": 0.1  
+}
