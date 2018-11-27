@@ -172,6 +172,9 @@ class VQADataset:
         else:
             self.max_sample_size = None
 
+        # check if the questions need pos tags
+        self.need_pos_tags = options['need_pos_tags']
+
         # List with samples
         self.samples = []
 
@@ -230,9 +233,9 @@ class VQADataset:
         for _, question in questions.items():
             if example < 5:
                 print('Sample question string to tokenize: ', question.question_str)
-                print('- corresponding token sequence: ', question.tokenize(self.tokenizer))
+                print('- corresponding token sequence: ', question.tokenize(self.tokenizer,self.need_pos_tags))
             else:
-                question.tokenize(self.tokenizer)
+                question.tokenize(self.tokenizer,self.need_pos_tags)
             example += 1
             # Get the maximum question length
             if question.get_tokens_length() > max_len:
@@ -482,6 +485,8 @@ class VQADataset:
 
         print("Total Sample size -> ", num_samples)
 
+        need_pos_tags = self.options['need_pos_tags']
+
         while True:
 
             # if we have reached the end of the current chunk, load the images for the next chunk
@@ -493,6 +498,8 @@ class VQADataset:
             # Initialize matrix
             I = np.zeros((batch_size,n_image_regions,n_image_embed), dtype=np.float32)
             Q = np.zeros((batch_size, self.max_sentence_len), dtype=np.int32)
+            if need_pos_tags:
+                Q_tags = np.zeros((batch_size, self.max_sentence_len), dtype=np.int32)
 
 
             if self.dataset_type != DatasetType.TEST:
@@ -502,27 +509,46 @@ class VQADataset:
                 batch_indices = [i for i in range(batch_start,batch_end)]
                 randomized_indices = np.random.choice(batch_indices,len(batch_indices),replace=False)
                 for idx,sample_idx in enumerate(randomized_indices):
-                    I[idx], Q[idx] = self.samples[sample_idx].get_input(self.max_sentence_len)
+                    if not need_pos_tags:
+                        I[idx], Q[idx] = self.samples[sample_idx].get_input(self.max_sentence_len)
+                    else:
+                        I[idx], Q[idx],Q_tags[idx] = self.samples[sample_idx].get_input(self.max_sentence_len,need_pos_tags=True)
                     A[idx] = self.samples[sample_idx].get_output()  # the answer's one_hot_index
 
                 # yield (output) appropriate batches of data
                 if text_only:
-                    yield([Q], A)
+                    if not need_pos_tags:
+                        yield([Q], A)
+                    else:
+                        yield([Q, Q_tags], A)
                 elif img_only:
                     yield([I], A)
                 else:
-                    yield([I, Q], A)
+                    if not need_pos_tags:
+                        yield([I, Q], A)
+                    else:
+                        yield([I, Q, Q_tags], A)
             else:
                 # in test mode, we should not randomize within the batch
                 for idx in range(batch_size):
-                    I[idx], Q[idx] = self.samples[batch_start + idx].get_input(self.max_sentence_len)
+                    if not need_pos_tags:
+                        I[idx], Q[idx] = self.samples[batch_start + idx].get_input(self.max_sentence_len)
+                    else:
+                        I[idx], Q[idx],Q_tags[idx] = self.samples[batch_start + idx].get_input(self.max_sentence_len,need_pos_tags=True)  
+
 
                 if text_only:
-                    yield (Q) 
+                    if not need_pos_tags:
+                        yield (Q) 
+                    else:
+                        yield ([Q, Q_tags])
                 elif img_only:
                     yield (I)
                 else:
-                    yield ([I, Q])
+                    if not need_pos_tags:
+                        yield ([I, Q])
+                    else:
+                        yield([I, Q, Q_tags])
                     
             # Update interval
             batch_start += batch_size

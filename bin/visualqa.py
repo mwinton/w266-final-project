@@ -178,6 +178,13 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping=None, tokenizer=N
             dataset = pickle.load(f)
             print('Dataset loaded')
 
+        # if the dataset was saved with incompatible options rebuild it
+        # current list of incompatible options include :
+        #     1. need_pos_tags: this requires a new field in the questions class
+        if dataset.need_pos_tags != options['need_pos_tags']:
+            print("\n *** Found incompatible option setting for option : need_pos_tags: in dataset, rebuilding dataset ***\n")
+            raise IOError
+
         options['n_vocab'] = dataset.vocab_size
             
         dataset.samples = sorted(dataset.samples, key=lambda sample: sample.image.features_idx)

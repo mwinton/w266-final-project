@@ -64,6 +64,11 @@ class ExperimentLibrary:
                 options[key] = val
                 print('WARNING: new parameter, options[\'{}\'] = {}. Was this intentional?'.format(key, val))
             
+        # Check for incompatible options
+        if options['need_pos_tags'] and (options['model_name'] not in ['san','mrr_san']):
+            raise ValueError("Option \"need_pos_tags\" is only supported for \"san\" and \"mrr_san\" models")
+
+
         # Make sure every experiment has a name; needed for MLFlow logging
         if options.get('experiment_name', None) == None:
             options['experiment_name'] = 'experiment_{}'.format(id)
