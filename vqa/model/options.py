@@ -9,6 +9,16 @@ from .. dataset.types import DatasetType
 
 class ModelOptions(object):
 
+    #Static variable for pos tags
+    pos_tags_list  = [ 'CC',  'CD',  'DT',  'EX',   'FW',  'IN',  'JJ',   'JJR' ,
+                      'JJS', 'LS',  'MD',  'NN',   'NNS', 'NNP', 'NNPS', 'PDT',
+                      'POS', 'PRP', 'PRP$', 'RB',  'RBR', 'RBS', 'RP',   'TO',
+                      'UH',  'VB',   'VBD', 'VBG', 'VBN', 'VBP', 'VBZ',  'WDT',
+                      'WP',  'WP$',  'WRB']
+
+    #Static dict from tag string to number for one hot encoding. reserve num 0 for unknown pos tags
+    tag_to_num = {tag:num+1 for num,tag in enumerate(sorted(pos_tags_list))}
+
     def __init__(self):
         ''' init function.  This class stores hyperparameters for the model. '''
         
@@ -90,8 +100,8 @@ class ModelOptions(object):
 
         self.options['need_pos_tags']  = False          # If true questions are tagged with pos tags
         # size of one-hot vectors to represent pos tags. There is an extra element needed
-        # to represent the unassigned tags. TODO. Need to find a nltk api for this instead of hard-coding
-        self.options['num_pos_classes'] = 36     
+        # to represent the unassigned tags. 
+        self.options['num_pos_classes'] = len(ModelOptions.pos_tags_list) + 1     
 
         self.options['n_filters_unigram'] = 256
         self.options['n_filters_bigram'] = 512

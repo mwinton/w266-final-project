@@ -10,6 +10,7 @@ from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import text_to_word_sequence
 from keras.utils import to_categorical
 from .types import DatasetType
+from ..model.options import ModelOptions
 import nltk
 
 
@@ -117,16 +118,6 @@ class VQASample:
 class Question:
     """Class that holds the information of a single question of a VQA sample"""
 
-    #Static variable for pos tags
-    pos_tags_list  = [ 'CC',  'CD',  'DT',  'EX',   'FW',  'IN',  'JJ',   'JJR' ,
-                       'JJS', 'LS',  'MD',  'NN',   'NNS', 'NNP', 'NNPS', 'PDT',
-                       'POS', 'PRP', 'PRP$', 'RB',  'RBR', 'RBS', 'RP',   'TO',
-                       'UH',  'VB',   'VBD', 'VBG', 'VBN', 'VBP', 'VBZ',  'WDT',
-                       'WP',  'WP$',  'WRB']
-
-    #Static dict from tag string to number for one hot encoding. reserve num 0 for unknown pos tags
-    tag_to_num = {tag:num+1 for num,tag in enumerate(sorted(pos_tags_list))}
-
     def __init__(self, question_id, question_str, image_id):
         """Instantiates a Question object.
 
@@ -181,11 +172,11 @@ class Question:
             for token,tag in tagged_question:
                 # since tokenizer is only built on training set vocab, some words might be missing from validation/test set.
                 if token in tokenizer.word_index:
-                    if tag not in Question.tag_to_num:
+                    if tag not in ModelOptions.tag_to_num:
                         print("For question {} \n Invalid tag {} found in {}".format(self.question_str,tag,tagged_question))
                         self._tag_list.append(0)
                     else:
-                        self._tag_list.append(Question.tag_to_num[tag])
+                        self._tag_list.append(ModelOptions.tag_to_num[tag])
 
             if (len(self._tag_list) != len(self._tokens_idx)):
                 print(" Mismatched token and tag lists \n")
