@@ -88,8 +88,10 @@ class ModelOptions(object):
         self.options['sent_embed_trainable'] = True    # Default to trainable embeddings
         self.options['sent_init_range'] = 0.01
 
-        self.options['need_pos_tags']   = False          # If true questions are tagged with pos tags
-        self.options['num_pos_classes'] = 36             # size of one-hot vectors to represent pos tags
+        self.options['need_pos_tags']  = False          # If true questions are tagged with pos tags
+        # size of one-hot vectors to represent pos tags. There is an extra element needed
+        # to represent the unassigned tags. TODO. Need to find a nltk api for this instead of hard-coding
+        self.options['num_pos_classes'] = 36     
 
         self.options['n_filters_unigram'] = 256
         self.options['n_filters_bigram'] = 512

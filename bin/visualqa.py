@@ -183,6 +183,7 @@ def load_dataset(dataset_type, options, answer_one_hot_mapping=None, tokenizer=N
         #     1. need_pos_tags: this requires a new field in the questions class
         if dataset.need_pos_tags != options['need_pos_tags']:
             print("\n *** Found incompatible option setting for option : need_pos_tags: in dataset, rebuilding dataset ***\n")
+            os.remove(dataset_path)
             raise IOError
 
         options['n_vocab'] = dataset.vocab_size

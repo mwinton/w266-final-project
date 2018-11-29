@@ -290,6 +290,7 @@ class StackedAttentionNetwork(object):
             layer_x = Concatenate(axis=-1, name='concat_sent_embed')(
                 [layer_x,pos_tag_ohe])
             sent_embed_dim = sent_embed_dim + num_pos_classes
+            if verbose: print("layer_x post concat with pos tag shape", layer_x.shape)
 
     
         # Unigram CNN layer
