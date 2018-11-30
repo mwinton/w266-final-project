@@ -231,13 +231,28 @@ class StackedAttentionNetwork(object):
         V = self.options['n_vocab']
         if verbose: print('input vocab size:', V)
 
-        # sentence input receives sequences of [batch_size, max_time] integers between 1 and V
+        need_pos_tags = self.options['need_pos_tags']
+        num_pos_classes = self.options['num_pos_classes']
+
+        # sentence input receives sequences of [batch_size, max_time] integers between 1 and v
         layer_sent_input = Input(batch_shape=(None, max_t),
                                  dtype='int32',
                                  sparse=False,
                                  name='sentence_input'
                                 )
         if verbose: print('layer_sent_input shape:', layer_sent_input._keras_shape)
+
+        if need_pos_tags:
+            # uint8 is ok for <= 256 classes,
+            pos_tag_input = Input(batch_shape=(None, max_t),
+                                  dtype='uint8',
+                                  name='pos_tag_id')
+
+            pos_tag_ohe  = Lambda(kbe.one_hot,
+                                  arguments={'num_classes': num_pos_classes},
+                                  output_shape=(max_t,num_pos_classes),
+                                  name="pos_tag_ohe")(pos_tag_input)
+
 
         # This embedding layer will encode the input sequence
         # in:  [batch_size, max_t]
@@ -269,6 +284,14 @@ class StackedAttentionNetwork(object):
                                )(layer_sent_input)
         
         if verbose: print('layer_x output shape:', layer_x.shape)
+
+        if need_pos_tags:
+            # Concatenate the embedding with the one hot part of speech tags
+            layer_x = Concatenate(axis=-1, name='concat_sent_embed')(
+                [layer_x,pos_tag_ohe])
+            sent_embed_dim = sent_embed_dim + num_pos_classes
+            if verbose: print("layer_x post concat with pos tag shape", layer_x.shape)
+
     
         # Unigram CNN layer
         # in:  [batch_size, max_t, n_text_embed]
@@ -382,7 +405,11 @@ class StackedAttentionNetwork(object):
         # do argmax to make predictions (or look for canned classifier)
         
         # assemble all these layers into model
-        self.model = Model(inputs=[layer_image_input, layer_sent_input], outputs=layer_prob_answer)
+        if need_pos_tags:
+            self.model = Model(inputs=[layer_image_input, layer_sent_input, pos_tag_input], outputs=layer_prob_answer)
+        else:
+            self.model = Model(inputs=[layer_image_input, layer_sent_input], outputs=layer_prob_answer)
+
 
         optimizer = ModelOptions.get_optimizer(options)
         print('Compiling model with {} optimizer...'.format(self.options['optimizer']))
