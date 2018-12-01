@@ -487,6 +487,7 @@ def test(model, dataset, options, attention_model=None):
                                      'image_id': sample.question.image_id,
                                      'answer_id': sample.answer.id,
                                      'answer_str': sample.answer.answer_str,
+                                     'one_hot_index': sample.answer.one_hot_index,
                                      'answer_type': sample.answer.answer_type,
                                      'annotations': sample.answer.annotations
                                     })
