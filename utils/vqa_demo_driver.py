@@ -200,7 +200,9 @@ class VQA:
             return 0
         for ann in annotations:
             qid = ann['question_id']
-            print ("Question: %s" % (self.qqa[qid]['question']))
+            label = ann['multiple_choice_answer']
+            print ("Question ({}): {}".format(qid, self.qqa[qid]['question']))
+            print ('Ground truth label: {}'.format(label))
             for ans in ann['answers']:
                 print ("Answer %d: %s" % (ans['answer_id'], ans['answer']))
         
