@@ -198,8 +198,8 @@ class VQADataset:
             the scope of this is tagged with a special out of vocab index - index 0
             
             Args:
-                answer_one_hot_mapping = dictionary mapping words to OHE index (may be None)
-                tokenizer = keras.preprocessing.text.Tokenizer instance (optional) 
+                answer_one_hot_mapping: dictionary mapping words to OHE index (may be None)
+                tokenizer: keras.preprocessing.text.Tokenizer instance (optional) 
                 
             Returns:
                 no return value
@@ -280,8 +280,8 @@ class VQADataset:
             Answer OHE mapping will be created if answer_one_hot_mapping=None is passed in.
             
             Args:
-                answers = dictionary of Answer instances
-                answer_one_hot_mapping = dictionary mapping words to OHE index (may be None)
+                answers: dictionary of Answer instances
+                answer_one_hot_mapping: dictionary mapping words to OHE index (may be None)
                 
             Returns:
                 updated answers dictionary with one-hot encodings
@@ -333,8 +333,8 @@ class VQADataset:
             We need to re-sort the sample array by image index so that the memory management code works.
             
             Args:
-                num_samples = integer specifying total number of samples in dataset
-                batch_size = integer specifying batch size
+                num_samples (int): total number of samples in dataset
+                batch_size (int): batch size
                 
             Returns:
                 no return value
@@ -373,8 +373,8 @@ class VQADataset:
             Creates the self.chunk_dict
             
             Args:
-                num_samples = integer specifying total number of samples in dataset
-                batch_size = integer specifying batch size
+                num_samples (int): total number of samples in dataset
+                batch_size (int): batch size
                 
             Returns:
                 no return value
@@ -414,7 +414,7 @@ class VQADataset:
             Each chunk_dict stores tuples of sample indices (begin_sample_indx, end_sample_indx) for samples in the chunk
 
             Args:
-                current_chunk_idx = integer indicate which chunk of data is currently being processed
+                current_chunk_idx (int): indicates which chunk of data is currently being processed
                 
             Returns:
                 next chunk index
@@ -496,8 +496,8 @@ class VQADataset:
             processing images into batches still happens (same code path), except the images are not yielded
             
             Args:
-                text_only = boolean indicator for models not using image features
-                img_only = boolean indicator for models not using text features
+                text_only: boolean indicator for models not using image features
+                img_only: boolean indicator for models not using text features
                 
             Returns:
                 no return value
@@ -638,7 +638,7 @@ class VQADataset:
             NOTE: this is only relevant for the VQA v2 dataset
 
             Args:
-                questions (dict) = dictionary of Question instances
+                questions (dict): dictionary of Question instances
                 pairs_json_path (str): path to the JSON file defining the pairs
 
             Returns:
@@ -713,7 +713,7 @@ class VQADataset:
             Creates and returns a dict allowing for the lookup of an Image instance given its image_id.
             
             Args:
-                image_ids = dictionary with image_id keys, and file index values 
+                image_ids: dictionary with image_id keys, and file index values 
         """
         
         images = {image_id: Image(image_id, features_idx)
@@ -728,9 +728,9 @@ class VQADataset:
             If dataset_type is DatasetType.TEST, answers will be ignored.
             
             Args:
-                images = dictionary of Image instances
-                questions = dictionary of Question instances
-                answers = dictionary of Answer instances
+                images: dictionary of Image instances
+                questions: dictionary of Question instances
+                answers: dictionary of Answer instances
                 
             Returns:
                 no return value
@@ -849,9 +849,9 @@ class VQADataset:
             Fits the tokenizer with the questions and answers and saves this tokenizer into a file for later use
             
             Args:
-                questions = dictionary of Question instances
-                answers = dictionary of Answer instances
-                build_glove_matrix = boolean indicator whether GloVe matrix should be built from vocab in tokenizer
+                questions: dictionary of Question instances
+                answers: dictionary of Answer instances
+                build_glove_matrix: boolean indicator whether GloVe matrix should be built from vocab in tokenizer
             Returns:
                 no return value
         """
@@ -924,7 +924,7 @@ class VQADataset:
             image ID key (where image ID is defined in the questions.json file).
             
             Args:
-                image_features_path (str) = path to image features (HDF5 files)
+                image_features_path (str): path to image features (HDF5 files)
                 
             Returns:
                 no return value

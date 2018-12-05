@@ -9,8 +9,8 @@ def main(glove_dir, dest_dir):
         Main entry point for building the GloVe embedding matrix.
         
         Args:
-            glove_dir = string representing the directory where the Stanford text file is saved
-            dest_dir = string representing the directory to store the pickle file with embeddings
+            glove_dir (str): directory where the Stanford text file is saved
+            dest_dir (str): directory to store the pickle file with embeddings
         Returns:
             no return value
     """
@@ -50,7 +50,7 @@ if __name__ == "__main__":
             Nested class used to validate a writable directory (used for arg validation)
 
             Args:
-                arsparse.Action = Action instance from CLI argument parsing
+                arsparse.Action: Action instance from CLI argument parsing
             Returns:
                 no return value
         """
@@ -73,7 +73,7 @@ if __name__ == "__main__":
             Nested class used to validate a readable directory (used for arg validation)
 
             Args:
-                arsparse.Action = Action instance from CLI argument parsing
+                arsparse.Action: Action instance from CLI argument parsing
             Returns:
                 no return value
         """

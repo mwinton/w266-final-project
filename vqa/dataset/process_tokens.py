@@ -8,7 +8,7 @@ def process_sentence(sentence):
         Function to pre-process a sentence. Removes punctuation, tabs, newlines; adds apostrophes back into contractions
         
         Args:
-            sentence = input string
+            sentence: input string
             
         Returns:
             processed string
@@ -65,7 +65,7 @@ def process_answer(answer):
         Function to pre-process an answer. Removes articles, maps number words to digits, and then runs preprocessing
         
         Args:
-            answer = input string
+            answer: input string
             
         Returns:
             processed answer string

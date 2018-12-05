@@ -169,8 +169,8 @@ class Question:
             Tokenizes the question using the specified tokenizer.
 
             Args:
-                tokenizer = Keras tokenizer to use for tokenizing the sample
-                need_pos_tags = boolean indicating whether to do POS tagging
+                tokenizer: Keras tokenizer to use for tokenizing the sample
+                need_pos_tags: boolean indicating whether to do POS tagging
                 
             Returns:
                 A list with integer indexes, each index representing a word in the question
@@ -357,8 +357,8 @@ class Image:
             Returns the image's features
             
             Args:
-                images_features = list of image features
-                offset = starting offset into the list
+                images_features: list of image features
+                offset: starting offset into the list
         """
         
         if len(self.features):

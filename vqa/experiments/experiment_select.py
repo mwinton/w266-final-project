@@ -30,8 +30,8 @@ class ExperimentLibrary:
             file will be added to the options object, overriding any existing values.
             
             Args:
-                id = integer experiment number
-                options = ModelOptions object contain model parameters
+                id (int): experiment number
+                options: ModelOptions object contain model parameters
             Returns:
                 an updated options object
         """
