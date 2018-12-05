@@ -4,6 +4,16 @@
 import re
 
 def process_sentence(sentence):
+    """
+        Function to pre-process a sentence. Removes punctuation, tabs, newlines; adds apostrophes back into contractions
+        
+        Args:
+            sentence = input string
+            
+        Returns:
+            processed string
+    """
+    
     periodStrip  = re.compile("(?!<=\d)(\.)(?!\d)")
     commaStrip   = re.compile("(\d)(\,)(\d)")
     punct        = [';', r"/", '[', ']', '"', '{', '}',
@@ -51,6 +61,16 @@ def process_sentence(sentence):
     return outText
 
 def process_answer(answer):
+    """
+        Function to pre-process an answer. Removes articles, maps number words to digits, and then runs preprocessing
+        
+        Args:
+            answer = input string
+            
+        Returns:
+            processed answer string
+    """
+
     articles = ['a', 'an', 'the']
     manualMap = { 'none': '0', 'zero': '0', 'one': '1', 'two': '2', 'three':
                   '3', 'four': '4', 'five': '5', 'six': '6', 'seven': '7',

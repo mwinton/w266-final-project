@@ -23,10 +23,10 @@ import copy
 class VQA:
     def __init__(self, annotation_file=None, question_file=None, pairs_file=None):
         """
-        Constructor of VQA helper class for reading and visualizing questions and answers.
+            Constructor of VQA helper class for reading and visualizing questions and answers.
 
-        Args:
-            annotation_file: a string specifying the path to the VQA annotation file
+            Args:
+                annotation_file: a string specifying the path to the VQA annotation file
         """
         
         # load dataset
@@ -58,7 +58,7 @@ class VQA:
 
     def create_index(self):
         """
-        Method to build index from an already-loaded dataset.
+            Method to build index from an already-loaded dataset.
         """
         
         # create index
@@ -80,7 +80,7 @@ class VQA:
 
     def info(self):
         """
-        Print information about the VQA annotation file.
+            Print information about the VQA annotation file.
         """
         
         for key, value in self.datset['info'].items():
@@ -88,15 +88,15 @@ class VQA:
 
     def get_question_ids(self, image_ids=[], question_types=[], answer_types=[]):
         """
-        Get question ids that satisfy given filter conditions; default skips that filter.
+            Get question ids that satisfy given filter conditions; default skips that filter.
         
-        Args:
-            image_ids: integer list of image ids to return question ids for
-            question_types: string list of question types to return question ids for
-            answer_types: string list of answer types to return question ids for
-        
-        Returns:
-            An integer list of question ids
+            Args:
+                image_ids: integer list of image ids to return question ids for
+                question_types: string list of question types to return question ids for
+                answer_types: string list of answer types to return question ids for
+
+            Returns:
+                An integer list of question ids
         """
         
         image_ids = image_ids if type(image_ids) == list else [image_ids]
@@ -119,16 +119,16 @@ class VQA:
 
     def get_complementary_pairs(self, question_ids=[], question_types=[], answer_types=[]):
         """
-        Get the question ids that satisfy given filter conditions; default skips that filter.
+            Get the question ids that satisfy given filter conditions; default skips that filter.
         
-        Args:
-            question_ids: integer list of question ids to return image ids for
-            question_types: string list of question types to return image ids for
-            answer_types: string list of answer types to return image ids for
-            
-        Returns:
-            A dict containing appropriate pairs of question IDs as key-value pairs. Callers
-            will also need to look at the reverse mapping value-key.
+            Args:
+                question_ids: integer list of question ids to return image ids for
+                question_types: string list of question types to return image ids for
+                answer_types: string list of answer types to return image ids for
+
+            Returns:
+                A dict containing appropriate pairs of question IDs as key-value pairs. Callers
+                will also need to look at the reverse mapping value-key.
         """
         
         question_ids = question_ids if type(question_ids) == list else [question_ids]
@@ -143,15 +143,15 @@ class VQA:
 
     def get_image_ids(self, question_ids=[], question_types=[], answer_types=[]):
         """
-        Get image ids that satisfy given filter conditions; default skips that filter.
+            Get image ids that satisfy given filter conditions; default skips that filter.
         
-        Args:
-            question_ids: integer list of question ids to return image ids for
-            question_types: string list of question types to return image ids for
-            answer_types: string list of answer types to return image ids for
-            
-        Returns:
-            An integer list of image ids
+            Args:
+                question_ids: integer list of question ids to return image ids for
+                question_types: string list of question types to return image ids for
+                answer_types: string list of answer types to return image ids for
+
+            Returns:
+                An integer list of image ids
         """
         
         question_ids = question_ids if type(question_ids) == list else [question_ids]
@@ -174,13 +174,13 @@ class VQA:
 
     def load_qa(self, question_ids=[]):
         """
-        Load questions and answers with the specified question ids.
-        
-        Args:
-            question_ids: integer list of question ids
-            
-        Returns:
-            A list of QA dicts
+            Load questions and answers with the specified question ids.
+
+            Args:
+                question_ids: integer list of question ids
+
+            Returns:
+                A list of QA dicts
         """
 
         if type(question_ids) == list:
@@ -190,10 +190,10 @@ class VQA:
 
     def show_qa(self, annotations):
         """
-        Display the specified annotations.
-        
-        Args:
-            annotations: list of dicts containing annotations
+            Display the specified annotations.
+
+            Args:
+                annotations: list of dicts containing annotations
         """
         
         if len(annotations) == 0:
@@ -206,14 +206,14 @@ class VQA:
         
     def load_results(self, result_file, question_file):
         """
-        Load result file and return a result object.
-        
-        Args:
-            result_file: string containing result file name
-            question_file: string containing question file name
-        
-        Returns:
-            VQA object containing results
+            Load result file and return a result object.
+
+            Args:
+                result_file: string containing result file name
+                question_file: string containing question file name
+
+            Returns:
+                VQA object containing results
         """
         
         res = VQA()

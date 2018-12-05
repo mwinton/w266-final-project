@@ -27,12 +27,25 @@ from resNet50_options import resNet50Options
 
 class ImageBatchGenerator(Sequence):
     """
-       Generate batches of images for prediction with indices from batch_start to batch_start+batch_size
-       The last batch  requested might not be an exact match with the remaining elements in the image file list  passed.
+       Generates batches of images for prediction with indices from batch_start to batch_start+batch_size
+       The last batch  requested might not be an exact match with the remaining elements in the image file list passed.
        In that case we pad the batch with duplicate entries. This way the prediction engine sees same elements per batch 
     """
 
     def __init__(self, options, dir_prefix, image_filenames, loop_start,items_in_loop, max_samples):
+    """
+        Initialize the image batch generator.
+        
+        Args:
+            options = ModelOptions object containing parameters
+            dir_prefix = string representing the directory prefix
+            image_filenames = list of image filenames
+            loop_start = index at which to start loading
+            items_in_loop = number of items to add in the loop
+            max_samples = maximum number of images to be batched
+        Returns:
+            no return value
+    """ 
 
         self.model_name = options['model_name']
 
@@ -65,6 +78,15 @@ class ImageBatchGenerator(Sequence):
 
 
     def preprocess_image(self,img):
+        """
+            Wrapper for image preprocessing (before passing in to image model)
+            
+            Args:
+                img = a keras.preprocessing.image instance
+            Returns:
+                a processed image
+        """
+        
         # convert the image pixels to a numpy array
         img = image.img_to_array(img)
         assert(img.shape[0] == self.input_dim)
@@ -83,14 +105,23 @@ class ImageBatchGenerator(Sequence):
         return img
 
     def __len__(self):
+        """
+         Calculates and returns total number of batches
+        """
+        
         return (len(self.image_filenames)//(self.batch_size) + 1)
 
     def __getitem__(self, idx):
         """
-            provide the images related to  batch (idx)
-            will be called from predict_generator function 
+            Provides the images related to the requested batch; will be called from predict_generator function 
             Also preprocess the images loaded from disk to confirm with the VGG16 model
+            
+            Args:
+                idx = index of the batch for which images are requested
+            Returns:
+                an array of image instances
         """
+        
         batch_x = self.image_filenames[idx * self.batch_size:(idx + 1) * self.batch_size]
         img_list = []
         for file_name in batch_x:
@@ -107,10 +138,28 @@ class ImageBatchGenerator(Sequence):
 
 
 class CreateImageVectors():
+    """
+        Class to manage creation of image vectors from a neural model
+    """
 
     def __init__(self, options, root_dir, dest_dir, target_task,
                  dataset_type="mscoco", 
                  test_dir="test2015/", train_dir="train2014/", val_dir="val2014/"):
+        """
+            Initialize the class
+            
+            Args:
+                options =  an options instance containing parameters for the image model
+                root_dir = root directory for the image files
+                dest_dir = destination directory to write output to
+                target_task = 'test', 'train', or 'val'
+                dataset_type = only "mscoco" is currently supported
+                test_dir = subdirectory for the test set images
+                train_dir = subdirectory for the training set images
+                val_dir = subdirectory for the validation set images
+            Returns:
+                no return value
+        """
 
         self.model_name = options['model_name']
         self.input_dim = options['input_dim']  # 448
@@ -129,6 +178,10 @@ class CreateImageVectors():
         self.target_task = target_task
 
     def get_coco_files(self):
+        """
+            Method to create a list of filenames based on the COCO naming pattern
+        """
+        
         if (self.target_task == "test"):
             dir_loc = self.test_dir
             id_start = len('COCO_test2015_')
@@ -149,6 +202,10 @@ class CreateImageVectors():
         return        
 
     def create_vgg16_model(self):
+        """
+            Method that builds (but doesn't train) a VGGNet16 image model
+        """
+        
         base_model = vgg16.VGG16(include_top = False,
                           weights = 'imagenet',
                           input_shape = (self.input_dim, self.input_dim, self.image_depth))
@@ -158,6 +215,10 @@ class CreateImageVectors():
         self.model.summary()
 
     def create_resNet50_model(self):
+        """
+            Method that builds (but doesn't train) a ResNet50 image model
+        """
+        
         base_model = resnet50.ResNet50(include_top = False,
                           weights = 'imagenet',
                           input_shape = (self.input_dim, self.input_dim, self.image_depth))
@@ -176,12 +237,19 @@ class CreateImageVectors():
         with h5py.File(file_name,"w") as f:
              f.create_dataset("img_ids",   data=img_ids[:self.num_samples])   
 
-    def write_hd5_embedding(self, loop_num,dims):
+    def write_hd5_embedding(self, loop_num, dims):
         """
             Incrementally write numpy arrays to the hdf5 file format
             For the last batch, the img_features might be larger in first dimension than dims passed
             This is because the array generated by predict_generator has to be an exact multiple of batch_size
+            
+            Args:
+                loop_num = integer indicating which loop is being written
+                dims = dimensions of embeddings
+            Returns:
+                no return value
         """
+        
         file_name = self.dest_dir + "/" + self.target_task + ".hdf5"
         items_in_batch = dims[0]
         print("Writing batch of  ({},{},{}) embeddings in file -> {} ".format(dims[0],dims[1],dims[2],file_name))
@@ -201,7 +269,10 @@ class CreateImageVectors():
 
 
     def process_images(self):
-
+        """
+            Primary method to manage creation of image embeddings (in batches to avoid running out of memory).
+        """
+        
         if(self.dataset_type == "mscoco"):
             self.get_coco_files()
         else:
@@ -241,7 +312,16 @@ class CreateImageVectors():
             self.write_hd5_embedding(loop_num,(items_in_loop,self.img_features.shape[1],self.img_features.shape[2]))
 
 def main(options, root_dir, dest_dir, target_task):
-    ## TODO, need to validate the directories
+    """
+        Main method for this python file. Initiates image processing.
+        
+        Args:
+            options =  an options instance containing parameters for the image model
+            root_dir = root directory for the image files
+            dest_dir = destination directory to write output to
+            target_task = 'test', 'train', or 'val'
+    """
+    
     img_class = CreateImageVectors(options, root_dir, dest_dir, target_task);     
     img_class.process_images()
 
@@ -258,7 +338,20 @@ if __name__ == "__main__":
     """
 
     class WriteableDir(argparse.Action):
+        """
+            Nested class used to validate a writable directory (used for arg validation)
+
+            Args:
+                arsparse.Action = Action instance from CLI argument parsing
+            Returns:
+                no return value
+        """
+        
         def __call__(self, parser, namespace, values, option_string=None):
+            """
+                Private method called by arg parser to validate a directory if `--dest_dir` is specified
+            """
+            
             prospective_dir=values
             if not os.path.isdir(prospective_dir):
                 raise argparse.ArgumentTypeError(self,"WriteableDir:{0} is not a valid path".format(prospective_dir))
@@ -268,7 +361,20 @@ if __name__ == "__main__":
                 raise argparse.ArgumentTypeError(self,"WriteableDir:{0} is not a writable dir".format(prospective_dir))
 
     class ReadableDir(argparse.Action):
+        """
+            Nested class used to validate a readable directory (used for arg validation)
+
+            Args:
+                arsparse.Action = Action instance from CLI argument parsing
+            Returns:
+                no return value
+        """
+        
         def __call__(self, parser, namespace, values, option_string=None):
+            """
+                Private method called by arg parser to validate a directory if `--root_dir` is specified
+            """
+            
             prospective_dir=values
             if not os.path.isdir(prospective_dir):
                 raise argparse.ArgumentTypeError(self,"ReadableDir:{0} is not a valid path".format(prospective_dir))

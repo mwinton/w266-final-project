@@ -42,8 +42,13 @@ DEFAULT_ACTION = 'train'
 
 # ------------------------------- SCRIPT FUNCTIONALITY -------------------------------
 
-def main(options):
-
+def main(options):    
+    """
+        Main entry point for training and running models.
+        
+        Args:
+            options - a ModelOptions object containing parameters for the run
+    """
 
     print('Action: ' + options['action_type'])
     print('Model name: {}'.format(options['model_name']))
@@ -129,15 +134,22 @@ def main(options):
         print('MLFlow logs for this run are available at ->', mlflow_url)
 
 
-def load_dataset(dataset_type, options, answer_one_hot_mapping=None, tokenizer=None):
-    
+def load_dataset(dataset_type, options, answer_one_hot_mapping=None, tokenizer=None):    
     """
         Load the dataset from disk if available. If not, build it from the questions/answers json and image embeddings
         If this is the training dataset, retrieve the answer one hot mapping from disk or re-create it.
+        
+        Args:
+            dataset_type = DatasetType.TRAIN or DatasetType.TEST (integer constants)
+            options = ModelOptions object containing parameters
+            answer_one_hot_mapping = dictionary mapping words to OHE index (optional)
+            tokenizer = keras.preprocessing.text.Tokenizer instance (optional) 
+        Returns:
+            dataset = VQADataset instance
     """ 
 
     dataset_path = ModelOptions.get_dataset_path(options,dataset_type)
-    # if this isn't a training dataset, the answer one hot indices and tokenizer are expected to be available
+    # if this isn't a training dataset, the answer one hot indices and are expected to be available
     if (dataset_type != DatasetType.TRAIN):
         assert(answer_one_hot_mapping != None) 
     if (dataset_type == DatasetType.TEST):
@@ -258,7 +270,13 @@ def plot_train_metrics(train_stats, options, plot_type='epochs'):
         Generate and save figure with plot of train and validation losses.
         Currently, plot_type='epochs' is the only option supported.
         
-        train_stats is a Keras History object.  History.history is a dict containing lists
+        Args:
+            train_stats = Keras History instance; History.history is a dict containing lists
+            options = ModelOptions object containing parameters
+            plot_type = string indicating the type of plot (currently only 'epochs' is supported)
+        Returns:
+            loss_fig_path = string representing path to the saved loss plot for the run
+            acc_fig_path = string represeenting path to the saved accuracy plot for the run
     """
     
     # extract data from history dict
@@ -318,7 +336,19 @@ def plot_train_metrics(train_stats, options, plot_type='epochs'):
 
 
 def train(model, dataset, options, val_dataset=None, attention_model=None):
-
+    """
+        Trains the Keras model.
+        
+        Args:
+            model = a Keras Model instance
+            dataset = VQADatasete instance to train on
+            options = ModelOptions object containing parameters
+            val_dataset = validation dataset to use during training (optional)
+            attention_model = secondary model that shares all layers up through the final attention layer (optional)
+        Returns:
+            no return value
+    """
+    
     if not val_dataset:
         raise ValueError('A validation dataset must be provided')
 
@@ -409,6 +439,17 @@ def train(model, dataset, options, val_dataset=None, attention_model=None):
         val_dataset.dataset_type = DatasetType.VALIDATION
 
 def test(model, dataset, options, attention_model=None):
+    """
+        Run predictions using a pre-trained Keras model.
+        
+        Args:
+            model = a Keras Model instance
+            dataset = VQADataset instance to use for predictions
+            options = ModelOptions object containing parameters
+            attention_model = secondary model that shares all layers up through the final attention layer (optional)
+        Returns:
+            no return value
+    """
 
     weights_path = options['weights_path']
     results_json_path  = options['results_json_path']
@@ -530,13 +571,17 @@ def test(model, dataset, options, attention_model=None):
 
 def calculate_accuracies(final_results, labeled=False):
     """
-        Calculate various accuracy metrics after a test run.  This method is only for
-        post-processing; Keras reports its built-in accuracy calculations during
+        Calculate, displays, and savees various accuracy metrics after a test run.  This method is
+        only for post-processing; Keras reports its built-in accuracy calculations during
         training/validation runs.
         
         Args:
-            final_results (list) - each list item is a dict of name/value pairs
+            final_results = list, with each list item being a dict of name/value pairs
+            labeled = boolean indicating whether labels are available
+        Returns:
+            no return value
     """
+    
     if not labeled:
         return
     
@@ -606,19 +651,43 @@ def calculate_accuracies(final_results, labeled=False):
 
 class LossHistoryCallback(Callback):
     """
-       Registering keras callbacks to be called during training iterations
-       Records the losses for each batch/epoch and stores it to file
+       Custom Callback extending the core Keras Callback object.  Will be registered
+       and called during training iterations. Records the losses for each batch/epoch to file.
     """
+    
     def __init__(self, results_path):
+        """
+            Initializer for the Callback.
+            
+            Args:
+                results_path = string indicating where results should be saved
+        """
+        
         super(LossHistoryCallback, self).__init__()
         self.train_losses = []
         self.val_losses = []
         self.results_path = results_path
 
     def on_batch_end(self, batch, logs={}):
+        """
+            Method to be called after each batch ends. Accumulates loss values from each batch.
+            
+            Args:
+                batch = batch number being trained (unused)
+                logs = dictionary containing loss values from training that batch
+        """
+
         self.train_losses.append(logs.get('loss'))
 
     def on_epoch_end(self, epoch, logs={}):
+        """
+            Method to be called after each epoch ends. Saves train and val losses to disk.
+            
+            Args:
+                epoch = epoch being trained (unused)
+                logs = dictionary containing loss values from training that batch
+        """
+
         self.val_losses.append(logs.get('val_loss'))
         print("Loss history: saving in file {}".format(self.results_path))
         try:
@@ -635,10 +704,24 @@ class LossHistoryCallback(Callback):
 
 class CustomModelCheckpoint(ModelCheckpoint):
     """
-        Save the model weights at the end of each epoch.
+        Custom Callback extending the core Keras Callback object; saves model weights at the end of each epoch.
     """
+    
     def __init__(self, weights_path, weights_dir_path, model_name, experiment_id, 
                  monitor='val_loss', verbose=0, save_best_only=False, mode='auto'):
+        """
+            Initializer for the Callback.
+            
+            Args:
+                weights_path = string indicating where weights should be saved
+                weights_dir_path = string to the directory where weights will be saved
+                model_name = string to be used in file naming
+                experiment_id = integer to be used in file naming
+                monitor = which type of monitor to be recorded
+                verbose = verbosity level
+                save_best_only = flag indicating whether to save all or just best
+                mode = leave set to 'auto'
+        """
 
         super(CustomModelCheckpoint, self).__init__(filepath=weights_path, monitor=monitor,
                                                     verbose=verbose, save_best_only=save_best_only, mode=mode)
@@ -653,13 +736,25 @@ class CustomModelCheckpoint(ModelCheckpoint):
             self.prefix = ''
 
     def on_epoch_end(self, epoch, logs={}):
-        # save after every epoch to enable restarting at that epoch after a crash
+        """
+            Method to be called after each batch ends. Save after every epoch to enable restarting
+            at that epoch after a crash
+            
+            Args:
+                epoch = epoch number being trained
+                logs = dictionary containing logs dictionary from training that batch
+        """
+
         super(CustomModelCheckpoint, self).on_epoch_end(epoch, logs)
         self.last_epoch = epoch
 
     def on_train_end(self, logs={}):
         """
-           symlink to the last epoch weights, for easy reference to the final epoch.
+            Method to be called after training ends. Creates symlink to the last epoch weights,
+            for easy reference to the final epoch.
+            
+            Args:
+                logs = dictionary containing logs dictionary from training that batch
         """
         
         final_epoch = self.last_epoch + 1 # Keras doesn't increment during final epoch

@@ -2,9 +2,14 @@ from collections import OrderedDict
 import os
 
 class resNet50Options(object):
+    """
+        Class containing parameters needed in the ResNet50 model
+    """
 
     def __init__(self):
-        ''' init function.  This class stores options for generating VGG16 embeddings. '''
+        """
+            Init function setting the values of the options.
+        """
         
         self.options = OrderedDict()
 
@@ -20,6 +25,9 @@ class resNet50Options(object):
         self.options['batch_size'] = 15   # small to avoid OOM errors
 
     def get_options(self):
-        ''' return ordered dict containing all model options '''
+        """
+            Returns: OrderedDict containing all image model options
+        """
+
         return self.options
 
