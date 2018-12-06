@@ -1,0 +1,14 @@
+{
+  "experiment_id": 16,
+  "experiment_name": "SAN_top1000_GloVe",
+  "keep_only_encoded_answers": true,
+  "model_name": "san",
+  "sent_init_type": "glove",
+  "sent_embed_trainable": true,
+  "n_sent_embed": 300
+  "optimizer": "sgd",
+  "sgd_learning_rate": 0.1,
+  "sgd_momentum": 0.9,
+  "sgd_decay_rate": 0.0, 
+  "sgd_grad_clip": 0.1
+}
