@@ -32,6 +32,10 @@ class VQASample:
             image (Image): Image object with, at least, the reference to the image path
             answer (Answer): Answer object with the answer sample. If dataset type is TEST, no answer is expected
             dataset_type (DatasetType): type of dataset this sample belongs to. The default is DatasetType.TRAIN
+            val_test_split: boolean specifying whether half of validation dataset is reserved for "test"
+            
+        Returns:
+            no return value
         """
         
         # Question
@@ -97,6 +101,9 @@ class VQASample:
     def get_output(self):
         """
             Provides the one-hot vector to be yielded by dataset's batch_generator (ie. the label used in model training)
+            
+            Returns:
+                one-hot encoding vector for this sample
         """
         
         if self.sample_type == DatasetType.TEST:
@@ -116,17 +123,23 @@ class VQASample:
 
 
 class Question:
-    """Class that holds the information of a single question of a VQA sample"""
+    """
+        Class that holds the information of a single question of a VQA sample
+    """
 
     def __init__(self, question_id, question_str, image_id):
-        """Instantiates a Question object.
-
-        Args:
-            question_id (int): unique question indentifier
-            question_str (str): question as a string
-            image_id (int): unique image identifier of the image related to this question
-            tokenizer (Tokenizer): if given, the question will be tokenized with it
         """
+            Instantiates a Question object.
+
+            Args:
+                question_id (int): unique question ID
+                question_str (str): question as a string
+                image_id (int): unique image ID of the associated image
+                
+            Returns:
+                no return value
+        """
+        
         # Validate id
         try:
             self.id = int(question_id)
@@ -153,14 +166,14 @@ class Question:
 
     def tokenize(self, tokenizer, need_pos_tags):
         """
-        Tokenizes the question using the specified tokenizer. If none is provided, it will use the one
-        passed in the constructor.
+            Tokenizes the question using the specified tokenizer.
 
-        Returns:
-            A list with integer indexes, each index representing a word in the question
-
-        Raises:
-            Error in case that a tokenizer hasn't been provided in the method or at any point before
+            Args:
+                tokenizer: Keras tokenizer to use for tokenizing the sample
+                need_pos_tags: boolean indicating whether to do POS tagging
+                
+            Returns:
+                A list with integer indexes, each index representing a word in the question
         """
 
         # texts_to_sequences takes a list of strings and returns a list of sequences
@@ -189,37 +202,58 @@ class Question:
         return self._tokens_idx
 
     def get_tokens(self):
-        """Return the question index tokens based on the specified tokenizer"""
+        """
+            Get the question index tokens based on the specified tokenizer
+            
+            Returns:
+                list of token IDs
+        """
 
         return self._tokens_idx
 
     def get_pos_tags(self):
-        """ Return the question pos tags for each of the words in the question """
+        """
+            Return the question pos tags for each of the words in the question
+            
+            Returns:
+                list of POS tags
+        """
 
         return self._tag_list
 
     def get_tokens_length(self):
-        """Returns the question length measured in number of tokens"""
+        """
+            Returns the question length measured in number of tokens
+            
+            Returns:
+                integer number of tokens
+        """
 
         return len(self._tokens_idx)
 
 
 class Answer:
-    """Class that holds the information of a single answer of a VQA sample"""
+    """
+        Class that holds the information of a single answer of a VQA sample
+    """
 
     def __init__(self, answer_id, answer_str, question_id, image_id, question_type,
                  answer_type, annotations, n_answer_classes):
-        """Instantiates an Answer object.
+        """
+            Instantiates an Answer object.
 
-        Args:
-            answer_id (int): unique answer indentifier
-            answer (str): answer as a string
-            question_id (int): unique question identifier of the question related to this answer
-            image_id (int): unique image identifier of the image related to this answer
-            question_type (str): type of question (e.g. 'what', 'how many')
-            answer_type (str): type of answer (e.g. 'other')
-            annotations (list): list of strings representing answers by 10 human raters
-            tokenizer (Tokenizer): if given, the question will be tokenized with it
+            Args:
+                answer_id (int): unique answer indentifier
+                answer_str(str): answer as a string
+                question_id (int): unique question identifier of the question related to this answer
+                image_id (int): unique image identifier of the image related to this answer
+                question_type (str): type of question (e.g. 'what', 'how many')
+                answer_type (str): type of answer (e.g. 'other')
+                annotations (list): list of strings representing answers by 10 human raters
+                n_answer_classes (int): number of class labels 
+
+            Returns:
+                no return value
         """
 
         # Validate id
@@ -261,13 +295,13 @@ class Answer:
 
     def tokenize(self, tokenizer):
         """
-        Tokenizes the answer using the specified tokenizer.  All words are tokenized, not just top k.
+            Tokenizes the answer using the specified tokenizer.  All words are tokenized, not just top k.
+            
+            Arg:
+                tokenizer = Keras Tokenizer to use for tokenizing the answer
 
-        Returns:
-            A list with integer indexes, each index representing a word in the answer
-
-        Raises:
-            Error in case that a tokenizer hasn't been provided in the method or at any point before
+            Returns:
+                A list with integer indexes, each index representing a word in the answer
         """
 
         # texts_to_sequences takes a list of strings and returns a list of sequences
@@ -276,24 +310,57 @@ class Answer:
         return self._tokens_idx
 
     def get_tokens(self):
-        """Return the question index tokens based on the specified tokenizer"""
+        """
+            Get the answer index tokens based on the specified tokenizer
+            
+            Returns:
+                list of token IDs
+       """
 
         return self._tokens_idx
 
 
 class Image:
+    """
+        Class that holds the information of a single image of a VQA sample
+    """
 
     def __init__(self, image_id, features_idx):
+        """
+            Instantiates an Image object.
+
+            Args:
+                image_id (int): unique image identifier of the image related to this answer
+                features_idx: index of the image filename
+                
+            Returns:
+                no return value
+
+        """
         self.image_id = image_id
         self.features_idx = features_idx
         self.features = np.array([])
 
     def reset(self):
+        """
+            Method to reset an image if necessary.
+            
+            Returns:
+                no return value
+        """
+        
         del self.features
         self.features = np.array([])
 
     def load(self, images_features, offset ):
-
+        """
+            Returns the image's features
+            
+            Args:
+                images_features: list of image features
+                offset: starting offset into the list
+        """
+        
         if len(self.features):
             return self.features
         else:

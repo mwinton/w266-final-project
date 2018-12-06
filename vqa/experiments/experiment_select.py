@@ -1,3 +1,5 @@
+# ExperimentLibrary architecture adapted from https://github.com/imatge-upc/vqa-2016-cvprw, Issey Masuda Mora 
+
 import json
 
 from vqa import BASE_DIR
@@ -5,6 +7,10 @@ from vqa.model.model_select import ModelLibrary
 from vqa.model.options import ModelOptions 
 
 class ExperimentLibrary:
+    """
+        Class that manages a set of available experiments
+    """
+    
     # ---------------------------------- CONSTANTS --------------------------------
     # Model identifiers
     EXPERIMENT_0   = 0  # no experiment
@@ -19,10 +25,16 @@ class ExperimentLibrary:
 
     @staticmethod
     def get_experiment(id, options):
-        '''
+        """
             Load corresponding json file and override options defaults.  Any key-value pairs in the json
-            file will be added to the options object, overriding existing values.
-        '''
+            file will be added to the options object, overriding any existing values.
+            
+            Args:
+                id (int): experiment number
+                options: ModelOptions object contain model parameters
+            Returns:
+                an updated options object
+        """
         
         print('Setting up experiment {}'.format(id))
         options['experiment_id'] = id

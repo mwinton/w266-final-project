@@ -5,6 +5,15 @@ import os
 import pickle
 
 def main(glove_dir, dest_dir):
+    """
+        Main entry point for building the GloVe embedding matrix.
+        
+        Args:
+            glove_dir (str): directory where the Stanford text file is saved
+            dest_dir (str): directory to store the pickle file with embeddings
+        Returns:
+            no return value
+    """
     
     embeddings_index = {}
     glove_path = os.path.join(glove_dir, 'glove.840B.300d.txt')
@@ -37,7 +46,20 @@ if __name__ == "__main__":
     """
 
     class WriteableDir(argparse.Action):
+        """
+            Nested class used to validate a writable directory (used for arg validation)
+
+            Args:
+                arsparse.Action: Action instance from CLI argument parsing
+            Returns:
+                no return value
+        """
+        
         def __call__(self, parser, namespace, values, option_string=None):
+            """
+                Private method called by arg parser to validate a directory if `--dest_dir` is specified
+            """
+            
             prospective_dir=values
             if not os.path.isdir(prospective_dir):
                 raise argparse.ArgumentTypeError(self,"WriteableDir:{0} is not a valid path".format(prospective_dir))
@@ -47,7 +69,20 @@ if __name__ == "__main__":
                 raise argparse.ArgumentTypeError(self,"WriteableDir:{0} is not a writable dir".format(prospective_dir))
 
     class ReadableDir(argparse.Action):
+        """
+            Nested class used to validate a readable directory (used for arg validation)
+
+            Args:
+                arsparse.Action: Action instance from CLI argument parsing
+            Returns:
+                no return value
+        """
+
         def __call__(self, parser, namespace, values, option_string=None):
+            """
+                Private method called by arg parser to validate a directory if `--glove_dir` is specified
+            """
+            
             prospective_dir=values
             if not os.path.isdir(prospective_dir):
                 raise argparse.ArgumentTypeError(self,"ReadableDir:{0} is not a valid path".format(prospective_dir))

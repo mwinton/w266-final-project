@@ -26,25 +26,30 @@ from .process_tokens import process_sentence, process_answer
 
 
 class VQADataset:
-    """Class that holds a dataset with VQASample instances.
+    """
+        Class that holds a dataset with VQASample instances.
 
-    Wrapper that eases the process of dataset management. To be able to use it, after object instantiation call the
-    method prepare().
+        Wrapper that eases the process of dataset management. To be able to use it, after object instantiation call the
+        method prepare().
 
-    Attributes:
-        dataset_type (DatasetType):
-        questions_path (str):
-        images_path (str):
-        answers_path (str): only if dataset_type is not DatasetType.TEST
-        vocab_size (int):
+        Attributes:
+            dataset_type (DatasetType): constant representing train, test, or validation dataset
+            questions_path (str): path to questions directory
+            images_path (str): path to images directory
+            answers_path (str): path to answers; only if dataset_type is not DatasetType.TEST
+            vocab_size (int): size of vocabulary (# unique words)
     """
 
     def __init__(self, dataset_type, options):
-        """Instantiate a new VQADataset that will hold the whole dataset.
+        """
+            Instantiate a new VQADataset that will hold the whole dataset.
 
-        Args:
-            dataset_type (DatasetType): type of dataset
-            options: model options
+            Args:
+                dataset_type (DatasetType): type of dataset (train, test, or validation)
+                options: ModelOptions object containing parameters
+                
+            Returns:
+                no return value
         """
 
         self.options = options
@@ -180,16 +185,24 @@ class VQADataset:
 
         
     def prepare(self, answer_one_hot_mapping, tokenizer=None):
-        """Prepares the dataset to be used.
+        """
+            Prepares the dataset to be used.
 
-        It will load all the questions and answers in memory and references to
-        the images. It will also train a Tokenizer holding the word dictionary
-        and both answers and questions will be tokenized and encoded using that
-        Tokenizer.
+            It will load all the questions and answers in memory and references to
+            the images. It will also train a Tokenizer holding the word dictionary
+            and both answers and questions will be tokenized and encoded using that
+            Tokenizer.
 
-        As a side result, this function also creates a one hot encoding index 
-        for all the top (n_answer_classes) answer choices Any answer outside
-        the scope of this is tagged with a special out of vocab index - index 0
+            As a side result, this function also creates a one hot encoding index 
+            for all the top (n_answer_classes) answer choices Any answer outside
+            the scope of this is tagged with a special out of vocab index - index 0
+            
+            Args:
+                answer_one_hot_mapping: dictionary mapping words to OHE index (may be None)
+                tokenizer: keras.preprocessing.text.Tokenizer instance (optional) 
+                
+            Returns:
+                no return value
         """
 
         # if this isn't a training dataset, the answer one hot indices are expected to be available
@@ -263,7 +276,15 @@ class VQADataset:
 
     def _encode_answers(self,answers,answer_one_hot_mapping):
         """
-           keep top [n_answer_classes] most common answers to reduce the number of answer classes
+            Keep top [n_answer_classes] most common answers to reduce the number of answer classes.
+            Answer OHE mapping will be created if answer_one_hot_mapping=None is passed in.
+            
+            Args:
+                answers: dictionary of Answer instances
+                answer_one_hot_mapping: dictionary mapping words to OHE index (may be None)
+                
+            Returns:
+                updated answers dictionary with one-hot encodings
         """
 
         if answer_one_hot_mapping == None:
@@ -307,9 +328,16 @@ class VQADataset:
 
     def _pad_samples(self,num_samples,batch_size):
         """
-        If the number of samples are not an exact multiple of batch_size, then replicate
-        some randomly picked elements so as to make it an exact multiple.
-        We need to re-sort the sample array by image index so that the memory management code works.
+            If the number of samples are not an exact multiple of batch_size, then replicate
+            some randomly picked elements so as to make it an exact multiple.
+            We need to re-sort the sample array by image index so that the memory management code works.
+            
+            Args:
+                num_samples (int): total number of samples in dataset
+                batch_size (int): batch size
+                
+            Returns:
+                no return value
         """
 
         num_extra = (num_samples // batch_size +1) * batch_size - num_samples
@@ -338,11 +366,18 @@ class VQADataset:
     def _create_sample_chunks(self,num_samples,batch_size):
 
         """
-           We assume num_samples is an exact multiple of batch_size as they should have been padded earlier
-           Chunks are created so the memory can be managed in chunk units
-           The chunk_dict has a tuple of (batch_start, batch_end) indices for each batch
+            Create chunks so the memory can be managed in chunk units
+            We assume num_samples is an exact multiple of batch_size as they should have been padded earlier
+            The chunk_dict has a tuple of (batch_start, batch_end) indices for each batch
 
-           creates the self.chunk_dict
+            Creates the self.chunk_dict
+            
+            Args:
+                num_samples (int): total number of samples in dataset
+                batch_size (int): batch size
+                
+            Returns:
+                no return value
         """
 
         batches_per_chunk = 200 
@@ -371,16 +406,20 @@ class VQADataset:
     def _load_batch_images(self,current_chunk_idx):
 
         """
-           Make sure that images are loaded in chunk sizes
-           Each time a chunk is loaded we can also free up memory from the last chunk.
-           The sample list is treated as a circular array as the batches are generated in a loop.
-           Possible values of current_chunk_indx is [0..(num_chunks -1 )]
+            Make sure that images are loaded in chunk sizes
+            Each time a chunk is loaded we can also free up memory from the last chunk.
+            The sample list is treated as a circular array as the batches are generated in a loop.
+            Possible values of current_chunk_indx is [0..(num_chunks -1 )]
+ 
+            Each chunk_dict stores tuples of sample indices (begin_sample_indx, end_sample_indx) for samples in the chunk
 
-           Each chunk_dict stores tuples of sample indices (begin_sample_indx, end_sample_indx) for samples in the chunk
-
-           returns the next chunk index to the caller.
-
+            Args:
+                current_chunk_idx (int): indicates which chunk of data is currently being processed
+                
+            Returns:
+                next chunk index
         """
+
         load_mem = False
         free_mem = False
 
@@ -448,13 +487,20 @@ class VQADataset:
 
     def batch_generator(self, text_only=False, img_only=False):
         """
-          Yields a batch of data of size batch_size
-          Assumes the samples are sorted by their image indices , see the prepare() function
-          We step through the same sequence as images stored in the hdf5 file
-          In doing so we can prevent the large memory footprint needed to load all the images in memory
+            Yields a single batch of data of size batch_size
+            Assumes the samples are sorted by their image indices , see the prepare() function
+            We step through the same sequence as images stored in the hdf5 file
+            In doing so we can prevent the large memory footprint needed to load all the images in memory
           
-          NOTE: text_only and img_only implementations are inefficient, mainly used for debugging.  All logic for
-          processing images into batches still happens (same code path), except the images are not yielded
+            NOTE: text_only and img_only implementations are inefficient, mainly used for debugging.  All logic for
+            processing images into batches still happens (same code path), except the images are not yielded
+            
+            Args:
+                text_only: boolean indicator for models not using image features
+                img_only: boolean indicator for models not using text features
+                
+            Returns:
+                no return value
         """
 
         if text_only and img_only:
@@ -561,18 +607,21 @@ class VQADataset:
                 batch_end = num_samples
 
     def size(self):
-        """Returns the size (number of examples) of the dataset"""
+        """
+            Returns the size (number of samples) of the dataset
+        """
 
         return len(self.samples)
 
     def _create_questions_dict(self, questions_json_path):
-        """Create a dictionary of Question objects containing the information of the questions from the .json file.
+        """
+            Create a dictionary of Question objects containing the information of the questions from the .json file.
 
-        Args:
-            questions_json_path (str): path to the JSON file with the questions
+            Args:
+                questions_json_path (str): path to the JSON file with the questions
 
-        Returns:
-            A dictionary of Question instances with their id as a key
+            Returns:
+                A dictionary of Question instances with their id as a key
         """
 
         print('Loading VQA question data from ->', questions_json_path)
@@ -585,15 +634,15 @@ class VQADataset:
 
     def _set_question_complements(self, questions, pairs_json_path):
         """
-            Add `complement_id` attribute to questions that have one
+            Adds `complement_id` attribute to questions that have one
             NOTE: this is only relevant for the VQA v2 dataset
 
-        Args:
-            questions (dict of Question instances)
-            pairs_json_path (str): path to the JSON file defining the pairs
-            
-        Returns:
-            questions (updated dict of Question instances)
+            Args:
+                questions (dict): dictionary of Question instances
+                pairs_json_path (str): path to the JSON file defining the pairs
+
+            Returns:
+                updated dictionary of Question instances
         """
 
         print('Loading VQA complementary pair data from ->', pairs_json_path)
@@ -616,13 +665,13 @@ class VQADataset:
         
     def _create_answers_dict(self, answers_json_path):
         """
-        Create a dictionary of Answer objects containing the information of the answers from the .json file.
+            Create a dictionary of Answer objects containing the information of the answers from the .json file.
 
-        Args:
-            answers_json_path (str): path to the JSON file with the answers
+            Args:
+                answers_json_path (str): path to the JSON file with the answers
 
-        Returns:
-            A dictionary of Answer instances with a composed unique id as key
+            Returns:
+                A dictionary of Answer instances with a composed unique id as key
         """
 
         # There are no answers in the test dataset
@@ -661,7 +710,10 @@ class VQADataset:
 
     def _create_images_dict(self, image_ids):
         """
-            Creates and returns a dict allowing for the lookup of an Image object given an image_id.
+            Creates and returns a dict allowing for the lookup of an Image instance given its image_id.
+            
+            Args:
+                image_ids: dictionary with image_id keys, and file index values 
         """
         
         images = {image_id: Image(image_id, features_idx)
@@ -669,11 +721,19 @@ class VQADataset:
 
         return images
 
-    def _create_samples(self, images, questions, answers ):
+    def _create_samples(self, images, questions, answers):
         """
-        Fills the list of samples with VQASample instances given questions and answers dictionary.
+            Fills the list of samples with VQASample instances from the provided dictionaries.
 
-        If dataset_type is DatasetType.TEST, answers will be ignored.
+            If dataset_type is DatasetType.TEST, answers will be ignored.
+            
+            Args:
+                images: dictionary of Image instances
+                questions: dictionary of Question instances
+                answers: dictionary of Answer instances
+                
+            Returns:
+                no return value
         """
 
         # Check for DatasetType
@@ -749,6 +809,11 @@ class VQADataset:
             during post-processing when true answers (labels) need to be compared to predictions.
             
             For a true test set, the answer attributes will be empty lists (defaultdict)
+            
+            Returns:
+                lists of question IDs, question strings, question types, question complement IDs,
+                image IDs, answer IDs, answer strings, answer types, ans annotations (list), 
+                answer one-hot encoding IDs
         """
 
         ques_ids = self.qa_lists['question_ids']
@@ -768,6 +833,9 @@ class VQADataset:
     def get_question_lists(self):
         """
             Return the subset of data lists corresponding to Question attributes
+            
+            Returns: 
+                lists of question IDs, question strings, question types, question complement IDs, image IDs
         """
         
         ques_ids, ques_strings, ques_types, ques_complement_ids, image_ids, _, _, _, _, _ = self.get_qa_lists()
@@ -776,13 +844,25 @@ class VQADataset:
     def get_answer_lists(self, with_annotations=False):
         """
             Return the subset of data lists corresponding to Answer attributes
+            
+            Returns:
+                lists of answer IDs, answer strings, answer types, ans annotations (list), one-hot encoding IDs
         """
         
         _, _, _, _, _, ans_ids, ans_strings, ans_types, ans_annotations, ans_ohe = self.get_qa_lists()
         return ans_ids, ans_strings, ans_types, ans_annotations, ans_ohe
         
     def _init_tokenizer(self, questions, answers, build_glove_matrix=False):
-        """Fits the tokenizer with the questions and answers and saves this tokenizer into a file for later use"""
+        """
+            Fits the tokenizer with the questions and answers and saves this tokenizer into a file for later use
+            
+            Args:
+                questions: dictionary of Question instances
+                answers: dictionary of Answer instances
+                build_glove_matrix: boolean indicator whether GloVe matrix should be built from vocab in tokenizer
+            Returns:
+                no return value
+        """
 
         # contrary to the docs, `word_index` exists before training, so can't use `hasattr` check
         if len(self.tokenizer.word_index) == 0:
@@ -813,6 +893,9 @@ class VQADataset:
             Builds a lookup matrix of GloVe embeddings and save to disk as a separate pickle file.
             It can't just be an attribute of the dataset because in test mode, it will need to be loaded
             separately.
+            
+            Returns:
+                no return value
         """
         
         glove_path = self.options['glove_path']  # input
@@ -847,6 +930,12 @@ class VQADataset:
             Load image IDs from the hdf5 file containing the VGGNet embeddings.  Create and return
             a dict that allows us to return the index within the embeddings matrix for a given
             image ID key (where image ID is defined in the questions.json file).
+            
+            Args:
+                image_features_path (str): path to image features (HDF5 files)
+                
+            Returns:
+                no return value
         """
         
         print("Loading image ids from file ->", image_features_path)
