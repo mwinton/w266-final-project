@@ -5,7 +5,7 @@
   "model_name": "san",
   "sent_init_type": "glove",
   "sent_embed_trainable": true,
-  "n_sent_embed": 300
+  "n_sent_embed": 300,
   "optimizer": "sgd",
   "sgd_learning_rate": 0.1,
   "sgd_momentum": 0.9,
