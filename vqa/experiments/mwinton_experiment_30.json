@@ -1,0 +1,16 @@
+{
+  "experiment_id": 30,
+  "experiment_name": "MRRSAN_top1000_resNet",
+  "keep_only_encoded_answers": true,
+  "image_embed_model": "resNet50", 
+  "model_name": "mrr_san",
+  "n_attention_layers": 2,
+  "activation_type": "tanh",
+  "n_final_extra_dense": 1,
+  "attention_dropout_ratio": 0.5,
+  "optimizer": "sgd",
+  "sgd_learning_rate": 0.1,
+  "sgd_momentum": 0.9,
+  "sgd_decay_rate": 0.0, 
+  "sgd_grad_clip": 0.1  
+}
