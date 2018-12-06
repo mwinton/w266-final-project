@@ -682,14 +682,22 @@ class VQADataset:
             answers_built = False
 
         if answers_built:
+            discarded_answers = 0
             print("Creating Samples with Images, Questions and Answers")
             for answer_id, answer in answers.items():
+                if self.options['keep_only_encoded_answers'] == True:
+                    # Only valid one-hot encoded answers are retained in this mode
+                    if answer.one_hot_index == 0:
+                        discarded_answers += 1
+                        continue
                 question = questions[answer.question_id]
                 image_id = question.image_id
                 image = images[image_id]
                 self.samples.append(VQASample(question, image, answer, \
                                               self.dataset_type, \
                                               val_test_split=self.options['val_test_split']))
+            if self.options['keep_only_encoded_answers'] == True:
+                print("Discarding {} samples as their answers do not have valid one-hot encoding".format(discarded_answers))
         else:
             print("Creating Samples with Image and Questions ")
             for question_id, question in questions.items():
