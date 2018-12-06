@@ -122,6 +122,9 @@ class ModelOptions(object):
         # Classification layer parameters
         self.options['n_answer_classes'] = 1001  # 1000 real classes + <unk>  
 
+        # Only keep samples with answers which have non-zero one-hot encoding
+        self.options['keep_only_encoded_answers'] = True
+
         # Training parameters
         self.options['batch_size'] = 100
         self.options['max_epochs'] = 25  # Yang's code used 50, but we haven't seen models that take that long to converge
